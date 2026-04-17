@@ -1,26 +1,15 @@
-import React from 'react';
-import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
-import RegisterDoctorScreen from './src/screens/RegisterDoctorScreen';
+import React, { useState } from 'react';
+import SplashScreen from './src/screens/SplashScreen'; // adjust path
+import RegisterDoctorScreen from './src/screens/RegisterDoctorScreen'; // adjust path
 
 const App = () => {
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+  const [splashDone, setSplashDone] = useState(false);
 
-      <RegisterDoctorScreen
-        onSuccess={() => {
-          console.log('Doctor Registered Successfully');
-        }}
-      />
-    </SafeAreaView>
-  );
+  if (!splashDone) {
+    return <SplashScreen onFinish={() => setSplashDone(true)} />;
+  }
+
+  return <RegisterDoctorScreen />;
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
-});
 
 export default App;

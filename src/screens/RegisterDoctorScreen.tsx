@@ -15,8 +15,10 @@ import {
   Animated,
   StatusBar,
   Dimensions,
-  SafeAreaView,
+  Image,
 } from 'react-native';
+import AppHeader from '../components/AppHeader';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ─── RESPONSIVE SCALE ─────────────────────────────────────────────────────────
 const { width: SW } = Dimensions.get('window');
@@ -40,7 +42,8 @@ const C = {
   inputBg: '#f9fdfe',
 };
 
-const BASE_URL = 'http://10.0.2.2:8080';
+const BASE_URL =
+  'https://locumhtbe-h6fvftgnfudxc5hw.centralindia-01.azurewebsites.net';
 
 const SPECIALIZATIONS = [
   'General Physician',
@@ -441,7 +444,7 @@ const RegisterDoctorScreen: React.FC = () => {
 
   if (submitted) {
     return (
-      <SafeAreaView style={styles.root}>
+      <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
         <StatusBar barStyle="light-content" backgroundColor={C.primaryDark} />
         <View style={styles.successBg}>
           <Animated.View
@@ -488,75 +491,33 @@ const RegisterDoctorScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor={C.primaryDark} />
-
-      <View style={styles.header}>
+      <View>
+        {/* ─── PROFESSIONAL HEADER ─────────────────────────────────────── */}
         <View style={styles.headerTop}>
-          {currentStep > 1 ? (
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={goBack}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.backIcon}>‹</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.backBtn} />
-          )}
-          <View style={styles.brandBlock}>
-            <View style={styles.brandRow}>
-              <View style={styles.brandDot} />
-              <Text style={styles.brandName}>LocumHealtrack</Text>
-            </View>
-            <Text style={styles.brandTagline}>DOCTOR REGISTRATION</Text>
+          {/* LEFT: Logo + Locum */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <Image
+              source={require('../assets/HT_icon.png')}
+              style={styles.headerLogoImg}
+              resizeMode="contain"
+            />
+            <Text style={[styles.headerBrandName, { marginLeft: 6 }]}>
+              Locum
+            </Text>
           </View>
-          <View style={styles.backBtn} />
-        </View>
 
-        <View style={styles.stepper}>
-          {STEPS.map((step, idx) => (
-            <React.Fragment key={step.id}>
-              <View style={styles.stepCol}>
-                <View
-                  style={[
-                    styles.stepBubble,
-                    currentStep === step.id && styles.stepBubbleActive,
-                    currentStep > step.id && styles.stepBubbleDone,
-                  ]}
-                >
-                  {currentStep > step.id ? (
-                    <Text style={styles.stepCheck}>✓</Text>
-                  ) : (
-                    <Text
-                      style={[
-                        styles.stepNum,
-                        currentStep === step.id && styles.stepNumActive,
-                      ]}
-                    >
-                      {step.id}
-                    </Text>
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.stepLabel,
-                    currentStep === step.id && styles.stepLabelActive,
-                  ]}
-                >
-                  {step.title}
-                </Text>
-              </View>
-              {idx < STEPS.length - 1 && (
-                <View
-                  style={[
-                    styles.connector,
-                    currentStep > step.id && styles.connectorDone,
-                  ]}
-                />
-              )}
-            </React.Fragment>
-          ))}
+          {/* RIGHT: Doctor Onboarding */}
+          <Text
+            style={[
+              styles.headerBrandSub,
+              { flexShrink: 1, textAlign: 'right' },
+            ]}
+            numberOfLines={1}
+          >
+            DOCTOR ONBOARDING
+          </Text>
         </View>
       </View>
 
@@ -1157,30 +1118,153 @@ const fieldStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   flex: { flex: 1 },
+
+  // ─── HEADER ───────────────────────────────────────────────────────
   header: {
-    backgroundColor: C.primary,
+    backgroundColor: C.white,
     paddingTop: Platform.OS === 'ios' ? 52 : StatusBar.currentHeight ?? 24,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: scale(12),
-    paddingBottom: scale(12),
+    paddingHorizontal: scale(16),
+    paddingTop: scale(10),
+    paddingBottom: scale(14),
   },
+  headerBackBtn: {
+    width: scale(38),
+    height: scale(38),
+    borderRadius: scale(10),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.primaryLight,
+  },
+  headerBackIcon: {
+    fontSize: scale(30),
+    color: C.primary,
+    fontWeight: '600',
+  },
+  headerBrand: {
+    alignItems: 'center',
+  },
+  headerLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(7),
+  },
+  headerLogoDot: {
+    width: scale(8),
+    height: scale(8),
+    borderRadius: scale(4),
+    backgroundColor: C.primary,
+  },
+  headerLogoImg: {
+    width: scale(38),
+    height: scale(38),
+    borderRadius: scale(10),
+  },
+  headerBrandName: {
+    fontSize: scale(20),
+    fontWeight: '800',
+    color: C.primaryDark,
+    letterSpacing: 0.2,
+  },
+  headerBrandSub: {
+    fontSize: scale(9),
+    color: C.primary,
+    letterSpacing: 2,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: C.border,
+    marginHorizontal: scale(16),
+  },
+  headerStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: scale(24),
+    paddingVertical: scale(14),
+  },
+  headerStepItem: {
+    alignItems: 'center',
+    gap: scale(5),
+  },
+  headerStepBubble: {
+    width: scale(30),
+    height: scale(30),
+    borderRadius: scale(15),
+    backgroundColor: C.bg,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerStepBubbleActive: {
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+  },
+  headerStepBubbleDone: {
+    backgroundColor: C.success,
+    borderColor: C.success,
+  },
+  headerStepNum: {
+    fontSize: scale(12),
+    fontWeight: '700',
+    color: C.textMuted,
+  },
+  headerStepNumActive: {
+    color: C.white,
+  },
+  headerStepCheck: {
+    fontSize: scale(13),
+    color: C.white,
+    fontWeight: '800',
+  },
+  headerStepLabel: {
+    fontSize: scale(10),
+    fontWeight: '600',
+    color: C.textMuted,
+    letterSpacing: 0.3,
+  },
+  headerStepLabelActive: {
+    color: C.primary,
+  },
+  headerConnectorWrap: {
+    flex: 1,
+    paddingHorizontal: scale(6),
+    paddingBottom: scale(18), // aligns with bubble center
+  },
+  headerConnector: {
+    height: 1.5,
+    backgroundColor: C.border,
+    borderRadius: 1,
+  },
+  headerConnectorDone: {
+    backgroundColor: C.success,
+  },
+
   backBtn: {
     width: scale(38),
     height: scale(38),
     borderRadius: scale(19),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.2)', // ✅ glass effect
   },
+
   backIcon: {
-    fontSize: scale(30),
-    color: C.white,
-    fontWeight: '200',
-    marginTop: -3,
+    fontSize: scale(28),
+    color: '#ffffff', // ✅ visible
   },
   brandBlock: { alignItems: 'center' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
@@ -1225,24 +1309,25 @@ const styles = StyleSheet.create({
   stepNum: {
     fontSize: scale(13),
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(255,255,255,0.7)', // brighter
   },
-  stepNumActive: { color: C.primary },
-  stepCheck: { fontSize: scale(14), color: C.white, fontWeight: '800' },
+
   stepLabel: {
     fontSize: scale(10),
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.45)',
-    letterSpacing: 0.3,
+    color: 'rgba(255,255,255,0.7)', // visible
   },
-  stepLabelActive: { color: C.white },
+
   connector: {
     flex: 1,
     height: 2,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    marginTop: -14,
-    marginHorizontal: 4,
+    backgroundColor: 'rgba(255,255,255,0.3)', // better contrast
   },
+  stepNumActive: { color: C.primary },
+  stepCheck: { fontSize: scale(14), color: C.white, fontWeight: '800' },
+
+  stepLabelActive: { color: C.white },
+
   connectorDone: { backgroundColor: C.success },
   scroll: { padding: scale(16), paddingBottom: scale(16) },
   card: {
@@ -1453,6 +1538,60 @@ const styles = StyleSheet.create({
     paddingVertical: scale(14),
     width: '100%',
     alignItems: 'center',
+  },
+  topHeader: {
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+
+    paddingTop: Platform.OS === 'ios' ? 52 : StatusBar.currentHeight ?? 24,
+    paddingHorizontal: scale(16),
+    paddingBottom: scale(12),
+
+    borderBottomWidth: 1,
+    borderBottomColor: '#eef6f7',
+
+    // subtle shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  backBtnWhite: {
+    width: scale(38),
+    height: scale(38),
+    borderRadius: scale(22),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e0f5f8', // light bg
+  },
+
+  backIconDark: {
+    fontSize: scale(26),
+    color: '#007b8e', // visible now
+    fontWeight: '600',
+  },
+  headerBackBtnHidden: {
+    width: scale(38),
+    height: scale(38),
+    // no background, no border — completely invisible
+    // but keeps the layout balanced (brand stays centered)
+  },
+
+  stepperHeader: {
+    backgroundColor: C.primary,
+    paddingBottom: scale(5),
+    paddingTop: scale(12),
+    borderBottomLeftRadius: scale(24),
+    borderBottomRightRadius: scale(24),
+
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 5,
   },
   successBtnText: { color: C.white, fontWeight: '700', fontSize: scale(15) },
 });

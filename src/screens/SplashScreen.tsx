@@ -129,10 +129,10 @@ const styles = StyleSheet.create({
   // Decorative blobs
   circleTopRight: {
     position: 'absolute',
-    width: scale(220),
-    height: scale(220),
-    borderRadius: scale(110),
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    width: scale(170),
+    height: scale(180),
+    borderRadius: scale(80),
+    backgroundColor: 'rgba(0,123,142,0.15)',
     top: -scale(60),
     right: -scale(60),
   },
@@ -141,16 +141,16 @@ const styles = StyleSheet.create({
     width: scale(180),
     height: scale(180),
     borderRadius: scale(90),
-    backgroundColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(0,123,142,0.15)',
     bottom: -scale(40),
     left: -scale(40),
   },
   logoBlock: {
-    marginBottom: scale(28),
+    marginBottom: scale(8),
   },
   logoRing: {
-    width: scale(120),
-    height: scale(120),
+    width: scale(180),
+    height: scale(180),
     borderRadius: scale(60),
     backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 2,
@@ -159,8 +159,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   htIcon: {
-    width: scale(72),
-    height: scale(72),
+    width: scale(180),
+    height: scale(180),
   },
   stethBadge: {
     position: 'absolute',
@@ -184,11 +184,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#ffffff',
     letterSpacing: 1,
-    marginBottom: scale(8),
+    marginTop: scale(5),
   },
   tagline: {
     fontSize: scale(10),
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(28, 22, 22, 0.6)',
     letterSpacing: 2,
     fontWeight: '600',
     textAlign: 'center',
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   divider: {
     width: scale(40),
     height: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(0,123,142,0.15)',
     borderRadius: 1,
     marginTop: scale(16),
   },
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: scale(11),
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(10, 8, 8, 0.4)',
     letterSpacing: 0.8,
   },
 });

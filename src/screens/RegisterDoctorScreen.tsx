@@ -17,7 +17,6 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import AppHeader from '../components/AppHeader';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ─── RESPONSIVE SCALE ─────────────────────────────────────────────────────────
@@ -93,6 +92,56 @@ const EXPERIENCE_RANGES = [
   '20+ years',
 ];
 
+const MEDICAL_COUNCILS = [
+  'Medical Council of India (MCI)',
+  'National Medical Commission (NMC)',
+  'Andhra Pradesh Medical Council',
+  'Assam Medical Council',
+  'Bihar Medical Council',
+  'Chhattisgarh Medical Council',
+  'Delhi Medical Council',
+  'Goa Medical Council',
+  'Gujarat Medical Council',
+  'Haryana Medical Council',
+  'Himachal Pradesh Medical Council',
+  'Jharkhand Medical Council',
+  'Karnataka Medical Council',
+  'Kerala Medical Council',
+  'Madhya Pradesh Medical Council',
+  'Maharashtra Medical Council',
+  'Manipur Medical Council',
+  'Nagaland Medical Council',
+  'Odisha Medical Council',
+  'Punjab Medical Council',
+  'Rajasthan Medical Council',
+  'Tamil Nadu Medical Council',
+  'Telangana Medical Council',
+  'Uttar Pradesh Medical Council',
+  'Uttarakhand Medical Council',
+  'West Bengal Medical Council',
+  'Other',
+];
+
+// Generate year list from 1970 to current year
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: currentYear - 1969 }, (_, i) =>
+  String(currentYear - i),
+);
+const MONTHS = [
+  { label: 'January', value: '01' },
+  { label: 'February', value: '02' },
+  { label: 'March', value: '03' },
+  { label: 'April', value: '04' },
+  { label: 'May', value: '05' },
+  { label: 'June', value: '06' },
+  { label: 'July', value: '07' },
+  { label: 'August', value: '08' },
+  { label: 'September', value: '09' },
+  { label: 'October', value: '10' },
+  { label: 'November', value: '11' },
+  { label: 'December', value: '12' },
+];
+
 interface FormData {
   first_name: string;
   middle_name: string;
@@ -101,8 +150,13 @@ interface FormData {
   email: string;
   specialization: string;
   qualification: string;
+  qualification_other: string;
   experience: string;
+  medical_council_name: string;
   registration_number: string;
+  registration_date_day: string;
+  registration_date_month: string;
+  registration_date_year: string;
   clinic_name: string;
   clinic_address: string;
   city: string;
@@ -110,6 +164,7 @@ interface FormData {
   pincode: string;
   job_type: string[];
   preferred_km: string;
+  preferred_pincode: string;
 }
 interface FormErrors {
   [key: string]: string | undefined;
@@ -121,16 +176,145 @@ const STEPS = [
   { id: 3, title: 'Practice', icon: '🏥' },
 ];
 
+// ─── DATE PICKER COMPONENT ────────────────────────────────────────────────────
+interface DatePickerProps {
+  label: string;
+  required?: boolean;
+  day: string;
+  month: string;
+  year: string;
+  onDayChange: (v: string) => void;
+  onMonthChange: (v: string) => void;
+  onYearChange: (v: string) => void;
+  error?: string;
+  onOpenDropdown: (
+    field: 'reg_month' | 'reg_year',
+    options: { label: string; value: string }[] | string[],
+    title: string,
+  ) => void;
+}
+
+const DatePickerField: React.FC<DatePickerProps> = ({
+  label,
+  required,
+  day,
+  month,
+  year,
+  onDayChange,
+  onMonthChange,
+  onYearChange,
+  error,
+  onOpenDropdown,
+}) => {
+  const monthLabel = MONTHS.find(m => m.value === month)?.label || '';
+  const maxDay =
+    month && year ? new Date(Number(year), Number(month), 0).getDate() : 31;
+
+  return (
+    <View style={fieldStyles.wrapper}>
+      <Text style={fieldStyles.label}>
+        {label}
+        {required && <Text style={fieldStyles.req}> *</Text>}
+      </Text>
+      <View style={styles.dateRow}>
+        {/* Day */}
+        <View style={styles.dateSegDay}>
+          <View
+            style={[
+              fieldStyles.inputRow,
+              error ? fieldStyles.inputRowErr : null,
+            ]}
+          >
+            <TextInput
+              style={[fieldStyles.input, { textAlign: 'center' }]}
+              placeholder="DD"
+              placeholderTextColor={C.textMuted}
+              value={day}
+              onChangeText={v => {
+                const cleaned = v.replace(/\D/g, '').slice(0, 2);
+                const num = parseInt(cleaned, 10);
+                if (cleaned === '' || (num >= 1 && num <= maxDay)) {
+                  onDayChange(cleaned);
+                }
+              }}
+              keyboardType="numeric"
+              maxLength={2}
+            />
+          </View>
+          <Text style={styles.dateSegLabel}>Day</Text>
+        </View>
+
+        {/* Month */}
+        <View style={styles.dateSegMonth}>
+          <TouchableOpacity
+            style={[
+              fieldStyles.inputRow,
+              error ? fieldStyles.inputRowErr : null,
+              { paddingHorizontal: scale(10) },
+            ]}
+            onPress={() =>
+              onOpenDropdown(
+                'reg_month',
+                MONTHS.map(m => m.label),
+                'Select Month',
+              )
+            }
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[fieldStyles.input, !month && { color: C.textMuted }]}
+              numberOfLines={1}
+            >
+              {monthLabel || 'Month'}
+            </Text>
+            <Text style={{ fontSize: scale(16), color: C.textMuted }}>⌄</Text>
+          </TouchableOpacity>
+          <Text style={styles.dateSegLabel}>Month</Text>
+        </View>
+
+        {/* Year */}
+        <View style={styles.dateSegYear}>
+          <TouchableOpacity
+            style={[
+              fieldStyles.inputRow,
+              error ? fieldStyles.inputRowErr : null,
+              { paddingHorizontal: scale(10) },
+            ]}
+            onPress={() => onOpenDropdown('reg_year', YEARS, 'Select Year')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[fieldStyles.input, !year && { color: C.textMuted }]}
+              numberOfLines={1}
+            >
+              {year || 'Year'}
+            </Text>
+            <Text style={{ fontSize: scale(16), color: C.textMuted }}>⌄</Text>
+          </TouchableOpacity>
+          <Text style={styles.dateSegLabel}>Year</Text>
+        </View>
+      </View>
+      {error && <Text style={fieldStyles.error}>⚠ {error}</Text>}
+    </View>
+  );
+};
+
+// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const RegisterDoctorScreen: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [pincodeFetched, setPincodeFetched] = useState(false);
+  const [doctorUniqueId, setDoctorUniqueId] = useState('');
+  const [termsVisible, setTermsVisible] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [dataConsentAccepted, setDataConsentAccepted] = useState(false);
 
+  // Unified dropdown config — supports both string[] and {label,value}[] options
   const [dropdownConfig, setDropdownConfig] = useState<{
     visible: boolean;
-    field: keyof FormData | null;
+    field: keyof FormData | 'reg_month' | 'reg_year' | null;
     options: string[];
     title: string;
   }>({ visible: false, field: null, options: [], title: '' });
@@ -138,7 +322,6 @@ const RegisterDoctorScreen: React.FC = () => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const successScale = useRef(new Animated.Value(0)).current;
-  const pincodeBounce = useRef(new Animated.Value(1)).current;
 
   const [form, setForm] = useState<FormData>({
     first_name: '',
@@ -148,8 +331,13 @@ const RegisterDoctorScreen: React.FC = () => {
     email: '',
     specialization: '',
     qualification: '',
+    qualification_other: '',
     experience: '',
+    medical_council_name: '',
     registration_number: '',
+    registration_date_day: '',
+    registration_date_month: '',
+    registration_date_year: '',
     clinic_name: '',
     clinic_address: '',
     city: '',
@@ -157,6 +345,7 @@ const RegisterDoctorScreen: React.FC = () => {
     pincode: '',
     job_type: [],
     preferred_km: '',
+    preferred_pincode: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
@@ -166,13 +355,32 @@ const RegisterDoctorScreen: React.FC = () => {
   };
 
   const openDropdown = (
-    field: keyof FormData,
+    field: keyof FormData | 'reg_month' | 'reg_year',
     options: string[],
     title: string,
   ) => setDropdownConfig({ visible: true, field, options, title });
 
   const selectDropdown = (value: string) => {
-    if (dropdownConfig.field) setField(dropdownConfig.field, value);
+    const { field } = dropdownConfig;
+    if (!field) return;
+
+    if (field === 'reg_month') {
+      const found = MONTHS.find(m => m.label === value);
+      if (found) setField('registration_date_month', found.value);
+      setErrors(prev => ({ ...prev, registration_date: undefined }));
+    } else if (field === 'reg_year') {
+      setField('registration_date_year', value);
+      setErrors(prev => ({ ...prev, registration_date: undefined }));
+    } else {
+      setField(field as keyof FormData, value);
+      if (field === 'qualification' && value !== 'Other') {
+        setForm(prev => ({
+          ...prev,
+          qualification: value,
+          qualification_other: '',
+        }));
+      }
+    }
     setDropdownConfig(p => ({ ...p, visible: false }));
   };
 
@@ -180,63 +388,34 @@ const RegisterDoctorScreen: React.FC = () => {
     if (pincode.length !== 6) return;
     setPincodeLoading(true);
     setPincodeFetched(false);
-    setErrors(prev => ({ ...prev, pincode: undefined }));
     try {
-      let city = '',
-        state = '',
-        backendSuccess = false;
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(`${BASE_URL}/api/doctors/pincode/${pincode}`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.city && data.state) {
-            city = data.city;
-            state = data.state;
-            backendSuccess = true;
-          }
-        }
-      } catch (_) {}
-      if (!backendSuccess) {
-        const fallbackRes = await fetch(
-          `https://api.postalpincode.in/pincode/${pincode}`,
-        );
-        const fallbackJson = await fallbackRes.json();
-        if (
-          fallbackJson?.[0]?.Status === 'Success' &&
-          fallbackJson[0].PostOffice?.length > 0
-        ) {
-          const po = fallbackJson[0].PostOffice[0];
-          city = po.District || '';
-          state = po.State || '';
-        } else {
-          throw new Error('Invalid pincode or no data found');
-        }
+      const res = await fetch(
+        `https://api.postalpincode.in/pincode/${pincode}`,
+      );
+      const data = await res.json();
+      if (data?.[0]?.Status === 'Success' && data[0].PostOffice?.length > 0) {
+        const po = data[0].PostOffice[0];
+        setForm(prev => ({
+          ...prev,
+          city: po.District || '',
+          state: po.State || '',
+        }));
+        setPincodeFetched(true);
+        setErrors(prev => ({
+          ...prev,
+          pincode: undefined,
+          city: undefined,
+          state: undefined,
+        }));
+      } else {
+        throw new Error('Invalid pincode');
       }
-      if (!city || !state) throw new Error('Could not determine city/state');
-      setForm(prev => ({ ...prev, city, state }));
-      setPincodeFetched(true);
-      Animated.sequence([
-        Animated.timing(pincodeBounce, {
-          toValue: 1.04,
-          duration: 120,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pincodeBounce, {
-          toValue: 1,
-          duration: 120,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } catch (error: any) {
+    } catch {
       setForm(prev => ({ ...prev, city: '', state: '' }));
       setErrors(prev => ({
         ...prev,
-        pincode: error.message || 'Could not fetch location for this pincode',
+        pincode:
+          'Unable to fetch location. Please check your pincode or internet connection.',
       }));
     } finally {
       setPincodeLoading(false);
@@ -264,7 +443,8 @@ const RegisterDoctorScreen: React.FC = () => {
         e.mobile_number = 'Mobile number is required';
       else if (!/^[6-9]\d{9}$/.test(form.mobile_number))
         e.mobile_number = 'Enter a valid 10-digit mobile number';
-      if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      if (!form.email.trim()) e.email = 'Email is required';
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
         e.email = 'Enter a valid email address';
     }
     if (step === 2) {
@@ -272,24 +452,51 @@ const RegisterDoctorScreen: React.FC = () => {
         e.specialization = 'Please select a specialization';
       if (!form.qualification)
         e.qualification = 'Please select a qualification';
+      if (form.qualification === 'Other' && !form.qualification_other.trim())
+        e.qualification_other = 'Please specify your qualification';
       if (!form.experience) e.experience = 'Please select experience range';
+      if (!form.medical_council_name)
+        e.medical_council_name = 'Please select a medical council';
       if (!form.registration_number.trim())
         e.registration_number = 'Registration number is required';
+      // Validate registration date — all three parts required
+      const {
+        registration_date_day,
+        registration_date_month,
+        registration_date_year,
+      } = form;
+      if (
+        !registration_date_day ||
+        !registration_date_month ||
+        !registration_date_year
+      ) {
+        e.registration_date = 'Please enter a complete registration date';
+      } else {
+        const day = parseInt(registration_date_day, 10);
+        const maxDay = new Date(
+          Number(registration_date_year),
+          Number(registration_date_month),
+          0,
+        ).getDate();
+        if (day < 1 || day > maxDay) {
+          e.registration_date = `Day must be between 1 and ${maxDay} for the selected month`;
+        }
+      }
     }
     if (step === 3) {
       if (!form.pincode.trim()) e.pincode = 'Pincode is required';
       else if (!/^\d{6}$/.test(form.pincode))
         e.pincode = 'Enter a valid 6-digit pincode';
       if (!form.city.trim())
-        e.city = 'City could not be fetched — check pincode';
+        e.city = 'City could not be fetched — please check pincode';
       if (!form.state.trim())
-        e.state = 'State could not be fetched — check pincode';
+        e.state = 'State could not be fetched — please check pincode';
       if (!form.clinic_address.trim())
         e.clinic_address = 'Clinic address is required';
-      if (step === 3) {
-        if (!form.job_type.length) e.job_type = 'Select at least one option';
-        if (!form.preferred_km) e.preferred_km = 'Select preferred distance';
-      }
+      if (!form.job_type.length) e.job_type = 'Select at least one option';
+      if (!form.preferred_km) e.preferred_km = 'Select preferred distance';
+      if (form.preferred_pincode && !/^\d{6}$/.test(form.preferred_pincode))
+        e.preferred_pincode = 'Enter a valid 6-digit pincode';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -327,121 +534,159 @@ const RegisterDoctorScreen: React.FC = () => {
 
   const goNext = () => {
     if (!validateStep(currentStep)) return;
-    if (currentStep < 3)
+    if (currentStep < 3) {
       animateTransition('forward', () => setCurrentStep(s => s + 1));
-    else handleSubmit();
+    } else {
+      // Show T&C before submitting
+      if (!termsAccepted || !dataConsentAccepted) {
+        setTermsVisible(true);
+        return;
+      }
+      handleSubmit();
+    }
   };
+
   const goBack = () => {
     if (currentStep > 1)
       animateTransition('back', () => setCurrentStep(s => s - 1));
   };
 
   const parseExperienceYears = (exp: string): number => {
+    if (exp === 'Less than 1 year') return 0;
     const match = exp.match(/\d+/);
     return match ? parseInt(match[0], 10) : 0;
   };
 
   const handleSubmit = async () => {
     if (!validateStep(3)) return;
+    if (!form.state.trim()) {
+      Alert.alert(
+        'Missing State',
+        'Please enter a valid pincode and wait for location to load.',
+      );
+      return;
+    }
     setLoading(true);
     try {
-      const payload = {
-        first_name: form.first_name,
-        middle_name: form.middle_name,
-        last_name: form.last_name,
-        mobile_number: `+91${form.mobile_number}`,
-        email: form.email,
+      const mapJobType = (type: string): string => {
+        switch (type) {
+          case 'full_time':
+            return 'Full time';
+          case 'locum_shifts':
+            return 'Locum shifts';
+          case 'teleconsultation':
+            return 'Teleconsultation';
+          default:
+            return '';
+        }
+      };
 
+      const educationEntry: Record<string, string> = {
+        degree: form.qualification,
+        speciality: form.specialization,
+      };
+      if (form.qualification === 'Other' && form.qualification_other.trim()) {
+        educationEntry.specify_degree = form.qualification_other.trim();
+      }
+
+      const experienceEntry = {
+        years_of_experience: parseExperienceYears(form.experience),
+        clinic_hospital_name: form.clinic_name.trim() || '',
+        designation:
+          form.qualification === 'Other'
+            ? form.qualification_other.trim()
+            : form.qualification,
+        is_current: true,
+      };
+
+      // Build ISO date string from day/month/year parts
+      const {
+        registration_date_day,
+        registration_date_month,
+        registration_date_year,
+      } = form;
+      const registrationDateISO =
+        registration_date_day &&
+        registration_date_month &&
+        registration_date_year
+          ? `${registration_date_year}-${registration_date_month}-${String(
+              registration_date_day,
+            ).padStart(2, '0')}`
+          : undefined;
+
+      const payload: Record<string, any> = {
+        first_name: form.first_name.trim(),
+        middle_name: form.middle_name.trim(),
+        last_name: form.last_name.trim(),
+        mobile_number: `+91${form.mobile_number}`,
+        email: form.email.trim().toLowerCase(),
         current_location_pincode: form.pincode,
         city_district: form.city,
         state: form.state,
-        address_line1: form.clinic_address,
-
-        doctor_license_no: form.registration_number,
-
-        experience: [
-          {
-            years_of_experience: parseExperienceYears(form.experience),
-            clinic_hospital_name: form.clinic_name || '',
-            designation: 'Doctor',
-            is_current: true,
-          },
-        ],
-
-        // ✅ FIXED
-        interested_in: form.job_type,
+        address_line1: form.clinic_address.trim(),
+        medical_council_name: form.medical_council_name.trim(),
+        doctor_license_no: form.registration_number.trim(),
+        ...(registrationDateISO && { registration_date: registrationDateISO }),
+        education: [educationEntry],
+        experience: [experienceEntry],
+        interested_in: form.job_type.map(mapJobType).filter(Boolean),
         preferred_distance_km: Number(form.preferred_km),
       };
+
+      if (form.preferred_pincode.trim()) {
+        payload.preferred_pincode = form.preferred_pincode.trim();
+      }
+
       console.log('📤 Submitting payload:', JSON.stringify(payload, null, 2));
-      console.log('Registration Number:', form.registration_number);
+
       const res = await fetch(`${BASE_URL}/api/doctors/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      console.log('📥 Status:', res.status);
-      console.log('📥 Status Text:', res.statusText);
-      const rawText = await res.text();
-      console.log('📥 Raw response:', rawText);
-      if (!rawText || rawText.trim() === '') {
-        throw new Error(
-          `Server returned empty response (HTTP ${res.status}). Check your backend route and middleware.`,
-        );
-      }
+
       let data: any;
+      const text = await res.text();
       try {
-        data = JSON.parse(rawText);
+        data = JSON.parse(text);
       } catch {
+        console.error('❌ Non-JSON server response:', text);
         throw new Error(
-          `Server returned non-JSON response: ${rawText.slice(0, 200)}`,
+          'Server returned an unexpected response. Please check the server is running.',
         );
       }
-      if (!res.ok)
-        throw new Error(data.message || `Server error: ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(
+          data?.message ||
+            `Registration failed (HTTP ${res.status}). Please try again.`,
+        );
+      }
+
+      if (data.doctor?.doctor_unique_id) {
+        setDoctorUniqueId(data.doctor.doctor_unique_id);
+      }
+
       setSubmitted(true);
       Animated.spring(successScale, {
         toValue: 1,
-        tension: 55,
-        friction: 7,
+        friction: 6,
+        tension: 80,
         useNativeDriver: true,
       }).start();
     } catch (err: any) {
-      console.error('❌ Submit error:', err);
+      console.error('❌ Submit error:', err.message);
       Alert.alert(
         'Registration Failed',
-        err.message || 'Something went wrong.',
+        err.message || 'Something went wrong. Please try again.',
+        [{ text: 'OK' }],
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setSubmitted(false);
-    setCurrentStep(1);
-    successScale.setValue(0);
-    setPincodeFetched(false);
-    setForm({
-      first_name: '',
-      middle_name: '',
-      last_name: '',
-      mobile_number: '',
-      email: '',
-      specialization: '',
-      qualification: '',
-      experience: '',
-      registration_number: '',
-      clinic_name: '',
-      clinic_address: '',
-      city: '',
-      state: '',
-      pincode: '',
-      job_type: [],
-      preferred_km: '',
-    });
-    setErrors({});
-  };
-
+  // ─── SUCCESS SCREEN ──────────────────────────────────────────────────────────
   if (submitted) {
     return (
       <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
@@ -453,22 +698,41 @@ const RegisterDoctorScreen: React.FC = () => {
               { transform: [{ scale: successScale }] },
             ]}
           >
+            {/* Tick */}
             <View style={styles.successRing}>
               <Text style={styles.successTick}>✓</Text>
             </View>
-            <Text style={styles.successTitle}>Welcome aboard!</Text>
+
+            <Text style={styles.successTitle}>Welcome Aboard!</Text>
             <Text style={styles.successName}>
-              Dr. {form.first_name} {form.middle_name} {form.last_name}
+              Dr. {form.first_name}
+              {form.middle_name ? ` ${form.middle_name}` : ''} {form.last_name}
             </Text>
             <Text style={styles.successSub}>
-              Your registration is submitted.{'\n'}Our team will verify your
-              profile shortly.
+              Your registration is submitted.{'\n'}We'll verify your profile
+              within 24–48 hours.
             </Text>
+
+            {doctorUniqueId ? (
+              <View style={styles.idBadge}>
+                <Text style={styles.idBadgeLabel}>YOUR DOCTOR ID</Text>
+                <Text style={styles.idBadgeValue}>{doctorUniqueId}</Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.emailNote}>
+              📧 Confirmation sent to{' '}
+              <Text style={{ fontWeight: '700', color: C.primary }}>
+                {form.email}
+              </Text>
+            </Text>
+
             <View style={styles.successPill}>
               <Text style={styles.successPillText}>
                 🩺 {form.specialization}
               </Text>
             </View>
+
             <View style={styles.successDivider} />
             <SRow
               icon="📱"
@@ -481,44 +745,33 @@ const RegisterDoctorScreen: React.FC = () => {
               value={`${form.city}, ${form.state}`}
             />
             <SRow icon="🪪" label="Reg. No." value={form.registration_number} />
-            <TouchableOpacity style={styles.successBtn} onPress={resetForm}>
-              <Text style={styles.successBtnText}>Register Another Doctor</Text>
-            </TouchableOpacity>
           </Animated.View>
         </View>
       </SafeAreaView>
     );
   }
 
+  // ─── MAIN FORM ────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor={C.primaryDark} />
-      <View>
-        {/* ─── PROFESSIONAL HEADER ─────────────────────────────────────── */}
-        <View style={styles.headerTop}>
-          {/* LEFT: Logo + Locum */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <Image
-              source={require('../assets/HT_icon.png')}
-              style={styles.headerLogoImg}
-              resizeMode="contain"
-            />
-            <Text style={[styles.headerBrandName, { marginLeft: 6 }]}>
-              Locum
-            </Text>
-          </View>
 
-          {/* RIGHT: Doctor Onboarding */}
-          <Text
-            style={[
-              styles.headerBrandSub,
-              { flexShrink: 1, textAlign: 'right' },
-            ]}
-            numberOfLines={1}
-          >
-            DOCTOR ONBOARDING
-          </Text>
+      {/* ─── HEADER ─────────────────────────────────────────────────────── */}
+      <View style={styles.headerTop}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          <Image
+            source={require('../assets/HT_icon.png')}
+            style={styles.headerLogoImg}
+            resizeMode="contain"
+          />
+          <Text style={[styles.headerBrandName, { marginLeft: 6 }]}>Locum</Text>
         </View>
+        <Text
+          style={[styles.headerBrandSub, { flexShrink: 1, textAlign: 'right' }]}
+          numberOfLines={1}
+        >
+          DOCTOR ONBOARDING
+        </Text>
       </View>
 
       <KeyboardAvoidingView
@@ -537,6 +790,7 @@ const RegisterDoctorScreen: React.FC = () => {
               transform: [{ translateX: slideAnim }],
             }}
           >
+            {/* ══ STEP 1 ══════════════════════════════════════════════════ */}
             {currentStep === 1 && (
               <View style={styles.card}>
                 <SectionHeader
@@ -585,49 +839,19 @@ const RegisterDoctorScreen: React.FC = () => {
                 />
                 <Field
                   label="Email"
+                  required
                   icon="✉️"
-                  placeholder="Optional"
+                  placeholder="doctor@example.com"
                   value={form.email}
-                  onChangeText={v => setField('email', v)}
-                />
-                <Field
-                  label="Pincode"
-                  required
-                  icon="📮"
-                  placeholder="Enter pincode"
-                  value={form.pincode}
-                  onChangeText={handlePincodeChange}
-                  error={errors.pincode}
-                  keyboardType="numeric"
-                  maxLength={6}
-                />
-                <Field
-                  label="City"
-                  icon="🏙️"
-                  value={form.city}
-                  onChangeText={() => {}}
-                  placeholder="Autofill from pincode"
-                />
-                <Field
-                  label="State"
-                  icon="🗺️"
-                  value={form.state}
-                  onChangeText={() => {}}
-                  placeholder="Autofill from pincode"
-                />
-                <Field
-                  label="Address"
-                  required
-                  icon="📍"
-                  placeholder="Full address"
-                  value={form.clinic_address}
-                  onChangeText={v => setField('clinic_address', v)}
-                  error={errors.clinic_address}
-                  multiline
+                  onChangeText={v => setField('email', v.trim())}
+                  error={errors.email}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                 />
               </View>
             )}
 
+            {/* ══ STEP 2 ══════════════════════════════════════════════════ */}
             {currentStep === 2 && (
               <View style={styles.card}>
                 <SectionHeader
@@ -635,6 +859,7 @@ const RegisterDoctorScreen: React.FC = () => {
                   title="Professional Details"
                   step="Step 2 of 3"
                 />
+
                 <DropdownField
                   label="Specialization"
                   required
@@ -650,6 +875,7 @@ const RegisterDoctorScreen: React.FC = () => {
                     )
                   }
                 />
+
                 <DropdownField
                   label="Highest Qualification"
                   required
@@ -665,6 +891,20 @@ const RegisterDoctorScreen: React.FC = () => {
                     )
                   }
                 />
+
+                {form.qualification === 'Other' && (
+                  <Field
+                    label="Specify Qualification"
+                    required
+                    icon="✏️"
+                    placeholder="Enter your qualification"
+                    value={form.qualification_other}
+                    onChangeText={v => setField('qualification_other', v)}
+                    error={errors.qualification_other}
+                    autoCapitalize="words"
+                  />
+                )}
+
                 <DropdownField
                   label="Years of Experience"
                   required
@@ -680,6 +920,20 @@ const RegisterDoctorScreen: React.FC = () => {
                     )
                   }
                 />
+
+                {/* ── NEW: Medical Council Name ── */}
+                <Field
+                  label="Medical Council Name"
+                  required
+                  icon="🏛️"
+                  placeholder="e.g. Maharashtra Medical Council"
+                  value={form.medical_council_name}
+                  onChangeText={v => setField('medical_council_name', v)}
+                  error={errors.medical_council_name}
+                  autoCapitalize="words"
+                />
+
+                {/* ── Registration Number (unchanged) ── */}
                 <Field
                   label="Medical Registration Number"
                   required
@@ -690,10 +944,46 @@ const RegisterDoctorScreen: React.FC = () => {
                   error={errors.registration_number}
                   autoCapitalize="characters"
                 />
+
+                {/* ── NEW: Registration Date ── */}
+                <DatePickerField
+                  label="Registration Date"
+                  required
+                  day={form.registration_date_day}
+                  month={form.registration_date_month}
+                  year={form.registration_date_year}
+                  onDayChange={v => {
+                    setField('registration_date_day', v);
+                    setErrors(prev => ({
+                      ...prev,
+                      registration_date: undefined,
+                    }));
+                  }}
+                  onMonthChange={v => {
+                    setField('registration_date_month', v);
+                    setErrors(prev => ({
+                      ...prev,
+                      registration_date: undefined,
+                    }));
+                  }}
+                  onYearChange={v => {
+                    setField('registration_date_year', v);
+                    setErrors(prev => ({
+                      ...prev,
+                      registration_date: undefined,
+                    }));
+                  }}
+                  error={errors.registration_date}
+                  onOpenDropdown={(field, options, title) =>
+                    openDropdown(field as any, options as string[], title)
+                  }
+                />
+
                 <InfoBox text="Your registration number will be verified with the Medical Council of India." />
               </View>
             )}
 
+            {/* ══ STEP 3 ══════════════════════════════════════════════════ */}
             {currentStep === 3 && (
               <View style={styles.card}>
                 <SectionHeader
@@ -702,58 +992,74 @@ const RegisterDoctorScreen: React.FC = () => {
                   step="Step 3 of 3"
                 />
 
+                {/* Interested In */}
                 <View style={{ marginBottom: 20 }}>
-                  <Text style={{ marginBottom: 12, fontWeight: '600' }}>
+                  <Text
+                    style={{
+                      marginBottom: 12,
+                      fontWeight: '600',
+                      color: C.textSub,
+                      fontSize: scale(13),
+                    }}
+                  >
                     Interested In *
                   </Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                    {['full_time', 'locum_shifts', 'teleconsultation'].map(
-                      type => {
-                        const selected = form.job_type.includes(type);
-                        return (
-                          <TouchableOpacity
-                            key={type}
-                            onPress={() => {
-                              let updated = [...form.job_type];
-                              if (selected) {
-                                updated = updated.filter(t => t !== type);
-                              } else {
-                                updated.push(type);
-                              }
-                              setField('job_type', updated);
-                            }}
+                    {[
+                      { key: 'full_time', label: 'Full-time' },
+                      { key: 'locum_shifts', label: 'Locum Shifts' },
+                      { key: 'teleconsultation', label: 'Teleconsultation' },
+                    ].map(({ key, label }) => {
+                      const selected = form.job_type.includes(key);
+                      return (
+                        <TouchableOpacity
+                          key={key}
+                          onPress={() => {
+                            const updated = selected
+                              ? form.job_type.filter(t => t !== key)
+                              : [...form.job_type, key];
+                            setField('job_type', updated);
+                          }}
+                          style={{
+                            paddingHorizontal: scale(16),
+                            paddingVertical: scale(10),
+                            borderRadius: scale(20),
+                            borderWidth: 1,
+                            borderColor: selected ? C.primary : C.border,
+                            backgroundColor: selected
+                              ? C.primaryLight
+                              : C.white,
+                            marginRight: scale(10),
+                            marginBottom: scale(10),
+                          }}
+                        >
+                          <Text
                             style={{
-                              paddingHorizontal: scale(16),
-                              paddingVertical: scale(10),
-                              borderRadius: scale(20),
-                              borderWidth: 1,
-                              borderColor: selected ? '#007b8e' : '#ccc',
-                              backgroundColor: selected ? '#e0f5f8' : '#fff',
-                              marginRight: scale(10),
-                              marginBottom: scale(10),
+                              color: selected ? C.primary : C.textSub,
+                              fontSize: scale(14),
                             }}
                           >
-                            <Text
-                              style={{
-                                color: selected ? '#007b8e' : '#333',
-                                fontSize: scale(14),
-                              }}
-                            >
-                              {type === 'full_time'
-                                ? 'Full-time'
-                                : type === 'locum_shifts'
-                                ? 'Locum-Shifts'
-                                : 'teleconsultation'}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      },
-                    )}
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
+                  {errors.job_type && (
+                    <Text style={fieldStyles.error}>⚠ {errors.job_type}</Text>
+                  )}
                 </View>
 
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ marginBottom: 12, fontWeight: '600' }}>
+                {/* Preferred Distance */}
+                <View style={{ marginBottom: 20 }}>
+                  <Text
+                    style={{
+                      marginBottom: 12,
+                      fontWeight: '600',
+                      color: C.textSub,
+                      fontSize: scale(13),
+                    }}
+                  >
                     Preferred Distance *
                   </Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
@@ -768,15 +1074,17 @@ const RegisterDoctorScreen: React.FC = () => {
                             paddingVertical: scale(10),
                             borderRadius: scale(20),
                             borderWidth: 1,
-                            borderColor: selected ? '#007b8e' : '#ccc',
-                            backgroundColor: selected ? '#e0f5f8' : '#fff',
+                            borderColor: selected ? C.primary : C.border,
+                            backgroundColor: selected
+                              ? C.primaryLight
+                              : C.white,
                             marginRight: scale(10),
                             marginBottom: scale(10),
                           }}
                         >
                           <Text
                             style={{
-                              color: selected ? '#007b8e' : '#333',
+                              color: selected ? C.primary : C.textSub,
                               fontSize: scale(14),
                             }}
                           >
@@ -786,13 +1094,92 @@ const RegisterDoctorScreen: React.FC = () => {
                       );
                     })}
                   </View>
+                  {errors.preferred_km && (
+                    <Text style={fieldStyles.error}>
+                      ⚠ {errors.preferred_km}
+                    </Text>
+                  )}
                 </View>
+
+                <Field
+                  label="Clinic / Hospital Name"
+                  icon="🏥"
+                  placeholder="Enter clinic or hospital name (optional)"
+                  value={form.clinic_name}
+                  onChangeText={v => setField('clinic_name', v)}
+                  autoCapitalize="words"
+                />
+
+                <Field
+                  label="Pincode"
+                  required
+                  icon="📮"
+                  placeholder="Enter your area pincode"
+                  value={form.pincode}
+                  onChangeText={handlePincodeChange}
+                  error={errors.pincode}
+                  keyboardType="numeric"
+                  maxLength={6}
+                />
+                {pincodeLoading && (
+                  <Text style={styles.pinFetching}>⏳ Fetching location…</Text>
+                )}
+                {pincodeFetched && (
+                  <Text style={styles.pinSuccess}>
+                    ✅ Location fetched successfully
+                  </Text>
+                )}
+
+                <Field
+                  label="City / District"
+                  icon="🏙️"
+                  value={form.city}
+                  onChangeText={() => {}}
+                  placeholder="Auto-filled from pincode"
+                  error={errors.city}
+                />
+                <Field
+                  label="State"
+                  icon="🗺️"
+                  value={form.state}
+                  onChangeText={() => {}}
+                  placeholder="Auto-filled from pincode"
+                  error={errors.state}
+                />
+                <Field
+                  label="Clinic / Home Address"
+                  required
+                  icon="📍"
+                  placeholder="Enter your full address"
+                  value={form.clinic_address}
+                  onChangeText={v => setField('clinic_address', v)}
+                  error={errors.clinic_address}
+                  multiline
+                  numberOfLines={3}
+                />
+                <Field
+                  label="Preferred Work Pincode"
+                  icon="📮"
+                  placeholder="Preferred area pincode (optional)"
+                  value={form.preferred_pincode}
+                  onChangeText={v =>
+                    setField(
+                      'preferred_pincode',
+                      v.replace(/\D/g, '').slice(0, 6),
+                    )
+                  }
+                  error={errors.preferred_pincode}
+                  keyboardType="numeric"
+                  maxLength={6}
+                />
+                <InfoBox text="Enter a pincode to specify where you'd prefer to work. Combined with your preferred distance, this helps match you to nearby opportunities." />
               </View>
             )}
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* ─── BOTTOM NAV BAR ──────────────────────────────────────────────── */}
       <View style={styles.bottomBar}>
         <View style={styles.progressTrack}>
           {STEPS.map(s => (
@@ -806,9 +1193,18 @@ const RegisterDoctorScreen: React.FC = () => {
           ))}
         </View>
         <View style={styles.bottomRow}>
-          <Text style={styles.stepCounter}>
-            Step {currentStep} of {STEPS.length}
-          </Text>
+          {currentStep > 1 && (
+            <TouchableOpacity
+              style={styles.backBtnBottom}
+              onPress={goBack}
+              activeOpacity={0.8}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.arrow}>←</Text>
+                <Text style={styles.backBtnTxt}>Back</Text>
+              </View>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[styles.nextBtn, loading && styles.nextBtnOff]}
             onPress={goNext}
@@ -819,13 +1215,172 @@ const RegisterDoctorScreen: React.FC = () => {
               <ActivityIndicator color={C.white} />
             ) : (
               <Text style={styles.nextBtnTxt}>
-                {currentStep === 3 ? 'Submit  ✓' : 'Continue  →'}
+                {currentStep === 3 ? 'Submit' : 'Next '}
+                {currentStep !== 3 && <Text style={styles.arrow}>→</Text>}
               </Text>
             )}
           </TouchableOpacity>
         </View>
       </View>
+      {/* ─── TERMS & CONDITIONS MODAL ────────────────────────────────── */}
+      <Modal
+        visible={termsVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setTermsVisible(false)}
+      >
+        <View style={tnc.overlay}>
+          <View style={tnc.sheet}>
+            {/* Header */}
+            <View style={tnc.header}>
+              <Text style={tnc.headerTitle}>Terms & Conditions</Text>
+              <TouchableOpacity onPress={() => setTermsVisible(false)}>
+                <Text style={tnc.closeBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={tnc.lastUpdated}>Last Updated: 20/04/2026</Text>
 
+            {/* Scrollable content */}
+            <ScrollView
+              style={tnc.scrollArea}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
+              <Text style={tnc.intro}>
+                Welcome to Healtrack.ai. By completing your registration, you
+                (the "Doctor" or "Practitioner") agree to be bound by the
+                following Terms and Conditions. Please read these carefully
+                before clicking "I Agree."
+              </Text>
+
+              {[
+                {
+                  title: '1. Professional Verification & Registration',
+                  items: [
+                    'Accuracy of Data: You represent that all information provided during registration—including medical degrees, licenses, and certifications—is true and accurate.',
+                    'Credentialing: You authorize Healtrack.ai to conduct primary source verification of your credentials with relevant medical boards and councils.',
+                    'License Maintenance: You must maintain an active, unrestricted license to practice medicine in the jurisdiction of your placement. You agree to notify Healtrack.ai within 24 hours of any change in your licensure status, pending disciplinary actions, or malpractice claims.',
+                  ],
+                },
+                {
+                  title: '2. The Matching & Placement Process',
+                  items: [
+                    'Role of Healtrack.ai: Healtrack.ai acts as a facilitator to map your qualifications to vacancies provided by partner hospitals.',
+                    'No Guarantee of Placement: Registration on the platform does not guarantee a placement or an offer of employment from a hospital.',
+                    'Engagement Terms: Once a "match" is confirmed, you may be required to sign a specific "Assignment Addendum" or "Offer Letter" detailing the shift timings, department, and hospital-specific protocols.',
+                  ],
+                },
+                {
+                  title: '3. Payroll & Remuneration',
+                  items: [
+                    'Payroll Administration: Healtrack.ai manages the payroll process on behalf of the hospital or as your direct employer (depending on the specific contract type).',
+                    'Timesheet Submission: To ensure timely payment, you must submit verified timesheets or digital check-ins through the Healtrack.ai app.',
+                    'Taxation & Deductions: All payments are subject to statutory deductions (e.g., TDS, Income Tax, Social Security) as per local labor and tax laws.',
+                    'Payment Cycles: Payments will be disbursed on a Monthly/Fortnightly basis, provided all hospital-endorsed hours are submitted and approved.',
+                  ],
+                },
+                {
+                  title: '4. Professional Conduct & Standards',
+                  items: [
+                    'Clinical Autonomy: While Healtrack.ai manages your administrative and payroll needs, your clinical decisions remain your sole professional responsibility.',
+                    'Compliance: You agree to adhere to the internal policies, safety protocols, and Code of Ethics of the hospital where you are placed.',
+                    'Confidentiality: You must maintain strict patient confidentiality. Any breach of patient data privacy is grounds for immediate termination and legal action.',
+                  ],
+                },
+                {
+                  title: '5. Non-Circumvention & Direct Hiring',
+                  items: [
+                    'Placement Integrity: You agree that for a period of 12 months following an introduction to a hospital via Healtrack.ai, you will not accept a direct position or contract with that specific hospital without the written consent of Healtrack.ai or the payment of a placement fee.',
+                  ],
+                },
+                {
+                  title: '6. Limitation of Liability & Indemnity',
+                  items: [
+                    'Clinical Liability: Healtrack.ai is a technology and administrative platform and is not liable for clinical outcomes, medical malpractice, or negligence. You are encouraged to maintain your own Professional Indemnity Insurance.',
+                    'Indemnity: You agree to indemnify Healtrack.ai against any claims arising from fraudulent information provided during registration or professional misconduct during an assignment.',
+                  ],
+                },
+                {
+                  title: '7. Termination of Account',
+                  items: [
+                    'By Doctor: You may deactivate your account at any time, subject to completing any currently active assignments.',
+                    'By Healtrack.ai: We reserve the right to suspend or terminate your access if we find discrepancies in your credentials, receive multiple negative reports from hospitals, or if there is a breach of these terms.',
+                  ],
+                },
+              ].map(section => (
+                <View key={section.title} style={tnc.section}>
+                  <Text style={tnc.sectionTitle}>{section.title}</Text>
+                  {section.items.map((item, idx) => (
+                    <View key={idx} style={tnc.bulletRow}>
+                      <Text style={tnc.bullet}>•</Text>
+                      <Text style={tnc.bulletText}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              ))}
+
+              <View style={tnc.declarationBox}>
+                <Text style={tnc.declarationTitle}>Declaration</Text>
+                <Text style={tnc.declarationText}>
+                  I hereby declare that I have read the above Terms and
+                  Conditions. I understand that my registration is subject to
+                  verification and that Healtrack.ai will handle my payroll and
+                  placement mapping based on the data I provide.
+                </Text>
+              </View>
+            </ScrollView>
+
+            {/* Checkboxes */}
+            <View style={tnc.checkArea}>
+              <TouchableOpacity
+                style={tnc.checkRow}
+                onPress={() => setTermsAccepted(v => !v)}
+                activeOpacity={0.8}
+              >
+                <View style={[tnc.checkbox, termsAccepted && tnc.checkboxOn]}>
+                  {termsAccepted && <Text style={tnc.checkmark}>✓</Text>}
+                </View>
+                <Text style={tnc.checkLabel}>
+                  I accept the Terms and Conditions
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={tnc.checkRow}
+                onPress={() => setDataConsentAccepted(v => !v)}
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[tnc.checkbox, dataConsentAccepted && tnc.checkboxOn]}
+                >
+                  {dataConsentAccepted && <Text style={tnc.checkmark}>✓</Text>}
+                </View>
+                <Text style={tnc.checkLabel}>
+                  I consent to the processing of my professional data for
+                  matching and payroll purposes
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  tnc.agreeBtn,
+                  (!termsAccepted || !dataConsentAccepted) && tnc.agreeBtnOff,
+                ]}
+                disabled={!termsAccepted || !dataConsentAccepted}
+                onPress={() => {
+                  setTermsVisible(false);
+                  handleSubmit();
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={tnc.agreeBtnText}>I Agree & Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── DROPDOWN MODAL ──────────────────────────────────────────────── */}
       <Modal
         visible={dropdownConfig.visible}
         transparent
@@ -847,20 +1402,31 @@ const RegisterDoctorScreen: React.FC = () => {
               keyExtractor={i => i}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => {
-                const sel =
-                  dropdownConfig.field && form[dropdownConfig.field] === item;
+                const field = dropdownConfig.field;
+                let isSelected = false;
+                if (field === 'reg_month') {
+                  const found = MONTHS.find(m => m.label === item);
+                  isSelected = found?.value === form.registration_date_month;
+                } else if (field === 'reg_year') {
+                  isSelected = item === form.registration_date_year;
+                } else if (field) {
+                  isSelected = form[field as keyof FormData] === item;
+                }
                 return (
                   <TouchableOpacity
-                    style={[styles.option, sel && styles.optionSel]}
+                    style={[styles.option, isSelected && styles.optionSel]}
                     onPress={() => selectDropdown(item)}
                     activeOpacity={0.7}
                   >
                     <Text
-                      style={[styles.optionTxt, sel && styles.optionTxtSel]}
+                      style={[
+                        styles.optionTxt,
+                        isSelected && styles.optionTxtSel,
+                      ]}
                     >
                       {item}
                     </Text>
-                    {sel && <Text style={styles.optionCheck}>✓</Text>}
+                    {isSelected && <Text style={styles.optionCheck}>✓</Text>}
                   </TouchableOpacity>
                 );
               }}
@@ -871,6 +1437,156 @@ const RegisterDoctorScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
+
+const tnc = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,20,25,0.6)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: C.white,
+    borderTopLeftRadius: scale(24),
+    borderTopRightRadius: scale(24),
+    maxHeight: '92%',
+    paddingTop: scale(16),
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: scale(20),
+    paddingBottom: scale(10),
+    borderBottomWidth: 1,
+    borderBottomColor: '#eef6f7',
+  },
+  headerTitle: {
+    fontSize: scale(17),
+    fontWeight: '800',
+    color: C.text,
+  },
+  closeBtn: {
+    fontSize: scale(18),
+    color: C.textMuted,
+    padding: scale(4),
+  },
+  lastUpdated: {
+    fontSize: scale(11),
+    color: C.textMuted,
+    paddingHorizontal: scale(20),
+    paddingTop: scale(8),
+    paddingBottom: scale(4),
+  },
+  scrollArea: {
+    paddingHorizontal: scale(20),
+    paddingTop: scale(8),
+  },
+  intro: {
+    fontSize: scale(13),
+    color: C.textSub,
+    lineHeight: scale(20),
+    marginBottom: scale(16),
+  },
+  section: {
+    marginBottom: scale(14),
+  },
+  sectionTitle: {
+    fontSize: scale(13),
+    fontWeight: '700',
+    color: C.text,
+    marginBottom: scale(6),
+  },
+  bulletRow: {
+    flexDirection: 'row',
+    marginBottom: scale(5),
+    paddingLeft: scale(4),
+  },
+  bullet: {
+    fontSize: scale(13),
+    color: C.primary,
+    marginRight: scale(8),
+    lineHeight: scale(20),
+  },
+  bulletText: {
+    flex: 1,
+    fontSize: scale(12),
+    color: C.textSub,
+    lineHeight: scale(19),
+  },
+  declarationBox: {
+    backgroundColor: C.primaryLight,
+    borderRadius: scale(12),
+    padding: scale(14),
+    marginTop: scale(8),
+  },
+  declarationTitle: {
+    fontSize: scale(13),
+    fontWeight: '700',
+    color: C.primaryDark,
+    marginBottom: scale(6),
+  },
+  declarationText: {
+    fontSize: scale(12),
+    color: C.primaryDark,
+    lineHeight: scale(19),
+  },
+  checkArea: {
+    paddingHorizontal: scale(20),
+    paddingTop: scale(14),
+    paddingBottom: Platform.OS === 'ios' ? 36 : scale(24),
+    borderTopWidth: 1,
+    borderTopColor: '#eef6f7',
+    gap: scale(12),
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: scale(10),
+  },
+  checkbox: {
+    width: scale(22),
+    height: scale(22),
+    borderRadius: scale(6),
+    borderWidth: 2,
+    borderColor: C.border,
+    backgroundColor: C.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: scale(1),
+    flexShrink: 0,
+  },
+  checkboxOn: {
+    borderColor: C.primary,
+    backgroundColor: C.primary,
+  },
+  checkmark: {
+    fontSize: scale(13),
+    color: C.white,
+    fontWeight: '800',
+  },
+  checkLabel: {
+    flex: 1,
+    fontSize: scale(13),
+    color: C.text,
+    lineHeight: scale(19),
+  },
+  agreeBtn: {
+    backgroundColor: C.primary,
+    borderRadius: scale(12),
+    paddingVertical: scale(14),
+    alignItems: 'center',
+    marginTop: scale(4),
+  },
+  agreeBtnOff: {
+    opacity: 0.4,
+  },
+  agreeBtnText: {
+    color: C.white,
+    fontSize: scale(15),
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+});
 
 // ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
 const SectionHeader: React.FC<{
@@ -1064,20 +1780,15 @@ const SRow: React.FC<{ icon: string; label: string; value: string }> = ({
   </View>
 );
 const sr = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 10,
-  },
-  icon: { fontSize: scale(15) },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 10 },
+  icon: { fontSize: scale(14) },
   lbl: {
-    fontSize: scale(13),
+    fontSize: scale(12),
     color: C.textSub,
     fontWeight: '600',
-    width: scale(72),
+    width: scale(68),
   },
-  val: { fontSize: scale(13), color: C.text, flex: 1, fontWeight: '500' },
+  val: { fontSize: scale(12), color: C.text, flex: 1, fontWeight: '500' },
 });
 
 const fieldStyles = StyleSheet.create({
@@ -1098,11 +1809,10 @@ const fieldStyles = StyleSheet.create({
     borderRadius: scale(14),
     backgroundColor: C.inputBg,
     paddingHorizontal: scale(14),
-    minHeight: scale(52),
+    minHeight: scale(44),
   },
   inputRowErr: { borderColor: C.error, backgroundColor: '#fff8f8' },
   inputRowFilled: { borderColor: C.primary, backgroundColor: '#f0fafb' },
-  inputRowSuccess: { borderColor: C.success, backgroundColor: '#f0fef8' },
   inputRowMulti: { alignItems: 'flex-start', paddingVertical: scale(12) },
   icon: { fontSize: scale(16), marginRight: scale(10) },
   prefix: {
@@ -1111,7 +1821,7 @@ const fieldStyles = StyleSheet.create({
     fontWeight: '700',
     marginRight: scale(8),
   },
-  input: { flex: 1, fontSize: scale(15), color: C.text, paddingVertical: 0 },
+  input: { flex: 1, fontSize: scale(14), color: C.text, paddingVertical: 0 },
   error: { color: C.error, fontSize: scale(12), marginTop: 5, marginLeft: 2 },
 });
 
@@ -1119,18 +1829,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   flex: { flex: 1 },
 
-  // ─── HEADER ───────────────────────────────────────────────────────
-  header: {
-    backgroundColor: C.white,
-    paddingTop: Platform.OS === 'ios' ? 52 : StatusBar.currentHeight ?? 24,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 4,
-  },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1138,33 +1836,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(16),
     paddingTop: scale(10),
     paddingBottom: scale(14),
-  },
-  headerBackBtn: {
-    width: scale(38),
-    height: scale(38),
-    borderRadius: scale(10),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: C.primaryLight,
-  },
-  headerBackIcon: {
-    fontSize: scale(30),
-    color: C.primary,
-    fontWeight: '600',
-  },
-  headerBrand: {
-    alignItems: 'center',
-  },
-  headerLogoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: scale(7),
-  },
-  headerLogoDot: {
-    width: scale(8),
-    height: scale(8),
-    borderRadius: scale(4),
-    backgroundColor: C.primary,
   },
   headerLogoImg: {
     width: scale(38),
@@ -1178,157 +1849,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   headerBrandSub: {
-    fontSize: scale(9),
+    fontSize: scale(12),
     color: C.primary,
     letterSpacing: 2,
     fontWeight: '700',
     marginTop: 2,
   },
-  headerDivider: {
-    height: 1,
-    backgroundColor: C.border,
-    marginHorizontal: scale(16),
-  },
-  headerStepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: scale(24),
-    paddingVertical: scale(14),
-  },
-  headerStepItem: {
-    alignItems: 'center',
-    gap: scale(5),
-  },
-  headerStepBubble: {
-    width: scale(30),
-    height: scale(30),
-    borderRadius: scale(15),
-    backgroundColor: C.bg,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerStepBubbleActive: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
-  },
-  headerStepBubbleDone: {
-    backgroundColor: C.success,
-    borderColor: C.success,
-  },
-  headerStepNum: {
-    fontSize: scale(12),
-    fontWeight: '700',
-    color: C.textMuted,
-  },
-  headerStepNumActive: {
-    color: C.white,
-  },
-  headerStepCheck: {
-    fontSize: scale(13),
-    color: C.white,
-    fontWeight: '800',
-  },
-  headerStepLabel: {
-    fontSize: scale(10),
-    fontWeight: '600',
-    color: C.textMuted,
-    letterSpacing: 0.3,
-  },
-  headerStepLabelActive: {
-    color: C.primary,
-  },
-  headerConnectorWrap: {
-    flex: 1,
-    paddingHorizontal: scale(6),
-    paddingBottom: scale(18), // aligns with bubble center
-  },
-  headerConnector: {
-    height: 1.5,
-    backgroundColor: C.border,
-    borderRadius: 1,
-  },
-  headerConnectorDone: {
-    backgroundColor: C.success,
-  },
 
-  backBtn: {
-    width: scale(38),
-    height: scale(38),
-    borderRadius: scale(19),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)', // ✅ glass effect
-  },
-
-  backIcon: {
-    fontSize: scale(28),
-    color: '#ffffff', // ✅ visible
-  },
-  brandBlock: { alignItems: 'center' },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  brandDot: {
-    width: scale(9),
-    height: scale(9),
-    borderRadius: scale(5),
-    backgroundColor: C.white,
-  },
-  brandName: {
-    fontSize: scale(20),
-    fontWeight: '800',
-    color: C.white,
-    letterSpacing: 0.4,
-  },
-  brandTagline: {
-    fontSize: scale(9),
-    color: 'rgba(255,255,255,0.65)',
-    letterSpacing: 1.5,
-    marginTop: 4,
-  },
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: scale(30),
-    paddingBottom: scale(20),
-    marginTop: 4,
-  },
-  stepCol: { alignItems: 'center', gap: 5 },
-  stepBubble: {
-    width: scale(32),
-    height: scale(32),
-    borderRadius: scale(16),
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepBubbleActive: { backgroundColor: C.white, borderColor: C.white },
-  stepBubbleDone: { backgroundColor: C.success, borderColor: C.success },
-  stepNum: {
-    fontSize: scale(13),
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.7)', // brighter
-  },
-
-  stepLabel: {
-    fontSize: scale(10),
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)', // visible
-  },
-
-  connector: {
-    flex: 1,
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)', // better contrast
-  },
-  stepNumActive: { color: C.primary },
-  stepCheck: { fontSize: scale(14), color: C.white, fontWeight: '800' },
-
-  stepLabelActive: { color: C.white },
-
-  connectorDone: { backgroundColor: C.success },
   scroll: { padding: scale(16), paddingBottom: scale(16) },
   card: {
     backgroundColor: C.white,
@@ -1340,41 +1867,34 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
   },
-  row: { flexDirection: 'row', gap: scale(12) },
-  half: { flex: 1 },
+
   pinFetching: {
     fontSize: scale(12),
     color: C.primary,
     marginTop: 5,
     marginLeft: 2,
+    marginBottom: 4,
   },
-  pinBadge: {
-    width: scale(24),
-    height: scale(24),
-    borderRadius: scale(12),
-    backgroundColor: C.success,
-    alignItems: 'center',
-    justifyContent: 'center',
+  pinSuccess: {
+    fontSize: scale(12),
+    color: C.success,
+    marginTop: 5,
+    marginLeft: 2,
+    marginBottom: 4,
   },
-  pinBadgeTxt: { color: C.white, fontSize: scale(13), fontWeight: '700' },
-  autoRow: { borderColor: C.primaryMid, backgroundColor: '#f0fbfc' },
-  autoRowEmpty: { borderColor: C.border, backgroundColor: C.inputBg },
-  autoVal: { flex: 1, fontSize: scale(14), color: C.text, fontWeight: '600' },
-  autoPlaceholder: {
+
+  // Date picker row
+  dateRow: { flexDirection: 'row', gap: scale(8) },
+  dateSegDay: { width: scale(68) },
+  dateSegMonth: { flex: 1 },
+  dateSegYear: { width: scale(90) },
+  dateSegLabel: {
+    fontSize: scale(10),
     color: C.textMuted,
-    fontWeight: '400',
-    fontSize: scale(13),
+    textAlign: 'center',
+    marginTop: 4,
   },
-  autoTag: {
-    fontSize: scale(9),
-    fontWeight: '800',
-    color: C.primary,
-    backgroundColor: C.primaryLight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    letterSpacing: 0.5,
-  },
+
   bottomBar: {
     backgroundColor: C.white,
     paddingHorizontal: scale(20),
@@ -1392,22 +1912,17 @@ const styles = StyleSheet.create({
     backgroundColor: C.border,
   },
   progressSegOn: { backgroundColor: C.primary },
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  stepCounter: { fontSize: scale(13), color: C.textMuted, fontWeight: '600' },
+  bottomRow: { flexDirection: 'row', alignItems: 'center' },
+
   nextBtn: {
     backgroundColor: C.primary,
-    borderRadius: scale(14),
-    paddingHorizontal: scale(28),
-    paddingVertical: scale(14),
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.38,
-    shadowRadius: 10,
-    elevation: 7,
+    borderRadius: scale(10),
+    paddingHorizontal: scale(18),
+    paddingVertical: scale(10),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 'auto',
   },
   nextBtnOff: { opacity: 0.6 },
   nextBtnTxt: {
@@ -1416,6 +1931,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
+  backBtnBottom: {
+    borderWidth: 1,
+    borderColor: C.primary,
+    borderRadius: scale(10),
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(10),
+    marginRight: scale(10),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backBtnTxt: { color: C.primary, fontSize: scale(13), fontWeight: '600' },
+  arrow: {
+    fontSize: scale(14),
+    fontWeight: '900',
+    marginLeft: 2,
+    marginRight: 2,
+  },
+
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,25,28,0.52)',
@@ -1463,6 +1997,8 @@ const styles = StyleSheet.create({
   optionTxt: { fontSize: scale(15), color: C.textSub },
   optionTxtSel: { color: C.primary, fontWeight: '700' },
   optionCheck: { fontSize: scale(15), color: C.primary, fontWeight: '800' },
+
+  // ── SUCCESS CARD — smaller & tighter ──
   successBg: {
     flex: 1,
     backgroundColor: C.primary,
@@ -1472,128 +2008,92 @@ const styles = StyleSheet.create({
   },
   successCard: {
     backgroundColor: C.white,
-    borderRadius: scale(28),
-    padding: scale(28),
+    borderRadius: scale(24),
+    padding: scale(22),
     width: '100%',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 14,
   },
   successRing: {
-    width: scale(80),
-    height: scale(80),
-    borderRadius: scale(40),
+    width: scale(60),
+    height: scale(60),
+    borderRadius: scale(30),
     backgroundColor: C.success,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: scale(20),
+    marginBottom: scale(14),
     shadowColor: C.success,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  successTick: { fontSize: scale(38), color: C.white },
+  successTick: { fontSize: scale(28), color: C.white },
   successTitle: {
-    fontSize: scale(22),
+    fontSize: scale(20),
     fontWeight: '800',
     color: C.text,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   successName: {
-    fontSize: scale(18),
+    fontSize: scale(15),
     fontWeight: '700',
     color: C.primary,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   successSub: {
-    fontSize: scale(13),
+    fontSize: scale(12),
     color: C.textSub,
     textAlign: 'center',
-    lineHeight: scale(20),
-    marginBottom: 16,
+    lineHeight: scale(18),
+    marginBottom: 10,
+  },
+  idBadge: {
+    backgroundColor: C.primaryDark,
+    borderRadius: scale(10),
+    paddingHorizontal: scale(20),
+    paddingVertical: scale(8),
+    alignItems: 'center',
+    marginBottom: scale(10),
+  },
+  idBadgeLabel: {
+    fontSize: scale(8),
+    color: 'rgba(255,255,255,0.65)',
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginBottom: 2,
+  },
+  idBadgeValue: {
+    fontSize: scale(18),
+    color: C.white,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  emailNote: {
+    fontSize: scale(11),
+    color: C.textSub,
+    textAlign: 'center',
+    lineHeight: scale(16),
+    marginBottom: scale(10),
   },
   successPill: {
     backgroundColor: C.primaryLight,
-    borderRadius: scale(20),
-    paddingHorizontal: scale(16),
-    paddingVertical: scale(8),
-    marginBottom: scale(20),
+    borderRadius: scale(16),
+    paddingHorizontal: scale(14),
+    paddingVertical: scale(6),
+    marginBottom: scale(14),
   },
-  successPillText: { fontSize: scale(14), color: C.primary, fontWeight: '600' },
+  successPillText: { fontSize: scale(12), color: C.primary, fontWeight: '600' },
   successDivider: {
     width: '100%',
     height: 1,
     backgroundColor: '#eef6f7',
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  successBtn: {
-    marginTop: scale(20),
-    backgroundColor: C.primary,
-    borderRadius: scale(14),
-    paddingHorizontal: scale(24),
-    paddingVertical: scale(14),
-    width: '100%',
-    alignItems: 'center',
-  },
-  topHeader: {
-    backgroundColor: '#ffffff',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-
-    paddingTop: Platform.OS === 'ios' ? 52 : StatusBar.currentHeight ?? 24,
-    paddingHorizontal: scale(16),
-    paddingBottom: scale(12),
-
-    borderBottomWidth: 1,
-    borderBottomColor: '#eef6f7',
-
-    // subtle shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  backBtnWhite: {
-    width: scale(38),
-    height: scale(38),
-    borderRadius: scale(22),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#e0f5f8', // light bg
-  },
-
-  backIconDark: {
-    fontSize: scale(26),
-    color: '#007b8e', // visible now
-    fontWeight: '600',
-  },
-  headerBackBtnHidden: {
-    width: scale(38),
-    height: scale(38),
-    // no background, no border — completely invisible
-    // but keeps the layout balanced (brand stays centered)
-  },
-
-  stepperHeader: {
-    backgroundColor: C.primary,
-    paddingBottom: scale(5),
-    paddingTop: scale(12),
-    borderBottomLeftRadius: scale(24),
-    borderBottomRightRadius: scale(24),
-
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  successBtnText: { color: C.white, fontWeight: '700', fontSize: scale(15) },
 });
 
 export default RegisterDoctorScreen;

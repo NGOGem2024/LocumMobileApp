@@ -18,6 +18,8 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import TermsModal from '../components/TermsModal';
 
 // ─── RESPONSIVE SCALE ─────────────────────────────────────────────────────────
 const { width: SW } = Dimensions.get('window');
@@ -322,6 +324,7 @@ const RegisterDoctorScreen: React.FC = () => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const successScale = useRef(new Animated.Value(0)).current;
+  const navigation = useNavigation<any>();
 
   const [form, setForm] = useState<FormData>({
     first_name: '',
@@ -668,6 +671,7 @@ const RegisterDoctorScreen: React.FC = () => {
       }
 
       setSubmitted(true);
+
       Animated.spring(successScale, {
         toValue: 1,
         friction: 6,
@@ -746,6 +750,25 @@ const RegisterDoctorScreen: React.FC = () => {
             />
             <SRow icon="🪪" label="Reg. No." value={form.registration_number} />
           </Animated.View>
+
+          <TouchableOpacity
+            style={{
+              marginTop: 20,
+              backgroundColor: C.primary,
+              paddingVertical: 12,
+              paddingHorizontal: 30,
+              borderRadius: 10,
+            }}
+            onPress={() =>
+              navigation.replace('Dashboard', {
+                name: form.first_name,
+              })
+            }
+          >
+            <Text style={{ color: '#fff', fontWeight: '700' }}>
+              Go to Dashboard
+            </Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -1223,162 +1246,18 @@ const RegisterDoctorScreen: React.FC = () => {
         </View>
       </View>
       {/* ─── TERMS & CONDITIONS MODAL ────────────────────────────────── */}
-      <Modal
+      <TermsModal
         visible={termsVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setTermsVisible(false)}
-      >
-        <View style={tnc.overlay}>
-          <View style={tnc.sheet}>
-            {/* Header */}
-            <View style={tnc.header}>
-              <Text style={tnc.headerTitle}>Terms & Conditions</Text>
-              <TouchableOpacity onPress={() => setTermsVisible(false)}>
-                <Text style={tnc.closeBtn}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={tnc.lastUpdated}>Last Updated: 20/04/2026</Text>
-
-            {/* Scrollable content */}
-            <ScrollView
-              style={tnc.scrollArea}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 20 }}
-            >
-              <Text style={tnc.intro}>
-                Welcome to Healtrack.ai. By completing your registration, you
-                (the "Doctor" or "Practitioner") agree to be bound by the
-                following Terms and Conditions. Please read these carefully
-                before clicking "I Agree."
-              </Text>
-
-              {[
-                {
-                  title: '1. Professional Verification & Registration',
-                  items: [
-                    'Accuracy of Data: You represent that all information provided during registration—including medical degrees, licenses, and certifications—is true and accurate.',
-                    'Credentialing: You authorize Healtrack.ai to conduct primary source verification of your credentials with relevant medical boards and councils.',
-                    'License Maintenance: You must maintain an active, unrestricted license to practice medicine in the jurisdiction of your placement. You agree to notify Healtrack.ai within 24 hours of any change in your licensure status, pending disciplinary actions, or malpractice claims.',
-                  ],
-                },
-                {
-                  title: '2. The Matching & Placement Process',
-                  items: [
-                    'Role of Healtrack.ai: Healtrack.ai acts as a facilitator to map your qualifications to vacancies provided by partner hospitals.',
-                    'No Guarantee of Placement: Registration on the platform does not guarantee a placement or an offer of employment from a hospital.',
-                    'Engagement Terms: Once a "match" is confirmed, you may be required to sign a specific "Assignment Addendum" or "Offer Letter" detailing the shift timings, department, and hospital-specific protocols.',
-                  ],
-                },
-                {
-                  title: '3. Payroll & Remuneration',
-                  items: [
-                    'Payroll Administration: Healtrack.ai manages the payroll process on behalf of the hospital or as your direct employer (depending on the specific contract type).',
-                    'Timesheet Submission: To ensure timely payment, you must submit verified timesheets or digital check-ins through the Healtrack.ai app.',
-                    'Taxation & Deductions: All payments are subject to statutory deductions (e.g., TDS, Income Tax, Social Security) as per local labor and tax laws.',
-                    'Payment Cycles: Payments will be disbursed on a Monthly/Fortnightly basis, provided all hospital-endorsed hours are submitted and approved.',
-                  ],
-                },
-                {
-                  title: '4. Professional Conduct & Standards',
-                  items: [
-                    'Clinical Autonomy: While Healtrack.ai manages your administrative and payroll needs, your clinical decisions remain your sole professional responsibility.',
-                    'Compliance: You agree to adhere to the internal policies, safety protocols, and Code of Ethics of the hospital where you are placed.',
-                    'Confidentiality: You must maintain strict patient confidentiality. Any breach of patient data privacy is grounds for immediate termination and legal action.',
-                  ],
-                },
-                {
-                  title: '5. Non-Circumvention & Direct Hiring',
-                  items: [
-                    'Placement Integrity: You agree that for a period of 12 months following an introduction to a hospital via Healtrack.ai, you will not accept a direct position or contract with that specific hospital without the written consent of Healtrack.ai or the payment of a placement fee.',
-                  ],
-                },
-                {
-                  title: '6. Limitation of Liability & Indemnity',
-                  items: [
-                    'Clinical Liability: Healtrack.ai is a technology and administrative platform and is not liable for clinical outcomes, medical malpractice, or negligence. You are encouraged to maintain your own Professional Indemnity Insurance.',
-                    'Indemnity: You agree to indemnify Healtrack.ai against any claims arising from fraudulent information provided during registration or professional misconduct during an assignment.',
-                  ],
-                },
-                {
-                  title: '7. Termination of Account',
-                  items: [
-                    'By Doctor: You may deactivate your account at any time, subject to completing any currently active assignments.',
-                    'By Healtrack.ai: We reserve the right to suspend or terminate your access if we find discrepancies in your credentials, receive multiple negative reports from hospitals, or if there is a breach of these terms.',
-                  ],
-                },
-              ].map(section => (
-                <View key={section.title} style={tnc.section}>
-                  <Text style={tnc.sectionTitle}>{section.title}</Text>
-                  {section.items.map((item, idx) => (
-                    <View key={idx} style={tnc.bulletRow}>
-                      <Text style={tnc.bullet}>•</Text>
-                      <Text style={tnc.bulletText}>{item}</Text>
-                    </View>
-                  ))}
-                </View>
-              ))}
-
-              <View style={tnc.declarationBox}>
-                <Text style={tnc.declarationTitle}>Declaration</Text>
-                <Text style={tnc.declarationText}>
-                  I hereby declare that I have read the above Terms and
-                  Conditions. I understand that my registration is subject to
-                  verification and that Healtrack.ai will handle my payroll and
-                  placement mapping based on the data I provide.
-                </Text>
-              </View>
-            </ScrollView>
-
-            {/* Checkboxes */}
-            <View style={tnc.checkArea}>
-              <TouchableOpacity
-                style={tnc.checkRow}
-                onPress={() => setTermsAccepted(v => !v)}
-                activeOpacity={0.8}
-              >
-                <View style={[tnc.checkbox, termsAccepted && tnc.checkboxOn]}>
-                  {termsAccepted && <Text style={tnc.checkmark}>✓</Text>}
-                </View>
-                <Text style={tnc.checkLabel}>
-                  I accept the Terms and Conditions
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={tnc.checkRow}
-                onPress={() => setDataConsentAccepted(v => !v)}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[tnc.checkbox, dataConsentAccepted && tnc.checkboxOn]}
-                >
-                  {dataConsentAccepted && <Text style={tnc.checkmark}>✓</Text>}
-                </View>
-                <Text style={tnc.checkLabel}>
-                  I consent to the processing of my professional data for
-                  matching and payroll purposes
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  tnc.agreeBtn,
-                  (!termsAccepted || !dataConsentAccepted) && tnc.agreeBtnOff,
-                ]}
-                disabled={!termsAccepted || !dataConsentAccepted}
-                onPress={() => {
-                  setTermsVisible(false);
-                  handleSubmit();
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={tnc.agreeBtnText}>I Agree & Submit</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setTermsVisible(false)}
+        termsAccepted={termsAccepted}
+        dataConsentAccepted={dataConsentAccepted}
+        setTermsAccepted={setTermsAccepted}
+        setDataConsentAccepted={setDataConsentAccepted}
+        onSubmit={() => {
+          setTermsVisible(false);
+          handleSubmit();
+        }}
+      />
 
       {/* ─── DROPDOWN MODAL ──────────────────────────────────────────────── */}
       <Modal
@@ -2097,3 +1976,6 @@ const styles = StyleSheet.create({
 });
 
 export default RegisterDoctorScreen;
+function onSuccess(first_name: string) {
+  throw new Error('Function not implemented.');
+}

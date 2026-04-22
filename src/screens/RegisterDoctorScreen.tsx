@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import TermsModal from '../components/TermsModal';
+import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 
 // ─── RESPONSIVE SCALE ─────────────────────────────────────────────────────────
 const { width: SW } = Dimensions.get('window');
@@ -95,33 +96,48 @@ const EXPERIENCE_RANGES = [
 ];
 
 const MEDICAL_COUNCILS = [
-  'Medical Council of India (MCI)',
-  'National Medical Commission (NMC)',
+  'None',
   'Andhra Pradesh Medical Council',
+  'Arunachal Pradesh Medical Council',
   'Assam Medical Council',
+  'Bhopal Medical Council',
   'Bihar Medical Council',
-  'Chhattisgarh Medical Council',
+  'Bombay Medical Council',
+  'Chandigarh Medical Council',
+  'Chattisgarh Medical Council',
   'Delhi Medical Council',
   'Goa Medical Council',
   'Gujarat Medical Council',
   'Haryana Medical Council',
   'Himachal Pradesh Medical Council',
+  'Hyderabad Medical Council',
+  'Jammu & Kashmir Medical Council',
   'Jharkhand Medical Council',
   'Karnataka Medical Council',
-  'Kerala Medical Council',
   'Madhya Pradesh Medical Council',
+  'Madras Medical Council',
+  'Mahakoshal Medical Council',
   'Maharashtra Medical Council',
   'Manipur Medical Council',
+  'Medical Council of India',
+  'Medical Council of Tanganyika',
+  'Meghalaya Medical Council',
+  'Mizoram Medical Council',
+  'Mysore Medical Council',
   'Nagaland Medical Council',
-  'Odisha Medical Council',
+  'Orissa Council of Medical Registration',
+  'Pondicherry Medical Council',
   'Punjab Medical Council',
   'Rajasthan Medical Council',
+  'Sikkim Medical Council',
   'Tamil Nadu Medical Council',
-  'Telangana Medical Council',
+  'Telangana State Medical Council',
+  'Travancore Cochin Medical Council, Trivandrum',
+  'Tripura State Medical Council',
   'Uttar Pradesh Medical Council',
   'Uttarakhand Medical Council',
+  'Vidharba Medical Council',
   'West Bengal Medical Council',
-  'Other',
 ];
 
 // Generate year list from 1970 to current year
@@ -312,6 +328,7 @@ const RegisterDoctorScreen: React.FC = () => {
   const [termsVisible, setTermsVisible] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [dataConsentAccepted, setDataConsentAccepted] = useState(false);
+  const [privacyVisible, setPrivacyVisible] = useState(false);
 
   // Unified dropdown config — supports both string[] and {label,value}[] options
   const [dropdownConfig, setDropdownConfig] = useState<{
@@ -325,6 +342,7 @@ const RegisterDoctorScreen: React.FC = () => {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const successScale = useRef(new Animated.Value(0)).current;
   const navigation = useNavigation<any>();
+  const scrollRef = useRef<ScrollView>(null);
 
   const [form, setForm] = useState<FormData>({
     first_name: '',
@@ -750,23 +768,36 @@ const RegisterDoctorScreen: React.FC = () => {
             />
             <SRow icon="🪪" label="Reg. No." value={form.registration_number} />
           </Animated.View>
-
           <TouchableOpacity
             style={{
-              marginTop: 20,
-              backgroundColor: C.primary,
-              paddingVertical: 12,
-              paddingHorizontal: 30,
-              borderRadius: 10,
+              marginTop: scale(16),
+              backgroundColor: C.white,
+              paddingVertical: scale(14),
+              paddingHorizontal: scale(40),
+              borderRadius: scale(14),
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.18,
+              shadowRadius: 10,
+              elevation: 6,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: scale(8),
             }}
             onPress={() =>
-              navigation.replace('Dashboard', {
-                name: form.first_name,
-              })
+              navigation.replace('Dashboard', { name: form.first_name })
             }
+            activeOpacity={0.85}
           >
-            <Text style={{ color: '#fff', fontWeight: '700' }}>
-              Go to Dashboard
+            <Text
+              style={{
+                color: C.primary,
+                fontWeight: '800',
+                fontSize: scale(15),
+                letterSpacing: 0.3,
+              }}
+            >
+              Go to Dashboard →
             </Text>
           </TouchableOpacity>
         </View>
@@ -781,18 +812,13 @@ const RegisterDoctorScreen: React.FC = () => {
 
       {/* ─── HEADER ─────────────────────────────────────────────────────── */}
       <View style={styles.headerTop}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <Image
-            source={require('../assets/HT_icon.png')}
-            style={styles.headerLogoImg}
-            resizeMode="contain"
-          />
-          <Text style={[styles.headerBrandName, { marginLeft: 6 }]}>Locum</Text>
-        </View>
-        <Text
-          style={[styles.headerBrandSub, { flexShrink: 1, textAlign: 'right' }]}
-          numberOfLines={1}
-        >
+        <Image
+          source={require('../assets/image.png')}
+          style={styles.headerLogoImg}
+          resizeMode="contain"
+        />
+
+        <Text style={styles.headerBrandSub} numberOfLines={1}>
           DOCTOR ONBOARDING
         </Text>
       </View>
@@ -805,7 +831,7 @@ const RegisterDoctorScreen: React.FC = () => {
           style={styles.flex}
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
         >
           <Animated.View
             style={{
@@ -945,15 +971,20 @@ const RegisterDoctorScreen: React.FC = () => {
                 />
 
                 {/* ── NEW: Medical Council Name ── */}
-                <Field
+                <DropdownField
                   label="Medical Council Name"
                   required
                   icon="🏛️"
-                  placeholder="e.g. Maharashtra Medical Council"
+                  placeholder="Select your medical council"
                   value={form.medical_council_name}
-                  onChangeText={v => setField('medical_council_name', v)}
                   error={errors.medical_council_name}
-                  autoCapitalize="words"
+                  onPress={() =>
+                    openDropdown(
+                      'medical_council_name',
+                      MEDICAL_COUNCILS,
+                      'Select Medical Council',
+                    )
+                  }
                 />
 
                 {/* ── Registration Number (unchanged) ── */}
@@ -1253,10 +1284,16 @@ const RegisterDoctorScreen: React.FC = () => {
         dataConsentAccepted={dataConsentAccepted}
         setTermsAccepted={setTermsAccepted}
         setDataConsentAccepted={setDataConsentAccepted}
+        // onOpenPrivacy={() => setPrivacyVisible(true)}
         onSubmit={() => {
           setTermsVisible(false);
           handleSubmit();
         }}
+      />
+
+      <PrivacyPolicyModal
+        visible={privacyVisible}
+        onClose={() => setPrivacyVisible(false)}
       />
 
       {/* ─── DROPDOWN MODAL ──────────────────────────────────────────────── */}
@@ -1707,32 +1744,43 @@ const fieldStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   flex: { flex: 1 },
-
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: scale(16),
-    paddingTop: scale(10),
-    paddingBottom: scale(14),
+    paddingVertical: scale(10),
+    height: scale(70), // ⬆️ increase from 60 → 70
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
+
   headerLogoImg: {
-    width: scale(38),
-    height: scale(38),
-    borderRadius: scale(10),
+    width: scale(150), // ⬆️ slightly bigger
+    height: scale(40), // ⬆️ slightly bigger
   },
-  headerBrandName: {
-    fontSize: scale(20),
-    fontWeight: '800',
-    color: C.primaryDark,
-    letterSpacing: 0.2,
-  },
+
   headerBrandSub: {
     fontSize: scale(12),
     color: C.primary,
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     fontWeight: '700',
-    marginTop: 2,
+    textAlign: 'right',
+    maxWidth: '45%', // prevents overlap with bigger logo
+  },
+
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  headerBrandName: {
+    fontSize: scale(30),
+    fontWeight: '800',
+    color: C.primaryDark,
+    letterSpacing: 0.2,
   },
 
   scroll: { padding: scale(16), paddingBottom: scale(16) },

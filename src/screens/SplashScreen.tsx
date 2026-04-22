@@ -93,7 +93,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       >
         <View style={styles.logoRing}>
           <Image
-            source={require('../assets/HT_icon.png')}
+            source={require('../assets/image.png')}
             style={styles.htIcon}
             resizeMode="contain"
           />
@@ -101,9 +101,9 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       </Animated.View>
 
       {/* App name */}
-      <Animated.View style={{ opacity: textOpacity, alignItems: 'center' }}>
+      {/* <Animated.View style={{ opacity: textOpacity, alignItems: 'center' }}>
         <Text style={styles.appName}>HT Locum</Text>
-      </Animated.View>
+      </Animated.View> */}
 
       {/* Tagline */}
       <Animated.View style={{ opacity: taglineOpacity, alignItems: 'center' }}>
@@ -161,6 +161,7 @@ const styles = StyleSheet.create({
   htIcon: {
     width: scale(180),
     height: scale(180),
+    marginBottom: scale(5),
   },
   stethBadge: {
     position: 'absolute',

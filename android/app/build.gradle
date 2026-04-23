@@ -79,7 +79,7 @@ android {
 
     namespace "com.locummobileapp"
     defaultConfig {
-        applicationId "com.locummobileapp"
+        applicationId "com.htlocum"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

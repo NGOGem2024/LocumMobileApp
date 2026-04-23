@@ -214,7 +214,7 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
                 For any privacy-related inquiries or to exercise your data
                 rights, please contact:{'\n\n'}
                 Privacy Officer, Healtrack{'\n'}
-                Email: privacy@healtrackpro.ai{'\n'}
+                Email: support@healtrackai.com{'\n'}
                 Web: https://healtrackpro.ai
               </Text>
             </View>

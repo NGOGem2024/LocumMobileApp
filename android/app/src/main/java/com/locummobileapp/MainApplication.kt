@@ -1,4 +1,4 @@
-package com.locummobileapp
+package com.htlocum
 
 import android.app.Application
 import com.facebook.react.PackageList

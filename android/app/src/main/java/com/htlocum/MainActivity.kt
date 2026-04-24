@@ -1,4 +1,4 @@
-package com.locummobileapp
+package com.htlocum
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

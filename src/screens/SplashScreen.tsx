@@ -100,11 +100,6 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
         </View>
       </Animated.View>
 
-      {/* App name */}
-      {/* <Animated.View style={{ opacity: textOpacity, alignItems: 'center' }}>
-        <Text style={styles.appName}>HT Locum</Text>
-      </Animated.View> */}
-
       {/* Tagline */}
       <Animated.View style={{ opacity: taglineOpacity, alignItems: 'center' }}>
         <Text style={styles.tagline}>CONNECTING DOCTORS. ENABLING CARE.</Text>

@@ -8,488 +8,763 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AppHeader from '../components/AppHeader';
 
-const { width: SW } = Dimensions.get('window');
+const { width: SW, height: SH } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
 
+/* ─── Design Tokens ──────────────────────────────────── */
 const C = {
-  primary: '#007b8e',
-  primaryDark: '#005f6e',
-  primaryLight: '#e0f5f8',
-  primaryMid: '#b2e4ec',
-  accent: '#00b4cc',
+  ink: '#0a1628', // deep navy — primary text / bg
+  inkSoft: '#1a2d48',
+  inkMid: '#2c4a6e',
+  teal: '#00c9d4', // signature teal
+  tealSoft: '#b2eef2',
+  tealDeep: '#00808a',
+  mint: '#00e8b5', // accent mint
   white: '#ffffff',
-  bg: '#f4fbfc',
-  text: '#0d2b30',
-  textSub: '#4a7a82',
-  textMuted: '#9ab8bc',
-  border: '#c8e8ed',
-  error: '#e53935',
-  success: '#00b894',
-  warning: '#f59e0b',
-  cardBg: '#ffffff',
+  offWhite: '#f4fbfc',
+  slate: '#8fa8bc',
+  card: '#ffffff',
+  cardAlt: '#eef8fa',
+  border: '#d0eaf0',
 };
 
-const DashboardScreen = ({ route }: any) => {
-  const doctorName = route?.params?.name || 'Doctor';
-  const isVerified = false;
+/* ─── Component ──────────────────────────────────────── */
+interface DashboardScreenProps {
+  navigation?: any;
+}
 
+const DashboardScreen = ({ navigation }: DashboardScreenProps) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+
+  const cardAnims = [0, 1, 2, 3].map(
+    () => useRef(new Animated.Value(0)).current,
+  );
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }),
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 650,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 60,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 550,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.stagger(
+        100,
+        cardAnims.map(a =>
+          Animated.spring(a, {
+            toValue: 1,
+            tension: 80,
+            friction: 9,
+            useNativeDriver: true,
+          }),
+        ),
+      ),
     ]).start();
   }, []);
 
-  const features = [
+  const services = [
     {
-      title: 'Available Shifts',
-      icon: '📅',
-      locked: !isVerified,
-      desc: 'Browse open locum shifts',
+      icon: '👨‍⚕️',
+      title: 'Duty Doctor Deployment',
+      desc: 'On-demand doctors for daily operations.',
     },
     {
-      title: 'Apply for Jobs',
+      icon: '🔄',
+      title: 'Locum Coverage',
+      desc: 'Seamless short-term shift fill-ins.',
+    },
+    {
+      icon: '📋',
+      title: 'Permanent Placement',
+      desc: 'Long-term hiring across institutions.',
+    },
+    {
       icon: '💼',
-      locked: !isVerified,
-      desc: 'Apply to nearby opportunities',
-    },
-    {
-      title: 'Earnings',
-      icon: '💰',
-      locked: !isVerified,
-      desc: 'Track your income & payments',
-    },
-    {
-      title: 'Profile',
-      icon: '👤',
-      locked: !isVerified,
-      desc: 'View & edit your profile',
+      title: 'Payroll & Compliance',
+      desc: 'End-to-end payroll management.',
     },
   ];
 
-  const stats = [
-    { label: 'Applications', value: '0', icon: '📋' },
-    { label: 'Shifts Done', value: '0', icon: '✅' },
-    { label: 'Earnings', value: '₹0', icon: '💳' },
+  const aiFeatures = [
+    {
+      icon: '🧠',
+      title: 'Smart Matching',
+      desc: 'AI pairs doctors by skill, location & availability.',
+    },
+    {
+      icon: '📡',
+      title: 'Live Tracking',
+      desc: 'Real-time deployment visibility.',
+    },
+    {
+      icon: '📊',
+      title: 'Analytics Dashboard',
+      desc: 'Reduce downtime with data-backed staffing.',
+    },
+  ];
+
+  const values = [
+    { title: 'Reliability', desc: 'Consistent qualified access' },
+    { title: 'Speed', desc: 'Urgent needs filled fast' },
+    { title: 'Transparency', desc: 'Ethical, clear practices' },
+    { title: 'Quality', desc: 'Verified professionals only' },
   ];
 
   return (
-    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-      <StatusBar barStyle="light-content" backgroundColor={C.primaryDark} />
+    <SafeAreaView style={s.root} edges={['top', 'bottom']}>
+      <StatusBar barStyle="light-content" backgroundColor={C.ink} />
 
-      {/* ── HEADER ── */}
-      <View style={styles.header}>
-        <View style={styles.headerInner}>
-          <View>
-            <Text style={styles.headerGreeting}>HT Locum</Text>
-            <Text style={styles.headerName}>Dr. {doctorName}</Text>
-          </View>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>
-              {doctorName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        </View>
-
-        {/* Verification Banner */}
-        <View
-          style={[
-            styles.verifyBanner,
-            isVerified ? styles.verifyBannerOk : styles.verifyBannerPending,
-          ]}
-        >
-          <Text style={styles.verifyIcon}>{isVerified ? '✅' : '⏳'}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.verifyTitle}>
-              {isVerified ? 'Account Verified' : 'Verification Pending'}
-            </Text>
-            <Text style={styles.verifySub}>
-              {isVerified
-                ? 'Your profile is active and visible to hospitals'
-                : "We'll verify your credentials within 24–48 hours"}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.verifyDot,
-              { backgroundColor: isVerified ? C.success : C.warning },
-            ]}
-          />
-        </View>
-      </View>
-
-      <Animated.ScrollView
-        style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
-        contentContainerStyle={styles.scroll}
+      <ScrollView
+        contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── STATS ROW ── */}
-        <View style={styles.statsRow}>
-          {stats.map((s, i) => (
-            <View key={i} style={styles.statCard}>
-              <Text style={styles.statIcon}>{s.icon}</Text>
-              <Text style={styles.statValue}>{s.value}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
-            </View>
-          ))}
-        </View>
+        {/* ── HEADER ── */}
+        <AppHeader
+          onBack={
+            navigation?.canGoBack() ? () => navigation.goBack() : undefined
+          }
+        />
 
-        {/* ── FEATURES ── */}
-        <Text style={styles.sectionTitle}>Quick Access</Text>
-        <View style={styles.featuresGrid}>
-          {features.map((f, i) => (
+        {/* ══════════════════════════════════════════════
+            HERO
+        ══════════════════════════════════════════════ */}
+        <Animated.View
+          style={[
+            s.hero,
+            { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
+          ]}
+        >
+          {/* Decorative rings */}
+          <View style={s.ring1} />
+          <View style={s.ring2} />
+          <View style={s.glow} />
+
+          {/* Tagline strip */}
+          <View style={s.taglineStrip}>
+            <View style={s.pulseDot} />
+            <Text style={s.taglineText}>India's Premier Locum Network</Text>
+          </View>
+
+          {/* Main headline */}
+          <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
+            <Text style={s.heroHeadline}>
+              Verified &amp; Trusted{'\n'}
+              <Text style={s.heroAccent}>Doctors On Demand</Text>
+            </Text>
+
+            <Text style={s.heroPitch}>
+              HealTrack AI ensures uninterrupted healthcare delivery — filling
+              critical staffing gaps fast so your facility never skips a beat.
+            </Text>
+          </Animated.View>
+
+          {/* CTAs */}
+          <View style={s.ctaRow}>
             <TouchableOpacity
-              key={i}
-              style={[styles.featureCard, f.locked && styles.featureCardLocked]}
-              activeOpacity={f.locked ? 1 : 0.75}
-              disabled={f.locked}
+              style={s.ctaPrimary}
+              activeOpacity={0.85}
+              onPress={() =>
+                navigation?.navigate('Register', { role: 'doctor' })
+              }
             >
-              <View
-                style={[
-                  styles.featureIconBox,
-                  f.locked && styles.featureIconBoxLocked,
-                ]}
-              >
-                <Text style={styles.featureIcon}>
-                  {f.locked ? '🔒' : f.icon}
-                </Text>
-              </View>
-              <Text
-                style={[
-                  styles.featureTitle,
-                  f.locked && styles.featureTitleLocked,
-                ]}
-              >
-                {f.title}
-              </Text>
-              <Text
-                style={[
-                  styles.featureDesc,
-                  f.locked && styles.featureDescLocked,
-                ]}
-              >
-                {f.locked ? 'Unlocks after verification' : f.desc}
-              </Text>
-              {!f.locked && (
-                <View style={styles.featureArrow}>
-                  <Text
-                    style={{
-                      color: C.primary,
-                      fontWeight: '800',
-                      fontSize: scale(14),
-                    }}
-                  >
-                    →
-                  </Text>
-                </View>
-              )}
+              <Text style={s.ctaPrimaryText}>Register as Doctor</Text>
+              <Text style={s.ctaIcon}>→</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={s.ctaOutline}
+              activeOpacity={0.85}
+              // onPress={() =>
+              //   navigation?.navigate('Register', { role: 'hospital' })
+              // }
+            >
+              <Text style={s.ctaOutlineText}>For Hospitals</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={s.loginBtn}
+            onPress={() => navigation?.navigate('LoginScreen')}
+          >
+            <Text style={s.loginText}>
+              Already have an account?{'  '}
+              <Text style={s.loginBold}>Login →</Text>
+            </Text>
+          </TouchableOpacity>
+
+          {/* Stats bar */}
+          {/* <View style={s.statsBar}>
+            {[
+              { val: '500+', lbl: 'Verified Doctors' },
+              { val: '200+', lbl: 'Partner Hospitals' },
+              { val: '24h', lbl: 'Avg Verification' },
+            ].map((item, i) => (
+              <React.Fragment key={i}>
+                <View style={s.statCell}>
+                  <Text style={s.statVal}>{item.val}</Text>
+                  <Text style={s.statLbl}>{item.lbl}</Text>
+                </View>
+                {i < 2 && <View style={s.statDivider} />}
+              </React.Fragment>
+            ))}
+          </View> */}
+        </Animated.View>
+
+        {/* ══════════════════════════════════════════════
+            PICK-UP LINE BANNER
+        ══════════════════════════════════════════════ */}
+        <View style={s.pickupBanner}>
+          <Text style={s.pickupQuote}>"</Text>
+          <Text style={s.pickupLine}>
+            For critical, last-minute staffing needs — HealTrack delivers the
+            right doctor to the right place, every time.
+          </Text>
+        </View>
+
+        {/* ══════════════════════════════════════════════
+            ABOUT SECTION
+        ══════════════════════════════════════════════ */}
+        <View style={s.aboutSection}>
+          <View style={s.chip}>
+            <Text style={s.chipText}>WHO WE ARE</Text>
+          </View>
+          <Text style={s.aboutTitle}>Doctor Deployment,{'\n'}Reimagined.</Text>
+          <Text style={s.aboutBody}>
+            HealTrack connects hospitals, clinics & diagnostic centres with
+            verified, qualified medical professionals — exactly when and where
+            needed. Zero admin. Zero gaps. Full care continuity.
+          </Text>
+
+          <Image
+            source={require('../assets/LandingImage.png')}
+            style={s.aboutImage}
+          />
+
+          {/* Values grid */}
+          <View style={s.valuesGrid}>
+            {values.map((v, i) => (
+              <View key={i} style={s.valueCard}>
+                <View style={s.valueDot} />
+                <Text style={s.valueTitle}>{v.title}</Text>
+                <Text style={s.valueDesc}>{v.desc}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* ══════════════════════════════════════════════
+            OUR SERVICES
+        ══════════════════════════════════════════════ */}
+        <View style={s.servicesSection}>
+          <View style={s.chip}>
+            <Text style={s.chipText}>OUR SERVICES</Text>
+          </View>
+          <Text style={s.sectionTitle}>What We Offer</Text>
+
+          <View style={s.servicesGrid}>
+            {services.map((svc, i) => (
+              <Animated.View
+                key={i}
+                style={[
+                  s.serviceCard,
+                  {
+                    opacity: cardAnims[i],
+                    transform: [{ scale: cardAnims[i] }],
+                  },
+                ]}
+              >
+                <View style={s.svcIconBox}>
+                  <Text style={s.svcIcon}>{svc.icon}</Text>
+                </View>
+                <Text style={s.svcTitle}>{svc.title}</Text>
+                <Text style={s.svcDesc}>{svc.desc}</Text>
+              </Animated.View>
+            ))}
+          </View>
+        </View>
+
+        {/* ══════════════════════════════════════════════
+            AI PLATFORM
+        ══════════════════════════════════════════════ */}
+        <View style={s.aiSection}>
+          <View style={s.aiGlow} />
+
+          <View style={[s.chip, s.chipDark]}>
+            <Text style={s.chipTextDark}>AI PLATFORM</Text>
+          </View>
+          <Text style={s.aiSectionTitle}>HealTrack{'\n'}Intelligence</Text>
+          <Text style={s.aiSectionSub}>
+            Powered by AI to match, manage and monitor your medical workforce in
+            real time.
+          </Text>
+
+          {aiFeatures.map((f, i) => (
+            <View key={i} style={s.aiCard}>
+              <View style={s.aiIconBox}>
+                <Text style={s.aiIcon}>{f.icon}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.aiTitle}>{f.title}</Text>
+                <Text style={s.aiDesc}>{f.desc}</Text>
+              </View>
+            </View>
           ))}
         </View>
 
-        {/* ── TIPS CARD ── */}
-        <View style={styles.tipsCard}>
-          <Text style={styles.tipsTitle}>💡 While you wait…</Text>
-          <View style={styles.tipRow}>
-            <Text style={styles.tipBullet}>•</Text>
-            <Text style={styles.tipText}>
-              Ensure your registration certificate is ready for verification
-            </Text>
-          </View>
-          <View style={styles.tipRow}>
-            <Text style={styles.tipBullet}>•</Text>
-            <Text style={styles.tipText}>
-              Check your email for any follow-up from our team
-            </Text>
-          </View>
-          <View style={styles.tipRow}>
-            <Text style={styles.tipBullet}>•</Text>
-            <Text style={styles.tipText}>
-              Complete your profile to rank higher in job matches
-            </Text>
-          </View>
+        {/* ══════════════════════════════════════════════
+            FINAL CTA
+        ══════════════════════════════════════════════ */}
+        <View style={s.finalCta}>
+          <View style={s.finalGlow} />
+          <Text style={s.finalEyebrow}>START TODAY — IT'S FREE</Text>
+          <Text style={s.finalTitle}>Your patients{'\n'}can't wait.</Text>
+          <Text style={s.finalSub}>
+            Register now and get matched with a verified doctor within hours.
+          </Text>
+
+          <TouchableOpacity
+            style={s.finalBtn}
+            activeOpacity={0.85}
+            onPress={() =>
+              navigation?.navigate('Register', { role: 'hospital' })
+            }
+          >
+            <Text style={s.finalBtnText}>Get Started →</Text>
+          </TouchableOpacity>
         </View>
-
-        {/* ── UPCOMING SHIFT (verified only) ── */}
-        {isVerified && (
-          <View style={styles.shiftCard}>
-            <View style={styles.shiftHeader}>
-              <Text style={styles.shiftHeaderTitle}>📅 Upcoming Shift</Text>
-              <View style={styles.shiftBadge}>
-                <Text style={styles.shiftBadgeText}>CONFIRMED</Text>
-              </View>
-            </View>
-            <Text style={styles.shiftHospital}>City Care Hospital</Text>
-            <View style={styles.shiftRow}>
-              <Text style={styles.shiftMeta}>📆 25 April 2026</Text>
-              <Text style={styles.shiftMeta}>🕙 10:00 AM – 6:00 PM</Text>
-            </View>
-          </View>
-        )}
-
-        <View style={{ height: scale(20) }} />
-      </Animated.ScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
+/* ─── Styles ─────────────────────────────────────────── */
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.offWhite },
+  scroll: { paddingBottom: scale(40) },
 
-  // ── Header
-  header: {
-    backgroundColor: C.primary,
-    paddingHorizontal: scale(20),
-    paddingTop: scale(16),
-    paddingBottom: scale(20),
-    borderBottomLeftRadius: scale(28),
-    borderBottomRightRadius: scale(28),
+  /* ── Hero ── */
+  hero: {
+    backgroundColor: C.ink,
+    paddingHorizontal: scale(22),
+    paddingTop: scale(28),
+    paddingBottom: 0,
+    overflow: 'hidden',
   },
-  headerInner: {
+  ring1: {
+    position: 'absolute',
+    width: scale(320),
+    height: scale(320),
+    borderRadius: scale(160),
+    borderWidth: 1,
+    borderColor: 'rgba(0,201,212,0.1)',
+    top: scale(-100),
+    right: scale(-100),
+  },
+  ring2: {
+    position: 'absolute',
+    width: scale(200),
+    height: scale(200),
+    borderRadius: scale(100),
+    borderWidth: 1,
+    borderColor: 'rgba(0,232,181,0.1)',
+    bottom: scale(40),
+    left: scale(-60),
+  },
+  glow: {
+    position: 'absolute',
+    width: scale(180),
+    height: scale(180),
+    borderRadius: scale(90),
+    backgroundColor: 'rgba(0,201,212,0.06)',
+    top: scale(-40),
+    right: scale(-20),
+  },
+
+  taglineStrip: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: scale(16),
+    gap: scale(8),
+    marginBottom: scale(20),
   },
-  headerGreeting: {
-    fontSize: scale(13),
-    color: 'rgba(255,255,255,0.75)',
-    fontWeight: '500',
-    marginBottom: 2,
+  pulseDot: {
+    width: scale(8),
+    height: scale(8),
+    borderRadius: scale(4),
+    backgroundColor: C.mint,
   },
-  headerName: {
-    fontSize: scale(22),
-    fontWeight: '800',
+  taglineText: {
+    color: C.mint,
+    fontSize: scale(11),
+    fontWeight: '700',
+    letterSpacing: 1.4,
+  },
+
+  heroHeadline: {
+    fontSize: scale(32),
+    fontWeight: '900',
     color: C.white,
-    letterSpacing: 0.2,
+    lineHeight: scale(40),
+    marginBottom: scale(14),
+    letterSpacing: -0.6,
   },
-  avatarCircle: {
-    width: scale(46),
-    height: scale(46),
-    borderRadius: scale(23),
-    backgroundColor: 'rgba(255,255,255,0.25)',
+  heroAccent: { color: C.teal },
+
+  heroPitch: {
+    fontSize: scale(13.5),
+    color: 'rgba(255,255,255,0.62)',
+    lineHeight: scale(22),
+    marginBottom: scale(26),
+  },
+
+  ctaRow: { flexDirection: 'row', gap: scale(10), marginBottom: scale(16) },
+  ctaPrimary: {
+    flex: 1,
+    backgroundColor: C.teal,
+    borderRadius: scale(14),
+    paddingVertical: scale(15),
+    paddingHorizontal: scale(14),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: C.teal,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    elevation: 7,
+  },
+  ctaPrimaryText: { color: C.ink, fontWeight: '800', fontSize: scale(15) },
+  ctaIcon: { color: C.ink, fontWeight: '900', fontSize: scale(16) },
+
+  ctaOutline: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: scale(14),
+    paddingVertical: scale(15),
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  avatarText: {
-    fontSize: scale(20),
-    fontWeight: '800',
-    color: C.white,
-  },
-
-  // ── Verify Banner
-  verifyBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: scale(14),
-    padding: scale(12),
-    gap: scale(10),
-  },
-  verifyBannerPending: { backgroundColor: 'rgba(255,255,255,0.18)' },
-  verifyBannerOk: { backgroundColor: 'rgba(0,184,148,0.25)' },
-  verifyIcon: { fontSize: scale(20) },
-  verifyTitle: {
-    fontSize: scale(13),
+  ctaOutlineText: {
+    color: 'rgba(255,255,255,0.88)',
     fontWeight: '700',
-    color: C.white,
-    marginBottom: 1,
-  },
-  verifySub: {
-    fontSize: scale(11),
-    color: 'rgba(255,255,255,0.78)',
-    lineHeight: scale(15),
-  },
-  verifyDot: {
-    width: scale(10),
-    height: scale(10),
-    borderRadius: scale(5),
-    alignSelf: 'flex-start',
-    marginTop: scale(4),
+    fontSize: scale(15),
   },
 
-  scroll: { padding: scale(16), paddingTop: scale(20) },
+  loginBtn: { alignItems: 'center', marginBottom: scale(22) },
+  loginText: { color: 'rgba(255,255,255,0.45)', fontSize: scale(13.5) },
+  loginBold: { color: C.teal, fontWeight: '700' },
 
-  // ── Stats
-  statsRow: {
+  statsBar: {
     flexDirection: 'row',
-    gap: scale(10),
-    marginBottom: scale(24),
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: scale(18),
+    paddingHorizontal: scale(10),
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: C.white,
-    borderRadius: scale(16),
-    padding: scale(14),
-    alignItems: 'center',
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+  statCell: { flex: 1, alignItems: 'center' },
+  statVal: {
+    fontSize: scale(22),
+    fontWeight: '900',
+    color: C.teal,
+    marginBottom: scale(2),
   },
-  statIcon: { fontSize: scale(20), marginBottom: scale(6) },
-  statValue: {
-    fontSize: scale(18),
-    fontWeight: '800',
-    color: C.text,
-    marginBottom: 2,
-  },
-  statLabel: {
+  statLbl: {
     fontSize: scale(10),
-    color: C.textMuted,
+    color: 'rgba(255,255,255,0.5)',
     fontWeight: '600',
     textAlign: 'center',
   },
+  statDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginVertical: scale(4),
+  },
 
-  // ── Features
-  sectionTitle: {
-    fontSize: scale(15),
-    fontWeight: '700',
-    color: C.text,
-    marginBottom: scale(12),
-    letterSpacing: 0.2,
-  },
-  featuresGrid: {
+  /* ── Pickup Banner ── */
+  pickupBanner: {
+    backgroundColor: C.tealDeep,
+    paddingHorizontal: scale(22),
+    paddingVertical: scale(20),
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: scale(12),
-    marginBottom: scale(24),
+    alignItems: 'flex-start',
+    gap: scale(10),
   },
-  featureCard: {
-    width: (SW - scale(32) - scale(12)) / 2,
+  pickupQuote: {
+    fontSize: scale(48),
+    lineHeight: scale(36),
+    color: C.mint,
+    fontWeight: '900',
+    marginTop: scale(-4),
+    opacity: 0.7,
+  },
+  pickupLine: {
+    flex: 1,
+    fontSize: scale(14),
+    color: C.white,
+    lineHeight: scale(22),
+    fontWeight: '600',
+    fontStyle: 'italic',
+  },
+
+  /* ── About ── */
+  aboutSection: {
     backgroundColor: C.white,
+    padding: scale(22),
+    paddingTop: scale(30),
+  },
+  chip: {
+    alignSelf: 'flex-start',
+    backgroundColor: C.tealSoft,
+    borderRadius: scale(20),
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(5),
+    marginBottom: scale(12),
+  },
+  chipText: {
+    color: C.tealDeep,
+    fontSize: scale(10),
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+
+  aboutTitle: {
+    fontSize: scale(26),
+    fontWeight: '900',
+    color: C.ink,
+    lineHeight: scale(34),
+    marginBottom: scale(12),
+    letterSpacing: -0.4,
+  },
+  aboutBody: {
+    fontSize: scale(13.5),
+    color: '#4a6375',
+    lineHeight: scale(22),
+    marginBottom: scale(20),
+  },
+  aboutImage: {
+    width: '100%',
+    height: scale(180),
+    borderRadius: scale(16),
+    marginBottom: scale(20),
+  },
+
+  valuesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: scale(10) },
+  valueCard: {
+    width: '47.5%',
+    backgroundColor: C.offWhite,
+    borderRadius: scale(14),
+    padding: scale(14),
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  valueDot: {
+    width: scale(8),
+    height: scale(8),
+    borderRadius: scale(4),
+    backgroundColor: C.teal,
+    marginBottom: scale(8),
+  },
+  valueTitle: {
+    fontWeight: '800',
+    fontSize: scale(13),
+    color: C.ink,
+    marginBottom: scale(3),
+  },
+  valueDesc: { fontSize: scale(11), color: '#6b8799', lineHeight: scale(16) },
+
+  /* ── Services ── */
+  servicesSection: {
+    backgroundColor: C.offWhite,
+    padding: scale(22),
+    paddingTop: scale(30),
+  },
+  sectionTitle: {
+    fontSize: scale(24),
+    fontWeight: '900',
+    color: C.ink,
+    marginBottom: scale(20),
+    letterSpacing: -0.3,
+  },
+  servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: scale(12) },
+  serviceCard: {
+    width: '47%',
+    backgroundColor: C.card,
     borderRadius: scale(18),
     padding: scale(16),
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.09,
-    shadowRadius: 12,
-    elevation: 3,
-    minHeight: scale(130),
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: C.tealDeep,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  featureCardLocked: {
-    opacity: 0.6,
-    backgroundColor: '#f8fefe',
-  },
-  featureIconBox: {
-    width: scale(40),
-    height: scale(40),
-    borderRadius: scale(12),
-    backgroundColor: C.primaryLight,
+  svcIconBox: {
+    width: scale(44),
+    height: scale(44),
+    borderRadius: scale(13),
+    backgroundColor: C.tealSoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: scale(10),
   },
-  featureIconBoxLocked: { backgroundColor: '#f0f4f4' },
-  featureIcon: { fontSize: scale(20) },
-  featureTitle: {
+  svcIcon: { fontSize: scale(20) },
+  svcTitle: {
+    fontWeight: '800',
     fontSize: scale(13),
-    fontWeight: '700',
-    color: C.text,
-    marginBottom: 4,
+    color: C.ink,
+    marginBottom: scale(4),
   },
-  featureTitleLocked: { color: C.textMuted },
-  featureDesc: {
-    fontSize: scale(11),
-    color: C.textSub,
-    lineHeight: scale(16),
+  svcDesc: { fontSize: scale(11), color: '#6b8799', lineHeight: scale(16) },
+
+  /* ── AI Section ── */
+  aiSection: {
+    backgroundColor: C.ink,
+    padding: scale(22),
+    paddingTop: scale(30),
+    overflow: 'hidden',
   },
-  featureDescLocked: { color: C.textMuted },
-  featureArrow: {
+  aiGlow: {
     position: 'absolute',
-    bottom: scale(14),
-    right: scale(14),
+    width: scale(250),
+    height: scale(250),
+    borderRadius: scale(125),
+    backgroundColor: 'rgba(0,201,212,0.07)',
+    top: scale(-80),
+    right: scale(-80),
+  },
+  chipDark: {
+    backgroundColor: 'rgba(0,201,212,0.15)',
+    borderColor: 'rgba(0,201,212,0.2)',
+    borderWidth: 1,
+  },
+  chipTextDark: {
+    color: C.teal,
+    fontSize: scale(10),
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
 
-  // ── Tips
-  tipsCard: {
-    backgroundColor: C.primaryLight,
-    borderRadius: scale(18),
-    padding: scale(16),
-    marginBottom: scale(20),
-    borderLeftWidth: 4,
-    borderLeftColor: C.primary,
+  aiSectionTitle: {
+    fontSize: scale(28),
+    fontWeight: '900',
+    color: C.white,
+    lineHeight: scale(36),
+    marginBottom: scale(10),
+    letterSpacing: -0.5,
   },
-  tipsTitle: {
+  aiSectionSub: {
     fontSize: scale(13),
-    fontWeight: '700',
-    color: C.primaryDark,
-    marginBottom: scale(10),
+    color: 'rgba(255,255,255,0.55)',
+    lineHeight: scale(21),
+    marginBottom: scale(24),
   },
-  tipRow: {
+  aiCard: {
     flexDirection: 'row',
-    gap: scale(8),
-    marginBottom: scale(6),
-    alignItems: 'flex-start',
-  },
-  tipBullet: {
-    color: C.primary,
-    fontWeight: '700',
-    fontSize: scale(14),
-    lineHeight: scale(18),
-  },
-  tipText: {
-    flex: 1,
-    fontSize: scale(12),
-    color: C.primaryDark,
-    lineHeight: scale(18),
-  },
-
-  // ── Shift Card
-  shiftCard: {
-    backgroundColor: C.white,
-    borderRadius: scale(18),
-    padding: scale(16),
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.09,
-    shadowRadius: 12,
-    elevation: 3,
-    marginBottom: scale(12),
-  },
-  shiftHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: scale(14),
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: scale(16),
+    padding: scale(14),
     marginBottom: scale(10),
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
   },
-  shiftHeaderTitle: { fontSize: scale(14), fontWeight: '700', color: C.text },
-  shiftBadge: {
-    backgroundColor: C.success,
-    borderRadius: scale(8),
-    paddingHorizontal: scale(8),
-    paddingVertical: scale(3),
+  aiIconBox: {
+    width: scale(44),
+    height: scale(44),
+    borderRadius: scale(13),
+    backgroundColor: 'rgba(0,201,212,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  shiftBadgeText: {
-    fontSize: scale(9),
+  aiIcon: { fontSize: scale(20) },
+  aiTitle: {
     color: C.white,
     fontWeight: '800',
-    letterSpacing: 1,
+    fontSize: scale(13.5),
+    marginBottom: scale(3),
   },
-  shiftHospital: {
-    fontSize: scale(16),
-    fontWeight: '700',
-    color: C.primary,
-    marginBottom: scale(8),
+  aiDesc: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: scale(12),
+    lineHeight: scale(18),
   },
-  shiftRow: { flexDirection: 'row', gap: scale(16) },
-  shiftMeta: { fontSize: scale(12), color: C.textSub, fontWeight: '500' },
+
+  /* ── Final CTA ── */
+  finalCta: {
+    backgroundColor: C.tealDeep,
+    padding: scale(28),
+    paddingBottom: scale(40),
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  finalGlow: {
+    position: 'absolute',
+    width: scale(300),
+    height: scale(300),
+    borderRadius: scale(150),
+    backgroundColor: 'rgba(0,232,181,0.1)',
+    top: scale(-100),
+    right: scale(-80),
+  },
+  finalEyebrow: {
+    color: C.mint,
+    fontSize: scale(10),
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginBottom: scale(10),
+  },
+  finalTitle: {
+    fontSize: scale(34),
+    fontWeight: '900',
+    color: C.white,
+    textAlign: 'center',
+    lineHeight: scale(42),
+    marginBottom: scale(12),
+    letterSpacing: -0.6,
+  },
+  finalSub: {
+    fontSize: scale(13.5),
+    color: 'rgba(255,255,255,0.65)',
+    textAlign: 'center',
+    lineHeight: scale(22),
+    marginBottom: scale(28),
+  },
+  finalBtn: {
+    backgroundColor: C.white,
+    borderRadius: scale(16),
+    paddingVertical: scale(16),
+    paddingHorizontal: scale(36),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  finalBtnText: { color: C.tealDeep, fontWeight: '800', fontSize: scale(15) },
 });
 
 export default DashboardScreen;

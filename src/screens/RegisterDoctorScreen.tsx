@@ -21,6 +21,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import TermsModal from '../components/TermsModal';
 import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
+import AppHeader from '../components/AppHeader';
+import { useAuth } from '../context/AuthContext';
 
 // ─── RESPONSIVE SCALE ─────────────────────────────────────────────────────────
 const { width: SW } = Dimensions.get('window');
@@ -49,24 +51,30 @@ const BASE_URL =
 
 const SPECIALIZATIONS = [
   'General Physician',
-  'Cardiologist',
-  'Dermatologist',
-  'ENT Specialist',
-  'Gastroenterologist',
-  'Gynecologist',
-  'Neurologist',
-  'Oncologist',
-  'Ophthalmologist',
-  'Orthopedic Surgeon',
-  'Pediatrician',
-  'Psychiatrist',
-  'Pulmonologist',
-  'Radiologist',
-  'Urologist',
-  'Anesthesiologist',
-  'Endocrinologist',
-  'Nephrologist',
-  'Rheumatologist',
+  'Pediatrics',
+  'Gynecology & Obstetrics',
+  'Orthopedics',
+  'Dermatology',
+  'ENT',
+  'Ophthalmology',
+  'Psychiatry',
+  'General Surgery',
+  'Anesthesiology',
+  'Pathology',
+  'Radiology',
+  'Cardiology',
+  'Neurology',
+  'Gastroenterology',
+  'Pulmonology',
+  'Nephrology',
+  'Urology',
+  'Oncology',
+  'Endocrinology',
+  'Rheumatology',
+  'Physiotherapy',
+  'Ayurveda',
+  'Homeopathy',
+  'Dentistry',
   'Other',
 ];
 const QUALIFICATIONS = [
@@ -96,49 +104,41 @@ const EXPERIENCE_RANGES = [
 ];
 
 const MEDICAL_COUNCILS = [
-  'None',
   'Andhra Pradesh Medical Council',
   'Arunachal Pradesh Medical Council',
   'Assam Medical Council',
-  'Bhopal Medical Council',
   'Bihar Medical Council',
-  'Bombay Medical Council',
-  'Chandigarh Medical Council',
-  'Chattisgarh Medical Council',
+  'Chhattisgarh Medical Council',
   'Delhi Medical Council',
   'Goa Medical Council',
   'Gujarat Medical Council',
   'Haryana Medical Council',
   'Himachal Pradesh Medical Council',
-  'Hyderabad Medical Council',
   'Jammu & Kashmir Medical Council',
   'Jharkhand Medical Council',
   'Karnataka Medical Council',
+  'Kerala Medical Council',
   'Madhya Pradesh Medical Council',
-  'Madras Medical Council',
-  'Mahakoshal Medical Council',
   'Maharashtra Medical Council',
   'Manipur Medical Council',
-  'Medical Council of India',
-  'Medical Council of Tanganyika',
   'Meghalaya Medical Council',
   'Mizoram Medical Council',
-  'Mysore Medical Council',
   'Nagaland Medical Council',
-  'Orissa Council of Medical Registration',
-  'Pondicherry Medical Council',
+  'Odisha Medical Council',
   'Punjab Medical Council',
   'Rajasthan Medical Council',
   'Sikkim Medical Council',
   'Tamil Nadu Medical Council',
-  'Telangana State Medical Council',
-  'Travancore Cochin Medical Council, Trivandrum',
-  'Tripura State Medical Council',
+  'Telangana Medical Council',
+  'Tripura Medical Council',
   'Uttar Pradesh Medical Council',
   'Uttarakhand Medical Council',
-  'Vidharba Medical Council',
   'West Bengal Medical Council',
+  'National Medical Commission (NMC)',
+  'Other',
 ];
+
+const TITLES = ['Dr', 'Mr', 'Ms', 'Mrs'];
 
 // Generate year list from 1970 to current year
 const currentYear = new Date().getFullYear();
@@ -161,6 +161,7 @@ const MONTHS = [
 ];
 
 interface FormData {
+  title: string;
   first_name: string;
   middle_name: string;
   last_name: string;
@@ -329,6 +330,7 @@ const RegisterDoctorScreen: React.FC = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [dataConsentAccepted, setDataConsentAccepted] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
+  const { setDoctor } = useAuth();
 
   // Unified dropdown config — supports both string[] and {label,value}[] options
   const [dropdownConfig, setDropdownConfig] = useState<{
@@ -345,6 +347,7 @@ const RegisterDoctorScreen: React.FC = () => {
   const scrollRef = useRef<ScrollView>(null);
 
   const [form, setForm] = useState<FormData>({
+    title: '',
     first_name: '',
     middle_name: '',
     last_name: '',
@@ -364,7 +367,7 @@ const RegisterDoctorScreen: React.FC = () => {
     city: '',
     state: '',
     pincode: '',
-    job_type: [],
+    job_type: ['locum_shifts'],
     preferred_km: '',
     preferred_pincode: '',
   });
@@ -458,6 +461,7 @@ const RegisterDoctorScreen: React.FC = () => {
   const validateStep = (step: number): boolean => {
     const e: FormErrors = {};
     if (step === 1) {
+      if (!form.title) e.title = 'Please select title';
       if (!form.first_name.trim()) e.first_name = 'First name is required';
       if (!form.last_name.trim()) e.last_name = 'Last name is required';
       if (!form.mobile_number.trim())
@@ -478,31 +482,31 @@ const RegisterDoctorScreen: React.FC = () => {
       if (!form.experience) e.experience = 'Please select experience range';
       if (!form.medical_council_name)
         e.medical_council_name = 'Please select a medical council';
-      if (!form.registration_number.trim())
-        e.registration_number = 'Registration number is required';
+      // if (!form.registration_number.trim())
+      //   e.registration_number = 'Registration number is required';
       // Validate registration date — all three parts required
-      const {
-        registration_date_day,
-        registration_date_month,
-        registration_date_year,
-      } = form;
-      if (
-        !registration_date_day ||
-        !registration_date_month ||
-        !registration_date_year
-      ) {
-        e.registration_date = 'Please enter a complete registration date';
-      } else {
-        const day = parseInt(registration_date_day, 10);
-        const maxDay = new Date(
-          Number(registration_date_year),
-          Number(registration_date_month),
-          0,
-        ).getDate();
-        if (day < 1 || day > maxDay) {
-          e.registration_date = `Day must be between 1 and ${maxDay} for the selected month`;
-        }
-      }
+      // const {
+      //   registration_date_day,
+      //   registration_date_month,
+      //   registration_date_year,
+      // } = form;
+      // if (
+      //   !registration_date_day ||
+      //   !registration_date_month ||
+      //   !registration_date_year
+      // ) {
+      //   e.registration_date = 'Please enter a complete registration date';
+      // }
+      // else {
+      //   const day = parseInt(registration_date_day, 10);
+      //   const maxDay = new Date(
+      //     Number(registration_date_year),
+      //     Number(registration_date_month),
+      //     0,
+      //   ).getDate();
+      // if (day < 1 || day > maxDay) {
+      //   e.registration_date = `Day must be between 1 and ${maxDay} for the selected month`;
+      // }}
     }
     if (step === 3) {
       if (!form.pincode.trim()) e.pincode = 'Pincode is required';
@@ -636,7 +640,8 @@ const RegisterDoctorScreen: React.FC = () => {
           : undefined;
 
       const payload: Record<string, any> = {
-        first_name: form.first_name.trim(),
+        // first_name: form.first_name.trim(),
+        first_name: `${form.title} ${form.first_name}`.trim(),
         middle_name: form.middle_name.trim(),
         last_name: form.last_name.trim(),
         mobile_number: `+91${form.mobile_number}`,
@@ -646,7 +651,7 @@ const RegisterDoctorScreen: React.FC = () => {
         state: form.state,
         address_line1: form.clinic_address.trim(),
         medical_council_name: form.medical_council_name.trim(),
-        doctor_license_no: form.registration_number.trim(),
+        // doctor_license_no: form.registration_number.trim(),
         ...(registrationDateISO && { registration_date: registrationDateISO }),
         education: [educationEntry],
         experience: [experienceEntry],
@@ -688,6 +693,20 @@ const RegisterDoctorScreen: React.FC = () => {
         setDoctorUniqueId(data.doctor.doctor_unique_id);
       }
 
+      if (data.doctor?.doctor_unique_id) {
+        setDoctorUniqueId(data.doctor.doctor_unique_id);
+      }
+
+      setSubmitted(true);
+
+      setDoctor({
+        title: form.title,
+        first_name: form.first_name,
+        last_name: form.last_name,
+        specialization: form.specialization,
+        doctor_unique_id: data.doctor?.doctor_unique_id,
+      });
+
       setSubmitted(true);
 
       Animated.spring(successScale, {
@@ -727,7 +746,8 @@ const RegisterDoctorScreen: React.FC = () => {
 
             <Text style={styles.successTitle}>Welcome Aboard!</Text>
             <Text style={styles.successName}>
-              Dr. {form.first_name}
+              {/* Dr. {form.first_name} */}
+              {form.title}. {form.first_name}
               {form.middle_name ? ` ${form.middle_name}` : ''} {form.last_name}
             </Text>
             <Text style={styles.successSub}>
@@ -785,7 +805,7 @@ const RegisterDoctorScreen: React.FC = () => {
               gap: scale(8),
             }}
             onPress={() =>
-              navigation.replace('Dashboard', { name: form.first_name })
+              navigation.navigate('DashboardScreen', { name: form.first_name })
             }
             activeOpacity={0.85}
           >
@@ -811,7 +831,7 @@ const RegisterDoctorScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor={C.primaryDark} />
 
       {/* ─── HEADER ─────────────────────────────────────────────────────── */}
-      <View style={styles.headerTop}>
+      {/* <View style={styles.headerTop}>
         <Image
           source={require('../assets/image.png')}
           style={styles.headerLogoImg}
@@ -821,7 +841,11 @@ const RegisterDoctorScreen: React.FC = () => {
         <Text style={styles.headerBrandSub} numberOfLines={1}>
           DOCTOR ONBOARDING
         </Text>
-      </View>
+      </View> */}
+
+      <AppHeader
+        onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
+      />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -846,6 +870,15 @@ const RegisterDoctorScreen: React.FC = () => {
                   icon="👤"
                   title="Basic Information"
                   step="Step 1 of 3"
+                />
+                <DropdownField
+                  label="Title"
+                  required
+                  icon="🩺"
+                  placeholder="Select title"
+                  value={form.title}
+                  error={errors.title}
+                  onPress={() => openDropdown('title', TITLES, 'Select Title')}
                 />
                 <Field
                   label="First Name"
@@ -896,6 +929,60 @@ const RegisterDoctorScreen: React.FC = () => {
                   error={errors.email}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                />
+
+                {/* ─── MOVED FROM STEP 3 ─── */}
+
+                <Field
+                  label="Pincode"
+                  required
+                  icon="📮"
+                  placeholder="Enter your area pincode"
+                  value={form.pincode}
+                  onChangeText={handlePincodeChange}
+                  error={errors.pincode}
+                  keyboardType="numeric"
+                  maxLength={6}
+                />
+
+                {pincodeLoading && (
+                  <Text style={styles.pinFetching}>⏳ Fetching location…</Text>
+                )}
+
+                {pincodeFetched && (
+                  <Text style={styles.pinSuccess}>
+                    ✅ Location fetched successfully
+                  </Text>
+                )}
+
+                <Field
+                  label="City / District"
+                  icon="🏙️"
+                  value={form.city}
+                  onChangeText={() => {}}
+                  placeholder="Auto-filled from pincode"
+                  error={errors.city}
+                />
+
+                <Field
+                  label="State"
+                  icon="🗺️"
+                  value={form.state}
+                  onChangeText={() => {}}
+                  placeholder="Auto-filled from pincode"
+                  error={errors.state}
+                />
+
+                <Field
+                  label="Clinic / Home Address"
+                  required
+                  icon="📍"
+                  placeholder="Enter your full address"
+                  value={form.clinic_address}
+                  onChangeText={v => setField('clinic_address', v)}
+                  error={errors.clinic_address}
+                  multiline
+                  numberOfLines={3}
                 />
               </View>
             )}
@@ -988,7 +1075,7 @@ const RegisterDoctorScreen: React.FC = () => {
                 />
 
                 {/* ── Registration Number (unchanged) ── */}
-                <Field
+                {/* <Field
                   label="Medical Registration Number"
                   required
                   icon="🪪"
@@ -997,10 +1084,10 @@ const RegisterDoctorScreen: React.FC = () => {
                   onChangeText={v => setField('registration_number', v)}
                   error={errors.registration_number}
                   autoCapitalize="characters"
-                />
+                /> */}
 
                 {/* ── NEW: Registration Date ── */}
-                <DatePickerField
+                {/* <DatePickerField
                   label="Registration Date"
                   required
                   day={form.registration_date_day}
@@ -1031,7 +1118,7 @@ const RegisterDoctorScreen: React.FC = () => {
                   onOpenDropdown={(field, options, title) =>
                     openDropdown(field as any, options as string[], title)
                   }
-                />
+                /> */}
 
                 <InfoBox text="Your registration number will be verified with the Medical Council of India." />
               </View>
@@ -1060,18 +1147,28 @@ const RegisterDoctorScreen: React.FC = () => {
                   </Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                     {[
-                      { key: 'full_time', label: 'Full-time' },
+                      // { key: 'full_time', label: 'Full-time' },
                       { key: 'locum_shifts', label: 'Locum Shifts' },
-                      { key: 'teleconsultation', label: 'Teleconsultation' },
+                      // { key: 'teleconsultation', label: 'Teleconsultation' },
                     ].map(({ key, label }) => {
                       const selected = form.job_type.includes(key);
                       return (
                         <TouchableOpacity
                           key={key}
+                          // onPress={() => {
+                          //   const updated = selected
+                          //     ? form.job_type.filter(t => t !== key)
+                          //     : [...form.job_type, key];
+                          //   setField('job_type', updated);
+                          // }}
                           onPress={() => {
                             const updated = selected
                               ? form.job_type.filter(t => t !== key)
                               : [...form.job_type, key];
+
+                            // ❗ Prevent removing locum_shifts
+                            if (key === 'locum_shifts' && selected) return;
+
                             setField('job_type', updated);
                           }}
                           style={{
@@ -1155,62 +1252,15 @@ const RegisterDoctorScreen: React.FC = () => {
                   )}
                 </View>
 
-                <Field
+                {/* <Field
                   label="Clinic / Hospital Name"
                   icon="🏥"
                   placeholder="Enter clinic or hospital name (optional)"
                   value={form.clinic_name}
                   onChangeText={v => setField('clinic_name', v)}
                   autoCapitalize="words"
-                />
+                /> */}
 
-                <Field
-                  label="Pincode"
-                  required
-                  icon="📮"
-                  placeholder="Enter your area pincode"
-                  value={form.pincode}
-                  onChangeText={handlePincodeChange}
-                  error={errors.pincode}
-                  keyboardType="numeric"
-                  maxLength={6}
-                />
-                {pincodeLoading && (
-                  <Text style={styles.pinFetching}>⏳ Fetching location…</Text>
-                )}
-                {pincodeFetched && (
-                  <Text style={styles.pinSuccess}>
-                    ✅ Location fetched successfully
-                  </Text>
-                )}
-
-                <Field
-                  label="City / District"
-                  icon="🏙️"
-                  value={form.city}
-                  onChangeText={() => {}}
-                  placeholder="Auto-filled from pincode"
-                  error={errors.city}
-                />
-                <Field
-                  label="State"
-                  icon="🗺️"
-                  value={form.state}
-                  onChangeText={() => {}}
-                  placeholder="Auto-filled from pincode"
-                  error={errors.state}
-                />
-                <Field
-                  label="Clinic / Home Address"
-                  required
-                  icon="📍"
-                  placeholder="Enter your full address"
-                  value={form.clinic_address}
-                  onChangeText={v => setField('clinic_address', v)}
-                  error={errors.clinic_address}
-                  multiline
-                  numberOfLines={3}
-                />
                 <Field
                   label="Preferred Work Pincode"
                   icon="📮"

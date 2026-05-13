@@ -26,7 +26,7 @@ import {
 } from '../context/AuthContext';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 
-import { pick, types, isCancel } from '@react-native-documents/picker';
+import { pick, types } from '@react-native-documents/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -102,16 +102,24 @@ const patchDoctorProfile = async (
 };
 
 // ─── File Pickers ─────────────────────────────────────────────────────────────
-
 const pickDocument = async () => {
   try {
     const res = await pick({
       type: [types.pdf],
     });
 
-    return res;
+    return Array.isArray(res) ? res : [res];
   } catch (err) {
-    if (isCancel(err)) return null;
+    console.log('Document Picker Error:', err);
+
+    // Handle cancel safely
+    if (
+      err?.code === 'DOCUMENT_PICKER_CANCELED' ||
+      err?.message?.includes('cancel')
+    ) {
+      return null;
+    }
+
     throw err;
   }
 };
@@ -122,15 +130,23 @@ const pickImage = async () => {
       type: [types.images],
     });
 
-    return res;
+    return Array.isArray(res) ? res : [res];
   } catch (err) {
-    if (isCancel(err)) return null;
+    console.log('Image Picker Error:', err);
+
+    // Handle cancel safely
+    if (
+      err?.code === 'DOCUMENT_PICKER_CANCELED' ||
+      err?.message?.includes('cancel')
+    ) {
+      return null;
+    }
+
     throw err;
   }
 };
 
-// ─── Core Upload via XHR ──────────────────────────────────────────────────────
-// Uses XMLHttpRequest — fetch() silently fails for multipart on iOS simulator.
+// ─── Core Upload via ReactNativeBlobUtil ──────────────────────────────────────
 // fieldName must match multer field: "profile_pic" | "resume"
 
 const uploadFileViaXHR = async (
@@ -139,7 +155,6 @@ const uploadFileViaXHR = async (
   doctorId: string,
   token: string,
 ): Promise<DoctorProfile> => {
-  // ── MIME type ────────────────────────────────────────────────────────────
   const mimeType: string =
     fieldName === 'profile_pic'
       ? file.type?.startsWith('image/')
@@ -147,7 +162,6 @@ const uploadFileViaXHR = async (
         : 'image/jpeg'
       : 'application/pdf';
 
-  // ── File name ────────────────────────────────────────────────────────────
   const fileName: string =
     file.name ||
     file.fileName ||
@@ -179,11 +193,8 @@ const uploadFileViaXHR = async (
           name: fieldName,
           filename: fileName,
           type: mimeType,
-          // RNFetchBlob handles both content:// and file:// URIs natively
           data: ReactNativeBlobUtil.wrap(
-            Platform.OS === 'android'
-              ? uri // keep content:// as-is
-              : uri.replace('file://', ''), // iOS needs no prefix
+            Platform.OS === 'android' ? uri : uri.replace('file://', ''),
           ),
         },
       ],
@@ -215,8 +226,7 @@ const uploadFileViaXHR = async (
     }
   } catch (err: any) {
     console.error('[Upload] ReactNativeBlobUtil error:', err);
-    // Re-throw with clean message
-    throw new Error(err?.message || 'Upload failed');
+    throw new Error(err?.message || '');
   }
 };
 
@@ -428,6 +438,85 @@ const sb = StyleSheet.create({
   dot: { width: scale(6), height: scale(6), borderRadius: scale(3) },
   text: { fontSize: scale(10), fontWeight: '800', letterSpacing: 1 },
 });
+
+// ─── ProfileAvatar ────────────────────────────────────────────────────────────
+// Dedicated component that handles: local preview → server URL → initials fallback
+
+interface ProfileAvatarProps {
+  localUri: string | null;
+  serverUrl?: string;
+  initials: string;
+  uploading: boolean;
+  isVerified: boolean;
+  onPress: () => void;
+}
+
+const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
+  localUri,
+  serverUrl,
+  initials,
+  uploading,
+  isVerified,
+  onPress,
+}) => {
+  // Priority: localUri (instant preview) → serverUrl (after upload success) → initials
+  const imageUri = localUri || serverUrl || null;
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      disabled={uploading}
+      style={styles.avatarRing}
+    >
+      {uploading ? (
+        // Show spinner over whatever was there before
+        <View style={styles.avatar}>
+          {imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={[styles.avatar, { opacity: 0.5 }]}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.avatarText}>{initials}</Text>
+          )}
+          <View style={styles.avatarUploadOverlay}>
+            <ActivityIndicator color={C.white} size="large" />
+            <Text style={styles.avatarUploadText}>Uploading…</Text>
+          </View>
+        </View>
+      ) : imageUri ? (
+        <Image
+          source={{ uri: imageUri }}
+          style={styles.avatar}
+          resizeMode="cover"
+          onError={() => {
+            // Image load error is silently ignored; fallback to initials handled
+            // by clearing the URI at the component level if needed
+            console.warn('[ProfileAvatar] Failed to load image:', imageUri);
+          }}
+        />
+      ) : (
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initials}</Text>
+        </View>
+      )}
+
+      {/* Camera badge — always visible so user knows it's tappable */}
+      <View style={styles.cameraBadge}>
+        <Text style={{ fontSize: scale(10) }}>📷</Text>
+      </View>
+
+      {/* Verified tick */}
+      {isVerified && (
+        <View style={styles.verifiedBadge}>
+          <Text style={styles.verifiedTick}>✓</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
 
 // ─── EditModal ────────────────────────────────────────────────────────────────
 
@@ -693,6 +782,14 @@ const ProfileScreen: React.FC = () => {
   const [modalState, setModalState] = useState<ModalState>(MODAL_CLOSED);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  // ── Profile picture preview state ────────────────────────────────────────
+  // localProfilePicUri: set immediately on file pick for instant preview.
+  // Cleared to null once the server responds with a confirmed URL, so the
+  // component falls back to profile.profile_pic_url (the authoritative value).
+  const [localProfilePicUri, setLocalProfilePicUri] = useState<string | null>(
+    null,
+  );
+
   // ─── Logout ───────────────────────────────────────────────────────────────
 
   const handleLogout = () => {
@@ -723,6 +820,8 @@ const ProfileScreen: React.FC = () => {
       const doctor = await fetchDoctorProfile(token);
       setProfile(doctor);
       setAuthDoctor(doctor);
+      // Clear any local preview when we fetch fresh data — server URL is now authoritative
+      setLocalProfilePicUri(null);
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 600,
@@ -760,7 +859,6 @@ const ProfileScreen: React.FC = () => {
 
   const updateProfile = async (body: Record<string, any>) => {
     if (!profile || !token) return;
-
     if (
       body.alternate_mobile_number &&
       !isValidPhone(body.alternate_mobile_number)
@@ -768,7 +866,6 @@ const ProfileScreen: React.FC = () => {
       Alert.alert('Invalid Phone', 'Enter valid 10-digit mobile number');
       return;
     }
-
     setSaving(true);
     try {
       const updated = await patchDoctorProfile(profile._id, token, body);
@@ -783,17 +880,38 @@ const ProfileScreen: React.FC = () => {
   };
 
   // ─── Upload Profile Picture ───────────────────────────────────────────────
+  //
+  // Flow:
+  //  1. User picks image  →  setLocalProfilePicUri(file.uri)  →  instant avatar preview
+  //  2. Upload starts     →  uploadingProfilePic = true        →  spinner overlay on avatar
+  //  3a. Upload success   →  setProfile(updated)               →  profile.profile_pic_url is now set
+  //                          setLocalProfilePicUri(null)        →  drop local URI; use server URL
+  //  3b. Upload failure   →  setLocalProfilePicUri(null)        →  revert to previous state
 
   const handleUploadProfilePic = async () => {
     if (!token || !profile) {
       Alert.alert('Error', 'Session expired.');
       return;
     }
-    try {
-      const file = await pickImage();
-      if (!file) return;
 
-      console.log('[ProfilePic] Picked file:', JSON.stringify(file));
+    try {
+      const result = await pick({
+        type: [types.images],
+      });
+
+      // User cancelled picker
+      if (!result) {
+        return;
+      }
+
+      const file = Array.isArray(result) ? result[0] : result;
+
+      // No file selected
+      if (!file?.uri) {
+        return;
+      }
+
+      setLocalProfilePicUri(file.uri);
       setUploadingProfilePic(true);
 
       const updated = await uploadFileViaXHR(
@@ -802,12 +920,29 @@ const ProfileScreen: React.FC = () => {
         profile._id,
         token,
       );
+
       setProfile(updated);
       setAuthDoctor(updated);
-      Alert.alert('Success', 'Profile picture updated');
+      setLocalProfilePicUri(null);
+
+      Alert.alert('Success', 'Profile picture updated successfully');
     } catch (err: any) {
-      console.error('[ProfilePic] Error:', err.message);
-      Alert.alert('Upload Error', err.message);
+      console.log('PROFILE PICKER ERROR:', err);
+
+      // Ignore cancel event completely
+      if (
+        err?.code === 'DOCUMENT_PICKER_CANCELED' ||
+        err?.message?.toLowerCase()?.includes('cancel')
+      ) {
+        return;
+      }
+
+      setLocalProfilePicUri(null);
+
+      Alert.alert(
+        'Upload Failed',
+        err?.message || 'Could not upload profile picture.',
+      );
     } finally {
       setUploadingProfilePic(false);
     }
@@ -821,9 +956,10 @@ const ProfileScreen: React.FC = () => {
       return;
     }
     try {
-      const file = await pickDocument();
-      if (!file) return;
+      const files = await pickDocument();
+      if (!files || files.length === 0) return;
 
+      const file = files[0];
       console.log('[Resume] Picked file:', JSON.stringify(file));
       setUploadingResume(true);
 
@@ -838,13 +974,13 @@ const ProfileScreen: React.FC = () => {
       Alert.alert('Success', 'Resume uploaded successfully');
     } catch (err: any) {
       console.error('[Resume] Error:', err.message);
-      Alert.alert('Upload Error', err.message);
+      Alert.alert('Upload Failed', err.message || 'Could not upload resume.');
     } finally {
       setUploadingResume(false);
     }
   };
 
-  // ─── Upload Certificate (placeholder — not wired to UI yet) ───────────────
+  // ─── Upload Certificate ───────────────────────────────────────────────────
 
   const handleAddCertificate = async () => {
     Alert.alert('Coming Soon', 'Certificate upload will be available soon.');
@@ -1175,38 +1311,15 @@ const ProfileScreen: React.FC = () => {
           <View style={styles.heroBlob1} />
           <View style={styles.heroBlob2} />
           <View style={styles.heroContent}>
-            <TouchableOpacity
+            {/* ── PROFILE AVATAR (with instant preview) ── */}
+            <ProfileAvatar
+              localUri={localProfilePicUri}
+              serverUrl={profile.profile_pic_url}
+              initials={initials}
+              uploading={uploadingProfilePic}
+              isVerified={!!profile.is_verified}
               onPress={handleUploadProfilePic}
-              activeOpacity={0.8}
-              disabled={uploadingProfilePic}
-              style={styles.avatarRing}
-            >
-              {uploadingProfilePic ? (
-                <ActivityIndicator
-                  color={C.white}
-                  size="large"
-                  style={{ width: scale(76), height: scale(76) }}
-                />
-              ) : profile.profile_pic_url ? (
-                <Image
-                  source={{ uri: profile.profile_pic_url }}
-                  style={styles.avatar}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{initials}</Text>
-                </View>
-              )}
-              <View style={styles.cameraBadge}>
-                <Text style={{ fontSize: scale(10) }}>📷</Text>
-              </View>
-              {profile.is_verified && (
-                <View style={styles.verifiedBadge}>
-                  <Text style={styles.verifiedTick}>✓</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            />
 
             <Text style={styles.heroName}>{fullName}</Text>
             <Text style={styles.heroSpec}>
@@ -1583,16 +1696,34 @@ const ProfileScreen: React.FC = () => {
 
           <View style={styles.divider} />
 
-          {/* Profile Picture */}
+          {/* Profile Picture document row */}
           <View style={styles.docRow}>
             <View style={styles.docIcon}>
-              <Text style={{ fontSize: scale(20) }}>🖼️</Text>
+              {/* Mini preview of the profile picture in the docs section */}
+              {localProfilePicUri || profile.profile_pic_url ? (
+                <Image
+                  source={{
+                    uri: localProfilePicUri || profile.profile_pic_url,
+                  }}
+                  style={styles.docIconImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={{ fontSize: scale(20) }}>🖼️</Text>
+              )}
             </View>
             <View style={styles.docBody}>
               <Text style={styles.docLabel}>Profile Picture</Text>
               {profile.profile_pic_url ? (
                 <Text style={styles.docLink} numberOfLines={1}>
-                  {profile.profile_pic_url}
+                  Uploaded ✓
+                </Text>
+              ) : localProfilePicUri ? (
+                <Text
+                  style={[styles.docLink, { color: C.warning }]}
+                  numberOfLines={1}
+                >
+                  Uploading…
                 </Text>
               ) : (
                 <Text style={styles.docEmpty}>No profile picture uploaded</Text>
@@ -1610,7 +1741,9 @@ const ProfileScreen: React.FC = () => {
               {uploadingProfilePic ? (
                 <ActivityIndicator color={C.white} size="small" />
               ) : (
-                <Text style={styles.docUploadTxt}>Upload</Text>
+                <Text style={styles.docUploadTxt}>
+                  {profile.profile_pic_url ? 'Change' : 'Upload'}
+                </Text>
               )}
             </TouchableOpacity>
           </View>
@@ -1722,6 +1855,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(20),
   },
 
+  // ── Avatar styles ──────────────────────────────────────────────────────────
   avatarRing: {
     width: scale(88),
     height: scale(88),
@@ -1739,8 +1873,28 @@ const styles = StyleSheet.create({
     backgroundColor: C.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   avatarText: { fontSize: scale(28), fontWeight: '900', color: C.white },
+  // Overlay shown on top of the avatar while uploading
+  avatarUploadOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: scale(38),
+    backgroundColor: 'rgba(0,61,74,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: scale(4),
+  },
+  avatarUploadText: {
+    fontSize: scale(8),
+    color: C.white,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
   cameraBadge: {
     position: 'absolute',
     bottom: scale(2),
@@ -1768,6 +1922,7 @@ const styles = StyleSheet.create({
     borderColor: C.primaryDeep,
   },
   verifiedTick: { color: C.white, fontSize: scale(12), fontWeight: '900' },
+  // ──────────────────────────────────────────────────────────────────────────
 
   heroName: {
     fontSize: scale(22),
@@ -2017,6 +2172,13 @@ const styles = StyleSheet.create({
     backgroundColor: C.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  // Mini image preview inside the doc icon cell
+  docIconImage: {
+    width: scale(42),
+    height: scale(42),
+    borderRadius: scale(12),
   },
   docBody: { flex: 1 },
   docLabel: {

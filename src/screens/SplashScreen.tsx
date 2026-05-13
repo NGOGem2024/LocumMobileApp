@@ -93,7 +93,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       >
         <View style={styles.logoRing}>
           <Image
-            source={require('../assets/image.png')}
+            source={require('../assets/Logo.png')}
             style={styles.htIcon}
             resizeMode="contain"
           />
@@ -154,8 +154,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   htIcon: {
-    width: scale(180),
-    height: scale(180),
+    width: scale(100),
+    height: scale(120),
     marginBottom: scale(5),
   },
   stethBadge: {

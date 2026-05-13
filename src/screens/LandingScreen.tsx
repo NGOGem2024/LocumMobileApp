@@ -39,13 +39,11 @@ const LandingScreen = () => {
         <SafeAreaView style={styles.safeArea}>
           {/* 1. Top Logo Section */}
           <View style={styles.logoContainer}>
-            <View style={styles.logoBox}>
-              <Image
-                source={require('../assets/image.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            </View>
+            <Image
+              source={require('../assets/Logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
 
           {/* 2. Middle Text Bar Section */}
@@ -96,24 +94,25 @@ const styles = StyleSheet.create({
     paddingVertical: scale(40),
   },
   logoContainer: {
-    marginTop: scale(20),
+    marginTop: scale(0),
   },
-  logoBox: {
-    backgroundColor: 'white',
-    paddingHorizontal: scale(20),
-    paddingVertical: scale(10),
-    borderRadius: scale(10),
-    borderColor: 'C.primary',
-    // Shadow/Elevation for the logo box
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
+  // logoBox: {
+  //   backgroundColor: 'white',
+  //   paddingHorizontal: scale(20),
+  //   paddingVertical: scale(10),
+  //   borderRadius: scale(10),
+  //   borderColor: 'C.primary',
+  //   // Shadow/Elevation for the logo box
+  //   // elevation: 5,
+  //   // shadowColor: '#000',
+  //   // shadowOffset: { width: 0, height: 2 },
+  //   // shadowOpacity: 0.25,
+  //   // shadowRadius: 3.84,
+  // },
   logo: {
     width: scale(140),
-    height: scale(40),
+    height: scale(90),
+    borderRadius: scale(150),
   },
   textBar: {
     width: '100%',

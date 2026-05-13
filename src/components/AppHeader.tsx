@@ -71,7 +71,7 @@ const AppHeader = ({ onBack, showProfile }: AppHeaderProps) => {
 
         {/* CENTER: logo */}
         <Image
-          source={require('../assets/image.png')}
+          source={require('../assets/Logo.png')}
           style={styles.headerLogoImg}
           resizeMode="contain"
         />
@@ -182,7 +182,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rightSlot: {
-    width: scale(200),
+    width: scale(150),
+    marginLeft: scale(120),
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
@@ -195,8 +196,8 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   headerLogoImg: {
-    width: scale(130),
-    height: scale(40),
+    width: scale(68),
+    height: scale(70),
   },
   headerBrandSub: {
     fontSize: scale(10),

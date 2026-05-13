@@ -621,6 +621,7 @@ const RegisterDoctorScreen: React.FC = () => {
           form.qualification === 'Other'
             ? form.qualification_other.trim()
             : form.qualification,
+        start_date: new Date().toISOString(), // or pass selected start date
         is_current: true,
       };
 

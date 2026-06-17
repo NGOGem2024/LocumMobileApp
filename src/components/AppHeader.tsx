@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   },
   headerLogoImg: {
     width: scale(68),
-    height: scale(70),
+    height: scale(60),
   },
   headerBrandSub: {
     fontSize: scale(10),

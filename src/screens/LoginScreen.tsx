@@ -25,7 +25,7 @@ const { width: SW } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
 
 const BASE_URL =
-  'https://locumhtbe-h6fvftgnfudxc5hw.centralindia-01.azurewebsites.net';
+  'https://locumbackenduat-ewcbfyghbvb2h0ez.centralindia-01.azurewebsites.net';
 
 const C = {
   primary: '#007b8e',
@@ -137,6 +137,12 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
 
       const { token, doctor } = data;
 
+      // ADD THIS
+      console.log('=== LOGIN RESPONSE ===');
+      console.log('doctor._id:', doctor?._id);
+      console.log('doctor.doctor_unique_id:', doctor?.doctor_unique_id);
+      console.log('token present:', !!token);
+
       if (!token || !doctor?._id) {
         throw new Error('Unexpected server response. Please try again.');
       }
@@ -147,7 +153,7 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
       // Navigate and clear back stack so user can't go back to login
       navigation?.reset({
         index: 0,
-        routes: [{ name: 'DashboardScreen' }],
+        routes: [{ name: 'HomeScreen' }],
       });
     } catch (error: any) {
       console.error('LOGIN ERROR:', error);

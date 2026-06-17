@@ -24,6 +24,8 @@ import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import AppHeader from '../components/AppHeader';
 import { useAuth } from '../context/AuthContext';
 
+const GOOGLE_API_KEY = 'AIzaSyCUgfce6vE1U10ZsdF7s62KxOFD2Q_dNDc';
+
 // ─── RESPONSIVE SCALE ─────────────────────────────────────────────────────────
 const { width: SW } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
@@ -161,6 +163,8 @@ const MONTHS = [
 ];
 
 interface FormData {
+  qualification_other: any;
+  specialization_other: string;
   title: string;
   first_name: string;
   middle_name: string;
@@ -169,7 +173,7 @@ interface FormData {
   email: string;
   specialization: string;
   qualification: string;
-  qualification_other: string;
+  // qualification_other: string;
   experience: string;
   medical_council_name: string;
   registration_number: string;
@@ -286,7 +290,7 @@ const DatePickerField: React.FC<DatePickerProps> = ({
             >
               {monthLabel || 'Month'}
             </Text>
-            <Text style={{ fontSize: scale(16), color: C.textMuted }}>⌄</Text>
+            {/* <Text style={{ fontSize: scale(16), color: C.textMuted }}>⌄</Text> */}
           </TouchableOpacity>
           <Text style={styles.dateSegLabel}>Month</Text>
         </View>
@@ -308,7 +312,7 @@ const DatePickerField: React.FC<DatePickerProps> = ({
             >
               {year || 'Year'}
             </Text>
-            <Text style={{ fontSize: scale(16), color: C.textMuted }}>⌄</Text>
+            {/* <Text style={{ fontSize: scale(16), color: C.textMuted }}>⌄</Text> */}
           </TouchableOpacity>
           <Text style={styles.dateSegLabel}>Year</Text>
         </View>
@@ -354,6 +358,7 @@ const RegisterDoctorScreen: React.FC = () => {
     mobile_number: '',
     email: '',
     specialization: '',
+    specialization_other: '',
     qualification: '',
     qualification_other: '',
     experience: '',
@@ -408,32 +413,52 @@ const RegisterDoctorScreen: React.FC = () => {
     setDropdownConfig(p => ({ ...p, visible: false }));
   };
 
+  // ─── FETCH LOCATION BY PINCODE (Google Maps Geocoding API) ─────────────────────
   const fetchLocationByPincode = async (pincode: string) => {
     if (pincode.length !== 6) return;
     setPincodeLoading(true);
     setPincodeFetched(false);
     try {
       const res = await fetch(
-        `https://api.postalpincode.in/pincode/${pincode}`,
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${pincode}&region=IN&key=${GOOGLE_API_KEY}`,
       );
       const data = await res.json();
-      if (data?.[0]?.Status === 'Success' && data[0].PostOffice?.length > 0) {
-        const po = data[0].PostOffice[0];
-        setForm(prev => ({
-          ...prev,
-          city: po.District || '',
-          state: po.State || '',
-        }));
-        setPincodeFetched(true);
-        setErrors(prev => ({
-          ...prev,
-          pincode: undefined,
-          city: undefined,
-          state: undefined,
-        }));
-      } else {
+
+      if (data.status !== 'OK' || !data.results?.length) {
         throw new Error('Invalid pincode');
       }
+
+      const components: any[] = data.results[0].address_components;
+      data.results[0].address_components;
+
+      const getComponent = (type: string): string => {
+        const found = components.find((c: any) => c.types.includes(type));
+        return found?.long_name || '';
+      };
+
+      // Google returns city as 'locality' or 'administrative_area_level_3'
+      const city =
+        getComponent('locality') ||
+        getComponent('administrative_area_level_3') ||
+        getComponent('administrative_area_level_2');
+
+      // State is 'administrative_area_level_1'
+      const state = getComponent('administrative_area_level_1');
+
+      if (!city && !state) throw new Error('Location not found');
+
+      setForm(prev => ({
+        ...prev,
+        city: city || '',
+        state: state || '',
+      }));
+      setPincodeFetched(true);
+      setErrors(prev => ({
+        ...prev,
+        pincode: undefined,
+        city: undefined,
+        state: undefined,
+      }));
     } catch {
       setForm(prev => ({ ...prev, city: '', state: '' }));
       setErrors(prev => ({
@@ -477,8 +502,7 @@ const RegisterDoctorScreen: React.FC = () => {
         e.specialization = 'Please select a specialization';
       if (!form.qualification)
         e.qualification = 'Please select a qualification';
-      if (form.qualification === 'Other' && !form.qualification_other.trim())
-        e.qualification_other = 'Please specify your qualification';
+
       if (!form.experience) e.experience = 'Please select experience range';
       if (!form.medical_council_name)
         e.medical_council_name = 'Please select a medical council';
@@ -605,22 +629,24 @@ const RegisterDoctorScreen: React.FC = () => {
             return '';
         }
       };
-
-      const educationEntry: Record<string, string> = {
+      const educationEntry = {
         degree: form.qualification,
         speciality: form.specialization,
+
+        specify_degree:
+          form.qualification === 'Other' ? form.qualification_other.trim() : '',
+
+        specify_speciality:
+          form.specialization === 'Other'
+            ? form.specialization_other.trim()
+            : '',
       };
-      if (form.qualification === 'Other' && form.qualification_other.trim()) {
-        educationEntry.specify_degree = form.qualification_other.trim();
-      }
 
       const experienceEntry = {
         years_of_experience: parseExperienceYears(form.experience),
         clinic_hospital_name: form.clinic_name.trim() || '',
         designation:
-          form.qualification === 'Other'
-            ? form.qualification_other.trim()
-            : form.qualification,
+          form.qualification === 'Other' ? 'Other' : form.qualification,
         start_date: new Date().toISOString(), // or pass selected start date
         is_current: true,
       };
@@ -831,19 +857,6 @@ const RegisterDoctorScreen: React.FC = () => {
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor={C.primaryDark} />
 
-      {/* ─── HEADER ─────────────────────────────────────────────────────── */}
-      {/* <View style={styles.headerTop}>
-        <Image
-          source={require('../assets/image.png')}
-          style={styles.headerLogoImg}
-          resizeMode="contain"
-        />
-
-        <Text style={styles.headerBrandSub} numberOfLines={1}>
-          DOCTOR ONBOARDING
-        </Text>
-      </View> */}
-
       <AppHeader
         onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
       />
@@ -856,7 +869,8 @@ const RegisterDoctorScreen: React.FC = () => {
           style={styles.flex}
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="always"
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
         >
           <Animated.View
             style={{
@@ -1013,6 +1027,18 @@ const RegisterDoctorScreen: React.FC = () => {
                   }
                 />
 
+                {form.specialization === 'Other' && (
+                  <Field
+                    label="Specify Specialization"
+                    icon="✏️"
+                    placeholder="Enter your Specialization"
+                    value={form.specialization_other}
+                    onChangeText={v => setField('specialization_other', v)}
+                    error={errors.specialization_other}
+                    autoCapitalize="words"
+                  />
+                )}
+
                 <DropdownField
                   label="Highest Qualification"
                   required
@@ -1032,7 +1058,6 @@ const RegisterDoctorScreen: React.FC = () => {
                 {form.qualification === 'Other' && (
                   <Field
                     label="Specify Qualification"
-                    required
                     icon="✏️"
                     placeholder="Enter your qualification"
                     value={form.qualification_other}
@@ -1144,7 +1169,7 @@ const RegisterDoctorScreen: React.FC = () => {
                       fontSize: scale(13),
                     }}
                   >
-                    Interested In *
+                    Interested In
                   </Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                     {[
@@ -1212,7 +1237,8 @@ const RegisterDoctorScreen: React.FC = () => {
                       fontSize: scale(13),
                     }}
                   >
-                    Preferred Distance *
+                    Preferred Distance
+                    <Text style={fieldStyles.req}> *</Text>
                   </Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                     {['5', '10', '20', '50', '100'].map(km => {
@@ -1663,6 +1689,8 @@ const Field: React.FC<FieldProps> = ({
   </View>
 );
 
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+
 interface DropdownFieldProps {
   label: string;
   required?: boolean;
@@ -1672,6 +1700,7 @@ interface DropdownFieldProps {
   onPress: () => void;
   error?: string;
 }
+
 const DropdownField: React.FC<DropdownFieldProps> = ({
   label,
   required,
@@ -1686,26 +1715,42 @@ const DropdownField: React.FC<DropdownFieldProps> = ({
       {label}
       {required && <Text style={fieldStyles.req}> *</Text>}
     </Text>
+
     <TouchableOpacity
       style={[
-        fieldStyles.inputRow,
+        fieldStyles.dropdownContainer,
         error ? fieldStyles.inputRowErr : null,
         value ? fieldStyles.inputRowFilled : null,
       ]}
       onPress={onPress}
-      activeOpacity={0.8}
+      activeOpacity={0.85}
     >
-      <Text style={fieldStyles.icon}>{icon}</Text>
+      {/* Left Icon */}
+      <View style={fieldStyles.leftIconWrapper}>
+        <Text style={fieldStyles.icon}>{icon}</Text>
+      </View>
+
+      {/* Value */}
       <Text
-        style={[fieldStyles.input, !value && { color: C.textMuted }]}
+        style={[
+          fieldStyles.dropdownText,
+          !value && fieldStyles.placeholderText,
+        ]}
         numberOfLines={1}
       >
         {value || placeholder}
       </Text>
-      <Text style={{ fontSize: scale(20), color: C.textMuted, marginTop: -2 }}>
-        ⌄
-      </Text>
+
+      {/* Right Arrow */}
+      <View style={fieldStyles.chevronWrapper}>
+        <Icon
+          name="chevron-down"
+          size={scale(22)}
+          color={value ? C.primary : C.textMuted}
+        />
+      </View>
     </TouchableOpacity>
+
     {error && <Text style={fieldStyles.error}>⚠ {error}</Text>}
   </View>
 );
@@ -1766,6 +1811,41 @@ const fieldStyles = StyleSheet.create({
     color: C.textSub,
     marginBottom: scale(7),
     letterSpacing: 0.2,
+  },
+  dropdownContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: scale(14),
+    backgroundColor: C.inputBg,
+    minHeight: scale(52),
+    paddingHorizontal: scale(14),
+  },
+
+  leftIconWrapper: {
+    width: scale(30),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: scale(10),
+  },
+
+  dropdownText: {
+    flex: 1,
+    fontSize: scale(14),
+    color: C.text,
+    fontWeight: '500',
+  },
+
+  placeholderText: {
+    color: C.textMuted,
+    fontWeight: '400',
+  },
+
+  chevronWrapper: {
+    width: scale(28),
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   req: { color: C.error },
   inputRow: {

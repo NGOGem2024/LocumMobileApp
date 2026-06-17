@@ -9,52 +9,68 @@ import LandingScreen from './src/screens/LandingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import GuestDashboardScreen from './src/screens/GuestDashboardScreen';
-import { AuthProvider } from './src/context/AuthContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import ProfileScreen from './src/screens/ProfileScreen';
+import HomeScreen from './src/screens/HomeScreen';
 
 const Stack = createNativeStackNavigator();
 
-const App = () => {
+// ── Inner navigator — has access to AuthContext ─────────────────────────────
+const RootNavigator = () => {
   const [splashDone, setSplashDone] = useState(false);
+  const { isLoading, doctor } = useAuth();
+
+  // Keep showing splash until:
+  //   1. Splash animation is done  AND
+  //   2. AsyncStorage restore is complete (isLoading = false)
+  if (!splashDone || isLoading) {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Splash">
+          {props => (
+            <SplashScreen {...props} onFinish={() => setSplashDone(true)} />
+          )}
+        </Stack.Screen>
+      </Stack.Navigator>
+    );
+  }
 
   return (
-    <AuthProvider>
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          {!splashDone ? (
-            // Splash Screen first
-            <Stack.Screen name="Splash">
-              {props => (
-                <SplashScreen {...props} onFinish={() => setSplashDone(true)} />
-              )}
-            </Stack.Screen>
-          ) : (
-            <>
-              <Stack.Screen name="LandingScreen" component={LandingScreen} />
-              {/* Dashboard Screen */}
-              <Stack.Screen
-                name="DashboardScreen"
-                component={DashboardScreen}
-              />
-              {/* Register Screen */}
-              <Stack.Screen name="Register" component={RegisterDoctorScreen} />
-              <Stack.Screen name="LoginScreen" component={LoginScreen} />
-              <Stack.Screen
-                name="ForgotPasswordScreen"
-                component={ForgotPasswordScreen}
-              />
-
-              <Stack.Screen
-                name="GuestDashboard"
-                component={GuestDashboardScreen}
-              />
-              <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
-            </>
-          )}
-        </Stack.Navigator>
-      </NavigationContainer>
-    </AuthProvider>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {doctor ? (
+        // ── AUTHENTICATED stack ──────────────────────────────────────────────
+        <>
+          <Stack.Screen name="HomeScreen" component={HomeScreen} />
+          <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+          <Stack.Screen
+            name="GuestDashboard"
+            component={GuestDashboardScreen}
+          />
+        </>
+      ) : (
+        // ── UNAUTHENTICATED stack ────────────────────────────────────────────
+        <>
+          <Stack.Screen name="LandingScreen" component={LandingScreen} />
+          <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
+          <Stack.Screen name="Register" component={RegisterDoctorScreen} />
+          <Stack.Screen name="LoginScreen" component={LoginScreen} />
+          <Stack.Screen
+            name="ForgotPasswordScreen"
+            component={ForgotPasswordScreen}
+          />
+        </>
+      )}
+    </Stack.Navigator>
   );
 };
+
+// ── Root — AuthProvider wraps everything ────────────────────────────────────
+const App = () => (
+  <AuthProvider>
+    <NavigationContainer>
+      <RootNavigator />
+    </NavigationContainer>
+  </AuthProvider>
+);
 
 export default App;

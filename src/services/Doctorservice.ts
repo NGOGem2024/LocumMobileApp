@@ -2,7 +2,7 @@ import { Doctor, RegisterDoctorPayload, ApiResponse } from '../types/doctor';
 
 // 🔧 Replace with your actual backend URL
 const BASE_URL =
-  'https://locumhtbe-h6fvftgnfudxc5hw.centralindia-01.azurewebsites.net';
+  'https://locumbackenduat-ewcbfyghbvb2h0ez.centralindia-01.azurewebsites.net';
 
 export const DoctorService = {
   registerDoctor: async (

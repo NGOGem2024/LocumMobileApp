@@ -1,5 +1,11 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export interface Education {
@@ -14,6 +20,7 @@ export interface Education {
 }
 
 export interface Experience {
+  end_date(end_date: any): React.ReactNode;
   _id?: string;
   years_of_experience: number;
   clinic_hospital_name: string;
@@ -31,6 +38,7 @@ export interface Reference {
 }
 
 export interface DoctorProfile {
+  availability: any;
   _id: string;
   prefix?: string;
   first_name: string;
@@ -72,48 +80,84 @@ export interface DoctorProfile {
 }
 
 // ─── Context Type ───────────────────────────────────────────────────────────
-
 interface AuthContextType {
   doctor: DoctorProfile | null;
   token: string | null;
-  /** Call after successful login — stores doctor + token in memory */
+  isLoading: boolean; // ← NEW: needed to block navigation until auth is restored
   setAuth: (doctor: DoctorProfile, token: string) => void;
-  /** Call after a profile PATCH to sync updated doctor into context */
   setDoctor: (doctor: DoctorProfile | null) => void;
-  /** Clears session completely */
   logout: () => void;
   isRegistered: boolean;
 }
 
-// ─── Default context (safe fallback) ────────────────────────────────────────
-
 const AuthContext = createContext<AuthContextType>({
   doctor: null,
   token: null,
+  isLoading: true, // ← default true so splash waits
   setAuth: () => {},
   setDoctor: () => {},
   logout: () => {},
   isRegistered: false,
 });
 
-// ─── Provider ───────────────────────────────────────────────────────────────
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [doctor, setDoctorState] = useState<DoctorProfile | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true); // ← NEW
 
-  const setAuth = (newDoctor: DoctorProfile, newToken: string) => {
+  // ── Restore session on app launch ──────────────────────────────────────────
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem('auth_token');
+        const storedDoctor = await AsyncStorage.getItem('auth_doctor');
+        console.log('=== RESTORE SESSION ===');
+        console.log('Token found:', !!storedToken);
+        console.log('Doctor found:', !!storedDoctor);
+        if (storedToken && storedDoctor) {
+          setTokenState(storedToken);
+          setDoctorState(JSON.parse(storedDoctor));
+        }
+      } catch (e) {
+        console.warn('Failed to restore session:', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    restoreSession();
+  }, []);
+
+  const setAuth = async (newDoctor: DoctorProfile, newToken: string) => {
     setDoctorState(newDoctor);
     setTokenState(newToken);
+    // Persist to storage
+    await AsyncStorage.setItem('auth_token', newToken);
+    await AsyncStorage.setItem('auth_doctor', JSON.stringify(newDoctor));
   };
 
-  const setDoctor = (d: DoctorProfile | null) => {
+  const setDoctor = async (d: DoctorProfile | null) => {
     setDoctorState(d);
+    if (d) {
+      await AsyncStorage.setItem('auth_doctor', JSON.stringify(d));
+    } else {
+      await AsyncStorage.removeItem('auth_token');
+      await AsyncStorage.removeItem('auth_doctor');
+    }
   };
 
-  const logout = () => {
-    setDoctorState(null);
-    setTokenState(null);
+  const logout = async () => {
+    try {
+      setDoctorState(null);
+      setTokenState(null);
+      await AsyncStorage.removeItem('auth_token');
+      await AsyncStorage.removeItem('auth_doctor');
+      console.log('Logout success — storage cleared');
+    } catch (e) {
+      console.warn('Logout failed:', e);
+      // Force clear state even if storage fails
+      setDoctorState(null);
+      setTokenState(null);
+    }
   };
 
   return (
@@ -121,6 +165,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       value={{
         doctor,
         token,
+        isLoading,
         setAuth,
         setDoctor,
         logout,

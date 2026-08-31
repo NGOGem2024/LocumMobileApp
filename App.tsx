@@ -1,76 +1,28 @@
-import React, { useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import React from 'react';
+import { Text, TextInput } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import SplashScreen from './src/screens/SplashScreen';
-import RegisterDoctorScreen from './src/screens/RegisterDoctorScreen';
-import DashboardScreen from './src/screens/DashboardScreen';
-import LandingScreen from './src/screens/LandingScreen';
-import LoginScreen from './src/screens/LoginScreen';
-import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
-import GuestDashboardScreen from './src/screens/GuestDashboardScreen';
-import { AuthProvider, useAuth } from './src/context/AuthContext';
-import ProfileScreen from './src/screens/ProfileScreen';
-import HomeScreen from './src/screens/HomeScreen';
+// Import your context and the newly separated navigator
+import { AuthProvider } from './src/context/AuthContext';
+import AppNavigator from './AppNavigator';
 
-const Stack = createNativeStackNavigator();
+// Disable font scaling globally to maintain UI consistency[cite: 5]
+(Text as any).defaultProps = (Text as any).defaultProps || {};
+(Text as any).defaultProps.allowFontScaling = false;
 
-// ── Inner navigator — has access to AuthContext ─────────────────────────────
-const RootNavigator = () => {
-  const [splashDone, setSplashDone] = useState(false);
-  const { isLoading, doctor } = useAuth();
+(TextInput as any).defaultProps = (TextInput as any).defaultProps || {};
+(TextInput as any).defaultProps.allowFontScaling = false;
 
-  // Keep showing splash until:
-  //   1. Splash animation is done  AND
-  //   2. AsyncStorage restore is complete (isLoading = false)
-  if (!splashDone || isLoading) {
-    return (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Splash">
-          {props => (
-            <SplashScreen {...props} onFinish={() => setSplashDone(true)} />
-          )}
-        </Stack.Screen>
-      </Stack.Navigator>
-    );
-  }
-
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {doctor ? (
-        // ── AUTHENTICATED stack ──────────────────────────────────────────────
-        <>
-          <Stack.Screen name="HomeScreen" component={HomeScreen} />
-          <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
-          <Stack.Screen
-            name="GuestDashboard"
-            component={GuestDashboardScreen}
-          />
-        </>
-      ) : (
-        // ── UNAUTHENTICATED stack ────────────────────────────────────────────
-        <>
-          <Stack.Screen name="LandingScreen" component={LandingScreen} />
-          <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
-          <Stack.Screen name="Register" component={RegisterDoctorScreen} />
-          <Stack.Screen name="LoginScreen" component={LoginScreen} />
-          <Stack.Screen
-            name="ForgotPasswordScreen"
-            component={ForgotPasswordScreen}
-          />
-        </>
-      )}
-    </Stack.Navigator>
-  );
-};
-
-// ── Root — AuthProvider wraps everything ────────────────────────────────────
-const App = () => (
-  <AuthProvider>
-    <NavigationContainer>
-      <RootNavigator />
-    </NavigationContainer>
-  </AuthProvider>
+const App: React.FC = () => (
+  // WRAP EVERYTHING HERE with style={{ flex: 1 }}[cite: 5]
+  <GestureHandlerRootView style={{ flex: 1 }}>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <AppNavigator />
+      </AuthProvider>
+    </SafeAreaProvider>
+  </GestureHandlerRootView>
 );
 
 export default App;

@@ -20,13 +20,13 @@ export interface Education {
 }
 
 export interface Experience {
-  end_date(end_date: any): React.ReactNode;
   _id?: string;
   years_of_experience: number;
   clinic_hospital_name: string;
   designation: string;
   start_date?: string;
   is_current: boolean;
+  end_date?: string;
 }
 
 export interface Reference {
@@ -38,6 +38,7 @@ export interface Reference {
 }
 
 export interface DoctorProfile {
+  title?: string;
   availability: any;
   _id: string;
   prefix?: string;

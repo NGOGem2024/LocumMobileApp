@@ -15,32 +15,29 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AppHeader from '../components/AppHeader';
 import { useAuth } from '../context/AuthContext';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import LinearGradient from 'react-native-linear-gradient';
+import api from '../services/axiosConfig'; // ⬅️ IMPORTANT: Adjust this path to your axios config
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const { width: SW } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
 
-const BASE_URL =
-  'https://locumbackenduat-ewcbfyghbvb2h0ez.centralindia-01.azurewebsites.net';
-
+// Clean Light Theme Colors
 const C = {
+  background: '#F9FAFB', // Off-white app background
+  cardBg: '#FFFFFF',     // Crisp white card
+  border: '#E5E7EB',
+  inputBg: '#F3F4F6',    // Very light gray for inputs
   primary: '#007b8e',
-  primaryDeep: '#003d4a',
-  primaryLight: '#e0f5f8',
-  accent: '#00c9e0',
-  accentWarm: '#00e5b0',
+  accentCyan: '#00a8c2',
+  ink: '#111827',        // Deep dark text
+  textSub: '#4B5563',    // Gray text
+  textMuted: '#9CA3AF',  // Lighter gray for placeholders and icons
   white: '#ffffff',
-  offWhite: '#f7fdfe',
-  bg: '#f0fbfc',
-  text: '#0d2b30',
-  textSub: '#3d6b75',
-  textMuted: '#7aa8b0',
-  border: '#c2e6ed',
-  error: '#e53935',
+  error: '#ef4444',
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -61,7 +58,6 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const cardAnim = useRef(new Animated.Value(0.95)).current;
 
-  // ✅ Only setAuth needed — no AsyncStorage
   const { setAuth } = useAuth();
 
   useEffect(() => {
@@ -73,13 +69,13 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 500,
+        duration: 600,
         useNativeDriver: true,
       }),
       Animated.spring(cardAnim, {
         toValue: 1,
-        tension: 70,
-        friction: 9,
+        tension: 60,
+        friction: 8,
         useNativeDriver: true,
       }),
     ]).start();
@@ -118,50 +114,29 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${BASE_URL}/api/doctors/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          password,
-        }),
+      // ⬅️ Refactored to use Axios
+      const response = await api.post('/api/doctors/login', {
+        email: email.trim().toLowerCase(),
+        password,
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data?.message || 'Login failed. Please check your credentials.',
-        );
+      if (!data.success) {
+        throw new Error(data?.message || 'Login failed. Please check your credentials.');
       }
 
       const { token, doctor } = data;
-
-      // ADD THIS
-      console.log('=== LOGIN RESPONSE ===');
-      console.log('doctor._id:', doctor?._id);
-      console.log('doctor.doctor_unique_id:', doctor?.doctor_unique_id);
-      console.log('token present:', !!token);
 
       if (!token || !doctor?._id) {
         throw new Error('Unexpected server response. Please try again.');
       }
 
-      // ✅ Store doctor + token in React context (no AsyncStorage, no native modules)
       setAuth(doctor, token);
 
-      // Navigate and clear back stack so user can't go back to login
-      navigation?.reset({
-        index: 0,
-        routes: [{ name: 'HomeScreen' }],
-      });
     } catch (error: any) {
-      console.error('LOGIN ERROR:', error);
-      Alert.alert(
-        'Login Failed',
-        error.message || 'Something went wrong. Please try again.',
-        [{ text: 'OK' }],
-      );
+      const errorMessage = error.response?.data?.message || error.message || 'Something went wrong. Please try again.';
+      Alert.alert('Login Failed', errorMessage, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
@@ -171,33 +146,28 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-      <StatusBar barStyle="light-content" backgroundColor={C.primaryDeep} />
-
-      <AppHeader
-        onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-      />
+      <StatusBar barStyle="dark-content" backgroundColor={C.background} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
+        <View style={styles.topNav}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => navigation?.canGoBack() && navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={24} color={C.ink} />
+          </TouchableOpacity>
+        </View>
+
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* ── HERO BAND ── */}
-          <View style={styles.heroBand}>
-            <View style={styles.blobA} />
-            <View style={styles.blobB} />
-            <Text style={styles.heroLabel}>WELCOME BACK</Text>
-            <Text style={styles.heroTitle}>
-              Sign in to your{'\n'}Clinical Account
-            </Text>
-          </View>
-
-          {/* ── FORM CARD ── */}
           <Animated.View
             style={[
               styles.card,
@@ -207,16 +177,16 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
               },
             ]}
           >
-            {/* Email Field */}
+            <View style={styles.headerWrap}>
+              <Text style={styles.heroLabel}>WELCOME BACK</Text>
+              <Text style={styles.heroTitle}>Sign in to your account</Text>
+              <Text style={styles.heroSub}>Access your personalized clinical dashboard.</Text>
+            </View>
+
             <View style={styles.fieldWrap}>
-              <Text style={styles.fieldLabel}>Email Address</Text>
-              <View
-                style={[
-                  styles.inputBox,
-                  emailError ? styles.inputBoxError : null,
-                ]}
-              >
-                <Text style={styles.inputIcon}>✉️</Text>
+              <Text style={styles.fieldLabel}>Work Email</Text>
+              <View style={[styles.inputBox, emailError ? styles.inputBoxError : null]}>
+                <Ionicons name="mail-outline" size={20} color={C.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="doctor@hospital.com"
@@ -232,12 +202,9 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                   returnKeyType="next"
                 />
               </View>
-              {!!emailError && (
-                <Text style={styles.errorText}>{emailError}</Text>
-              )}
+              {!!emailError && <Text style={styles.errorText}>{emailError}</Text>}
             </View>
 
-            {/* Password Field */}
             <View style={styles.fieldWrap}>
               <View style={styles.labelRow}>
                 <Text style={styles.fieldLabel}>Password</Text>
@@ -245,16 +212,11 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                   onPress={() => navigation?.navigate('ForgotPasswordScreen')}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  {/* <Text style={styles.forgotLink}>Forgot Password?</Text> */}
+                  <Text style={styles.forgotLink}>Forgot password?</Text>
                 </TouchableOpacity>
               </View>
-              <View
-                style={[
-                  styles.inputBox,
-                  passwordError ? styles.inputBoxError : null,
-                ]}
-              >
-                <Text style={styles.inputIcon}>🔒</Text>
+              <View style={[styles.inputBox, passwordError ? styles.inputBoxError : null]}>
+                <Ionicons name="lock-closed-outline" size={20} color={C.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Enter your password"
@@ -277,54 +239,43 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                   <Ionicons
                     name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                     size={20}
-                    color="#666"
+                    color={C.textMuted}
                   />
                 </TouchableOpacity>
               </View>
-              {!!passwordError && (
-                <Text style={styles.errorText}>{passwordError}</Text>
-              )}
+              {!!passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
             </View>
 
-            {/* Login Button */}
             <TouchableOpacity
-              style={[styles.loginBtn, loading && styles.loginBtnLoading]}
+              style={styles.btnShadowWrapper}
               activeOpacity={0.85}
               onPress={handleLogin}
               disabled={loading}
             >
-              {loading ? (
-                <ActivityIndicator color={C.primaryDeep} size="small" />
-              ) : (
-                <>
+              <LinearGradient
+                colors={['#00a8c2', '#007b8e']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.loginBtn, loading && styles.loginBtnLoading]}
+              >
+                {loading ? (
+                  <ActivityIndicator color={C.white} size="small" />
+                ) : (
                   <Text style={styles.loginBtnText}>Sign In</Text>
-                  <Text style={styles.loginBtnArrow}>→</Text>
-                </>
-              )}
+                )}
+              </LinearGradient>
             </TouchableOpacity>
 
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Register */}
             <View style={styles.registerRow}>
-              <Text style={styles.registerText}>New to Healtrack Locum? </Text>
+              <Text style={styles.registerText}>No professional profile? </Text>
               <TouchableOpacity
                 onPress={() => navigation?.navigate('Register')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.registerLink}>Create Account →</Text>
+                <Text style={styles.registerLink}>Create Account</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
-
-          {/* <Text style={styles.secureNote}>
-            🔐 Secured with end-to-end encryption
-          </Text> */}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -334,63 +285,75 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
-  scroll: { paddingBottom: scale(48) },
+  root: { flex: 1, backgroundColor: C.background },
+  scroll: { 
+    flexGrow: 1, 
+    justifyContent: 'center', 
+    paddingBottom: scale(40),
+  },
 
-  heroBand: {
-    backgroundColor: C.primaryDeep,
-    paddingHorizontal: scale(24),
-    paddingTop: scale(20),
-    paddingBottom: scale(50),
-    overflow: 'hidden',
-  },
-  blobA: {
+  topNav: { 
+    paddingHorizontal: scale(24), 
+    paddingTop: scale(16),
     position: 'absolute',
-    width: scale(200),
-    height: scale(200),
-    borderRadius: scale(100),
-    backgroundColor: 'rgba(0,201,224,0.1)',
-    top: scale(-60),
-    right: scale(-50),
+    top: 0,
+    left: 0,
+    zIndex: 10,
   },
-  blobB: {
-    position: 'absolute',
-    width: scale(120),
-    height: scale(120),
-    borderRadius: scale(60),
-    backgroundColor: 'rgba(0,229,176,0.07)',
-    bottom: scale(-20),
-    left: scale(-30),
-  },
-  heroLabel: {
-    color: C.accentWarm,
-    fontSize: scale(10),
-    fontWeight: '800',
-    letterSpacing: 2,
-    marginBottom: scale(8),
-  },
-  heroTitle: {
-    fontSize: scale(26),
-    fontWeight: '900',
-    color: C.white,
-    lineHeight: scale(34),
-    letterSpacing: -0.4,
+  iconBtn: {
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   card: {
-    backgroundColor: C.white,
+    backgroundColor: C.cardBg,
     borderRadius: scale(28),
-    marginHorizontal: scale(18),
-    marginTop: scale(-28),
-    padding: scale(24),
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
+    marginHorizontal: scale(20),
+    padding: scale(28),
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: C.ink,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
+    elevation: 4,
   },
 
-  fieldWrap: { marginBottom: scale(18) },
+  headerWrap: {
+    marginBottom: scale(32),
+  },
+  heroLabel: {
+    color: C.primary,
+    fontSize: scale(11),
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: scale(8),
+  },
+  heroTitle: {
+    fontSize: scale(28),
+    fontWeight: '900',
+    color: C.ink,
+    lineHeight: scale(34),
+    letterSpacing: -0.5,
+    marginBottom: scale(6),
+  },
+  heroSub: {
+    fontSize: scale(14),
+    color: C.textSub,
+  },
+
+  fieldWrap: { marginBottom: scale(20) },
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -400,91 +363,74 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: scale(13),
     fontWeight: '700',
-    color: C.text,
+    color: C.ink,
     marginBottom: scale(8),
   },
-  forgotLink: { fontSize: scale(12), fontWeight: '700', color: C.primary },
+  forgotLink: { 
+    fontSize: scale(12), 
+    fontWeight: '700', 
+    color: C.primary 
+  },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.offWhite,
+    backgroundColor: C.inputBg,
     borderRadius: scale(14),
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: C.inputBg, // Blends in unless active or error
     paddingHorizontal: scale(14),
-    paddingVertical: scale(10),
-    gap: scale(10),
+    paddingVertical: Platform.OS === 'ios' ? scale(14) : scale(4),
   },
-  inputBoxError: { borderColor: C.error, backgroundColor: '#fff5f5' },
-  inputIcon: { fontSize: scale(16) },
+  inputBoxError: { borderColor: C.error, backgroundColor: '#FEF2F2' },
+  inputIcon: { marginRight: scale(10) },
   input: {
     flex: 1,
-    fontSize: scale(13),
-    color: C.text,
-    fontWeight: '500',
+    fontSize: scale(14),
+    color: C.ink,
+    fontWeight: '600',
     padding: 0,
+    minHeight: scale(40),
   },
   eyeBtn: { padding: scale(4) },
-  eyeIcon: { fontSize: scale(16) },
   errorText: {
     fontSize: scale(11),
     color: C.error,
     fontWeight: '600',
-    marginTop: scale(5),
+    marginTop: scale(6),
     marginLeft: scale(4),
   },
 
-  loginBtn: {
-    backgroundColor: C.accent,
+  btnShadowWrapper: {
+    width: '100%',
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
     borderRadius: scale(16),
+    marginTop: scale(10),
+  },
+  loginBtn: {
+    borderRadius: scale(14),
     paddingVertical: scale(16),
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: scale(10),
-    shadowColor: C.accent,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 6,
-    marginTop: scale(4),
   },
   loginBtnLoading: { opacity: 0.8 },
   loginBtnText: {
-    color: C.primaryDeep,
+    color: C.white,
     fontWeight: '800',
-    fontSize: scale(16),
+    fontSize: scale(15),
   },
-  loginBtnArrow: {
-    color: C.primaryDeep,
-    fontWeight: '900',
-    fontSize: scale(18),
-  },
-
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: scale(12),
-    marginVertical: scale(22),
-  },
-  dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
-  dividerText: { color: C.textMuted, fontSize: scale(12), fontWeight: '600' },
 
   registerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: scale(32),
   },
-  registerText: { fontSize: scale(13), color: C.textSub },
+  registerText: { fontSize: scale(13), color: C.textSub, fontWeight: '500' },
   registerLink: { fontSize: scale(13), fontWeight: '800', color: C.primary },
-
-  secureNote: {
-    textAlign: 'center',
-    fontSize: scale(11),
-    color: C.textMuted,
-    marginTop: scale(24),
-    fontWeight: '500',
-  },
 });
 
 export default LoginScreen;

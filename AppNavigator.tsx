@@ -10,10 +10,15 @@ import LoginScreen from './src/screens/LoginScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import GuestDashboardScreen from './src/screens/GuestDashboardScreen';
 
-// Import the new Tab Navigator instead of individual screens
+// Default import for SavedJobsScreen
+import SavedJobsScreen from './src/screens/SavedJobsScreen';
+
+// Tab Navigator
 import MainTabNavigator from './src/components/MainTabNavigator';
 
 import { useAuth } from './src/context/AuthContext';
+import JobDetailsScreen from './src/screens/JobDetailsScreen';
+import ApplyJobScreen from './src/screens/ApplyJobScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -33,8 +38,10 @@ const AppNavigator = () => {
         ) : doctor ? (
           // ── AUTHENTICATED STACK ─────────────────────────────────────────
           <Stack.Group>
-            {/* The Tab Navigator is now the root screen for authenticated users */}
             <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+            <Stack.Screen name="SavedJobs" component={SavedJobsScreen} />
+            <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
+            <Stack.Screen name="ApplyJob" component={ApplyJobScreen} />
           </Stack.Group>
         ) : (
           // ── UNAUTHENTICATED STACK ───────────────────────────────────────

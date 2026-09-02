@@ -78,6 +78,9 @@ export interface DoctorProfile {
   references?: Reference[];
   is_profile_complete?: boolean;
   specialization?: string;
+  phone?: string;
+  full_name?: string;
+  qualifications?: string;
 }
 
 // ─── Context Type ───────────────────────────────────────────────────────────

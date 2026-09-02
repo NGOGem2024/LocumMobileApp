@@ -1,15 +1,14 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import SavedJobsScreen from '../screens/SavedJobsScreen';
 
-// Placeholder for screens yet to be created
-const SavedJobsPlaceholder = () => <View style={{ flex: 1, backgroundColor: '#F9FAFB' }} />;
-const EarningsPlaceholder = () => <View style={{ flex: 1, backgroundColor: '#F9FAFB' }} />;
+const EarningsPlaceholder = () => null;
 
 const Tab = createBottomTabNavigator();
 const { width: SW } = Dimensions.get('window');
@@ -58,8 +57,6 @@ const MainTabNavigator = () => {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Rates') {
-            iconName = focused ? 'pricetags' : 'pricetags-outline';
           } else if (route.name === 'Saved Jobs') {
             iconName = focused ? 'bookmark' : 'bookmark-outline';
           } else if (route.name === 'Earnings') {
@@ -73,7 +70,7 @@ const MainTabNavigator = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Saved Jobs" component={SavedJobsPlaceholder} />
+      <Tab.Screen name="Saved Jobs" component={SavedJobsScreen} />
       <Tab.Screen name="Earnings" component={EarningsPlaceholder} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>

@@ -11,7 +11,8 @@ NetInfo.addEventListener(state => {
 });
 
 const instance = axios.create({
-  baseURL: 'https://locumbackenduat-ewcbfyghbvb2h0ez.centralindia-01.azurewebsites.net',
+  //baseURL: 'https://locumbackenduat-ewcbfyghbvb2h0ez.centralindia-01.azurewebsites.net',
+  baseURL: 'http://10.98.13.50:5000',
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -37,7 +38,7 @@ instance.interceptors.request.use(
 
     // Fetch the single source of truth for authentication
     const authToken = await AsyncStorage.getItem('auth_token');
-
+console.log(authToken, '=== AUTH TOKEN ===');
     // Set authorization header if the token exists
     if (authToken) {
       config.headers['Authorization'] = `Bearer ${authToken}`;

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SavedJobsScreen from '../screens/SavedJobsScreen';
+import EarningsOverviewScreen from '../screens/EarningsOverviewScreen';
 
 const EarningsPlaceholder = () => null;
 
@@ -71,7 +72,7 @@ const MainTabNavigator = () => {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Saved Jobs" component={SavedJobsScreen} />
-      <Tab.Screen name="Earnings" component={EarningsPlaceholder} />
+      <Tab.Screen name="Earnings" component={EarningsOverviewScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

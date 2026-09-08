@@ -68,7 +68,7 @@ const SavedJobsScreen = ({ navigation }: any) => {
         
         if (response.data && response.data.success) {
           const mappedSaved = response.data.jobs.map((reqItem: any) => ({
-            id: reqItem.requirement_id,
+            id: reqItem._id,
             hospital: reqItem.hospital_name,
             location: `${reqItem.city}, ${reqItem.state}`,
             date: new Date(reqItem.shift_start_date).toLocaleDateString(),

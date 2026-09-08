@@ -62,8 +62,7 @@ const SPECIALIZATIONS = [
 ];
 
 const QUALIFICATIONS = [
-  'MBBS', 'MD', 'MS', 'MBBS + MD', 'MBBS + MS', 'BDS', 'MDS', 'DNB', 'DM', 
-  'MCh', 'FRCS', 'MRCP', 'PhD (Medical)', 'Other',
+  'MBBS', 'MD', 'MS', 'BDS', 'MDS', 'BHMS', 'BAMS', 'DNB', 'Other',
 ];
 
 const EXPERIENCE_RANGES = [

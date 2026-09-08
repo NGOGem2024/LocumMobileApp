@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Animated,
   Dimensions,
@@ -11,11 +11,11 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
-  ActivityIndicator
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { useJobs, Job } from '../context/JobContext';
@@ -72,7 +72,6 @@ const getPaymentConfig = (term?: PaymentTerm) => {
   return { icon: 'cash-outline', color: C.textMuted, bg: '#F9FAFB', border: C.border, label: term ?? '' };
 };
 
-
 // ── Job Board Style UrgencyBadge ──
 const UrgencyBadge = ({ urgency }: { urgency: string }) => {
   const config =
@@ -91,15 +90,7 @@ const UrgencyBadge = ({ urgency }: { urgency: string }) => {
 };
 
 // ── RateCardBottomSheet ──
-const RateCardBottomSheet = ({
-  visible,
-  rates,
-  onClose,
-}: {
-  visible: boolean;
-  rates: RateEntry[];
-  onClose: () => void;
-}) => {
+const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; rates: RateEntry[]; onClose: () => void; }) => {
   const slideAnim = useRef(new Animated.Value(SH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -229,12 +220,15 @@ const RateCardBottomSheet = ({
 // ── HomeScreen ─────────────────────────────────────────────────────────────────
 const HomeScreen = ({ navigation }: any) => {
   const { doctor, token } = useAuth();
-  const { savedJobs, isJobSaved, saveJob, unsaveJob, applyJob, isJobApplied } = useJobs();
+  const { isJobSaved, saveJob, unsaveJob, applyJob, isJobApplied } = useJobs();
 
   const [activeJobs, setActiveJobs] = useState<Job[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [fetchedAvailability, setFetchedAvailability] = useState<any[]>([]);
   const [rateCard, setRateCard] = useState<RateEntry[]>([]);
+  
+  // Refresh Control State
+  const [refreshing, setRefreshing] = useState(false);
 
   // Toast Notification state
   const [toastMessage, setToastMessage] = useState<string>('');
@@ -250,47 +244,73 @@ const HomeScreen = ({ navigation }: any) => {
   };
 
   const formatDate = (dateString: string) => {
-  if (!dateString) return 'TBD';
-  const d = new Date(dateString);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
-};
+    if (!dateString) return 'TBD';
+    const d = new Date(dateString);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
 
-  // Fetch Active Jobs from Backend
-  useEffect(() => {
-    const fetchActiveJobs = async () => {
-      try {
-        setLoadingJobs(true);
-        const response = await api.get('/api/doctors/jobs');
-        
-        if (response.data && response.data.success) {
-          const mappedJobs = response.data.jobs.map((reqItem: any) => ({
-            id: reqItem._id,
-            hospital: reqItem.hospital_name,
-            location: `${reqItem.city}, ${reqItem.state}`,
-            date: formatDate(reqItem.shift_start_date), // Format as needed
-            specialization: reqItem.speciality,
-            department: reqItem.department || 'General',
-            status: reqItem.status || 'Available',
-            pay: `₹${reqItem.offered_rate}`,
-            payType: reqItem.billing_shift_type === 'Hourly' ? '/hr' : 'Flat',
-            urgency: reqItem.vacancy_status === 'Urgent' ? 'urgent' : 'normal',
-            distance: 'N/A', // Geocoding can be added later
-          }));
-          setActiveJobs(mappedJobs);
-        }
-      } catch (error) {
-        console.error("Error fetching jobs:", error);
-        showToast('Failed to load active jobs');
-      } finally {
-        setLoadingJobs(false);
+  const fetchActiveJobs = async () => {
+    try {
+      const response = await api.get('/api/doctors/jobs');
+      if (response.data && response.data.success) {
+        const mappedJobs = response.data.jobs.map((reqItem: any) => ({
+          id: reqItem._id,
+          hospital: reqItem.hospital_name,
+          location: `${reqItem.city}, ${reqItem.state}`,
+          date: formatDate(reqItem.shift_start_date),
+          specialization: reqItem.speciality,
+          department: reqItem.department || 'General',
+          status: reqItem.status || 'Available',
+          pay: `₹${reqItem.offered_rate}`,
+          payType: reqItem.billing_shift_type === 'Hourly' ? '/hr' : 'Flat',
+          urgency: reqItem.vacancy_status === 'Urgent' ? 'urgent' : 'normal',
+          distance: 'N/A', 
+        }));
+        setActiveJobs(mappedJobs);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching jobs:", error);
+      showToast('Failed to load active jobs');
+    }
+  };
 
-    fetchActiveJobs();
-  }, []);
+  const fetchAvailabilityData = async () => {
+    if (!doctor?._id) return;
+    try {
+      const res = await api.get(`/${doctor._id}/availability`);
+      if (res.data) setFetchedAvailability(res.data.availability ?? []);
+    } catch (err) {
+      console.log('Error fetching availability:', err);
+    }
+  };
+
+  const fetchRateCardData = async () => {
+    if (!doctor?._id) return;
+    try {
+      const res = await api.get(`/api/doctors/rate-card/${doctor._id}`);
+      if (res.data) setRateCard(res.data.data ?? []);
+    } catch (err) {
+      console.log('Error fetching rate card:', err);
+    }
+  };
+
+  const loadAllData = useCallback(async () => {
+    await Promise.all([fetchActiveJobs(), fetchAvailabilityData(), fetchRateCardData()]);
+  }, [doctor?._id]);
+
+  useEffect(() => {
+    setLoadingJobs(true);
+    loadAllData().finally(() => setLoadingJobs(false));
+  }, [loadAllData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadAllData();
+    setRefreshing(false);
+  }, [loadAllData]);
 
   const handleBookmarkToggle = async (job: Job) => {
     const originallySaved = isJobSaved(job.id);
@@ -309,10 +329,8 @@ const HomeScreen = ({ navigation }: any) => {
       }
     } catch (error) {
       console.error('Error toggling saved job:', error);
-      // Revert optimistic update on failure
       if (originallySaved) saveJob(job);
       else unsaveJob(job.id);
-      
       showToast('Error updating saved job status');
     }
   };
@@ -320,20 +338,6 @@ const HomeScreen = ({ navigation }: any) => {
   // Sheet toggles & Tabs
   const [showRateSheet, setShowRateSheet] = useState(false);
   const [activeSection, setActiveSection] = useState<'jobs' | 'availability'>('jobs');
-
-  useEffect(() => {
-    if (!doctor?._id) return;
-    api.get(`/${doctor._id}/availability`)
-      .then(res => { if (res.data) setFetchedAvailability(res.data.availability ?? []); })
-      .catch(err => console.log('Error fetching availability:', err));
-  }, [doctor?._id]);
-
-  useEffect(() => {
-    if (!doctor?._id) return;
-    api.get(`/api/doctors/rate-card/${doctor._id}`)
-      .then(res => { if (res.data) setRateCard(res.data.data ?? []); })
-      .catch(err => console.log('Error fetching rate card:', err));
-  }, [doctor?._id]);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -354,16 +358,21 @@ const HomeScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scroll} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.primary]} />
+        }
+      >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScroll}>
           <TouchableOpacity style={[styles.actionChip, activeSection === 'jobs' && styles.actionChipActive]} onPress={() => setActiveSection('jobs')}>
             <Ionicons name="briefcase-outline" size={14} color={activeSection === 'jobs' ? C.primary : C.textSub} style={{ marginRight: 4 }} />
             <Text style={[styles.actionChipText, activeSection === 'jobs' && { color: C.primary }]}>Jobs</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionChip} onPress={() => navigation.navigate('SavedJobs')}>
-            <Ionicons name="bookmark-outline" size={14} color={C.textSub} style={{ marginRight: 4 }} />
-            <Text style={styles.actionChipText}>Saved ({savedJobs.length})</Text>
+          <TouchableOpacity style={styles.actionChip} onPress={() => navigation.navigate('MySchedule')}>
+            <Text style={styles.actionChipText}>My Schedule</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.actionChip, activeSection === 'availability' && styles.actionChipActive]} onPress={() => setActiveSection('availability')}>
@@ -376,9 +385,6 @@ const HomeScreen = ({ navigation }: any) => {
             <Text style={styles.actionChipText}>Rate Card</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionChip}>
-            <Text style={styles.actionChipText}>Earnings</Text>
-          </TouchableOpacity>
         </ScrollView>
 
         {activeSection === 'availability' ? (
@@ -401,7 +407,7 @@ const HomeScreen = ({ navigation }: any) => {
               <View style={styles.feedDividerLine} />
             </View>
 
-            {loadingJobs ? (
+            {loadingJobs && !refreshing ? (
                <ActivityIndicator size="large" color={C.primary} style={{ marginTop: 20 }} />
             ) : activeJobs.length === 0 ? (
                <Text style={{ textAlign: 'center', color: C.textMuted, marginTop: 20 }}>No active jobs found right now.</Text>
@@ -505,7 +511,7 @@ const styles = StyleSheet.create({
   applyBtnText: { color: C.white, fontSize: scale(14), fontWeight: '800' },
   appliedBadge: { flexDirection: 'row', alignItems: 'center', gap: scale(6), backgroundColor: '#d1fae5', paddingHorizontal: scale(16), paddingVertical: scale(10), borderRadius: scale(12) },
   appliedBadgeText: { color: C.success, fontSize: scale(13), fontWeight: '700' },
-  backdrop: {backgroundColor: 'rgba(17, 24, 39, 0.4)' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.4)' },
   sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.background, borderTopLeftRadius: scale(28), borderTopRightRadius: scale(28), maxHeight: SH * 0.85, paddingBottom: scale(34) },
   handle: { width: scale(40), height: scale(5), borderRadius: scale(2.5), backgroundColor: C.border, alignSelf: 'center', marginTop: scale(12), marginBottom: scale(4) },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: scale(14), paddingHorizontal: scale(24), paddingVertical: scale(16), borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.cardBg },

@@ -13,12 +13,17 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
-import api from '../services/axiosConfig'; // ⬅️ IMPORTANT: Adjust this path to your axios config
+import api from '../services/axiosConfig';
+import {
+  GoogleSignin,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -28,14 +33,14 @@ const scale = (size: number) => (SW / 390) * size;
 // Clean Light Theme Colors
 const C = {
   background: '#F9FAFB', // Off-white app background
-  cardBg: '#FFFFFF',     // Crisp white card
+  cardBg: '#FFFFFF', // Crisp white card
   border: '#E5E7EB',
-  inputBg: '#F3F4F6',    // Very light gray for inputs
+  inputBg: '#F3F4F6', // Very light gray for inputs
   primary: '#007b8e',
   accentCyan: '#00a8c2',
-  ink: '#111827',        // Deep dark text
-  textSub: '#4B5563',    // Gray text
-  textMuted: '#9CA3AF',  // Lighter gray for placeholders and icons
+  ink: '#111827', // Deep dark text
+  textSub: '#4B5563', // Gray text
+  textMuted: '#9CA3AF', // Lighter gray for placeholders and icons
   white: '#ffffff',
   error: '#ef4444',
 };
@@ -79,6 +84,14 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Initialize Google SDK
+    GoogleSignin.configure({
+      webClientId:
+        '1038698506388-4v27d2oh0c5b8c1a1bjnh0iepeo9l5fs.apps.googleusercontent.com',
+      offlineAccess: true,
+      forceCodeForRefreshToken: true,
+    });
   }, []);
 
   // ─── Validation ─────────────────────────────────────────────────────────────
@@ -107,14 +120,13 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
     return valid;
   };
 
-  // ─── Login Handler ───────────────────────────────────────────────────────────
+  // ─── Login Handlers ─────────────────────────────────────────────────────────
 
   const handleLogin = async () => {
     if (!validate()) return;
     setLoading(true);
 
     try {
-      // ⬅️ Refactored to use Axios
       const response = await api.post('/api/doctors/login', {
         email: email.trim().toLowerCase(),
         password,
@@ -123,7 +135,9 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
       const data = response.data;
 
       if (!data.success) {
-        throw new Error(data?.message || 'Login failed. Please check your credentials.');
+        throw new Error(
+          data?.message || 'Login failed. Please check your credentials.',
+        );
       }
 
       const { token, doctor } = data;
@@ -133,15 +147,58 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
       }
 
       setAuth(doctor, token);
-
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Something went wrong. Please try again.';
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Something went wrong. Please try again.';
       Alert.alert('Login Failed', errorMessage, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+
+      // Verify the type is 'success' before accessing the nested data (v11+ API)
+      if (response.type === 'success') {
+        const idToken = response.data.idToken;
+
+        if (!idToken) throw new Error('Failed to get Google Token');
+
+        const res = await api.post('/api/doctors/google-login-android', {
+          token: idToken,
+        });
+
+        if (!res.data.success) {
+          throw new Error(res.data.message || 'Google Login failed.');
+        }
+
+        setAuth(res.data.doctor, res.data.token);
+      } else {
+        // Handles 'cancelled' or other response types
+        console.log('Google Sign-In was not successful:', response.type);
+      }
+    } catch (error: any) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        console.log('User cancelled login');
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert('Error', 'Google Play Services not available.');
+      } else {
+        const msg =
+          error.response?.data?.message ||
+          error.message ||
+          'Something went wrong';
+        Alert.alert('Google Login Failed', msg, [{ text: 'OK' }]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -180,13 +237,25 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
             <View style={styles.headerWrap}>
               <Text style={styles.heroLabel}>WELCOME BACK</Text>
               <Text style={styles.heroTitle}>Sign in to your account</Text>
-              <Text style={styles.heroSub}>Access your personalized clinical dashboard.</Text>
+              <Text style={styles.heroSub}>
+                Access your personalized clinical dashboard.
+              </Text>
             </View>
 
             <View style={styles.fieldWrap}>
               <Text style={styles.fieldLabel}>Work Email</Text>
-              <View style={[styles.inputBox, emailError ? styles.inputBoxError : null]}>
-                <Ionicons name="mail-outline" size={20} color={C.textMuted} style={styles.inputIcon} />
+              <View
+                style={[
+                  styles.inputBox,
+                  emailError ? styles.inputBoxError : null,
+                ]}
+              >
+                <Ionicons
+                  name="mail-outline"
+                  size={20}
+                  color={C.textMuted}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.input}
                   placeholder="doctor@hospital.com"
@@ -202,7 +271,9 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                   returnKeyType="next"
                 />
               </View>
-              {!!emailError && <Text style={styles.errorText}>{emailError}</Text>}
+              {!!emailError && (
+                <Text style={styles.errorText}>{emailError}</Text>
+              )}
             </View>
 
             <View style={styles.fieldWrap}>
@@ -215,8 +286,18 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                   <Text style={styles.forgotLink}>Forgot password?</Text>
                 </TouchableOpacity>
               </View>
-              <View style={[styles.inputBox, passwordError ? styles.inputBoxError : null]}>
-                <Ionicons name="lock-closed-outline" size={20} color={C.textMuted} style={styles.inputIcon} />
+              <View
+                style={[
+                  styles.inputBox,
+                  passwordError ? styles.inputBoxError : null,
+                ]}
+              >
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color={C.textMuted}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.input}
                   placeholder="Enter your password"
@@ -243,9 +324,12 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                   />
                 </TouchableOpacity>
               </View>
-              {!!passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
+              {!!passwordError && (
+                <Text style={styles.errorText}>{passwordError}</Text>
+              )}
             </View>
 
+            {/* Standard Email Login Button */}
             <TouchableOpacity
               style={styles.btnShadowWrapper}
               activeOpacity={0.85}
@@ -264,6 +348,62 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                   <Text style={styles.loginBtnText}>Sign In</Text>
                 )}
               </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginVertical: scale(20),
+              }}
+            >
+              <View style={{ flex: 1, height: 1, backgroundColor: C.border }} />
+              <Text
+                style={{
+                  marginHorizontal: scale(10),
+                  color: C.textMuted,
+                  fontSize: scale(12),
+                }}
+              >
+                OR
+              </Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: C.border }} />
+            </View>
+
+            {/* Google Login Button */}
+            <TouchableOpacity
+              style={[styles.btnShadowWrapper, { marginTop: 0 }]}
+              activeOpacity={0.85}
+              onPress={handleGoogleLogin}
+              disabled={loading}
+            >
+              <View
+                style={[
+                  styles.loginBtn,
+                  {
+                    backgroundColor: C.white,
+                    borderWidth: 1,
+                    borderColor: C.border,
+                    flexDirection: 'row',
+                  },
+                ]}
+              >
+                {loading ? (
+                  <ActivityIndicator color={C.primary} size="small" />
+                ) : (
+                  <>
+                    <Image
+                      source={require('../assets/google-logo.png')} // Update this path to match your folder structure
+                      style={{ width: 22, height: 22, marginRight: 12 }}
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.loginBtnText, { color: C.ink }]}>
+                      Continue with Google
+                    </Text>
+                  </>
+                )}
+              </View>
             </TouchableOpacity>
 
             <View style={styles.registerRow}>
@@ -286,14 +426,14 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
-  scroll: { 
-    flexGrow: 1, 
-    justifyContent: 'center', 
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingBottom: scale(40),
   },
 
-  topNav: { 
-    paddingHorizontal: scale(24), 
+  topNav: {
+    paddingHorizontal: scale(24),
     paddingTop: scale(16),
     position: 'absolute',
     top: 0,
@@ -366,10 +506,10 @@ const styles = StyleSheet.create({
     color: C.ink,
     marginBottom: scale(8),
   },
-  forgotLink: { 
-    fontSize: scale(12), 
-    fontWeight: '700', 
-    color: C.primary 
+  forgotLink: {
+    fontSize: scale(12),
+    fontWeight: '700',
+    color: C.primary,
   },
   inputBox: {
     flexDirection: 'row',

@@ -11,8 +11,8 @@ NetInfo.addEventListener(state => {
 });
 
 const instance = axios.create({
-  baseURL: 'https://locumbackenduat-ewcbfyghbvb2h0ez.centralindia-01.azurewebsites.net',
-  // baseURL: 'http://192.168.1.10:5000',
+  // baseURL: 'https://locumbackenduat-ewcbfyghbvb2h0ez.centralindia-01.azurewebsites.net',
+  baseURL: 'http://192.168.1.10:5000',
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',

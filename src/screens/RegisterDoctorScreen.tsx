@@ -308,7 +308,8 @@ const RegisterDoctorScreen: React.FC = () => {
     setLoading(true);
     try {
       const payload: Record<string, any> = {
-        first_name: `${form.title} ${form.first_name}`.trim(),
+        prefix: form.title, // explicitly send the title as the prefix
+        first_name: form.first_name.trim(),
         middle_name: form.middle_name.trim(),
         last_name: form.last_name.trim(),
         mobile_number: `+91${form.mobile_number}`,

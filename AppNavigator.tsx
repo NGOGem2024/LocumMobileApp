@@ -23,6 +23,7 @@ import MyScheduleScreen from './src/screens/MyScheduleScreen';
 import ScheduleDetailsScreen from './src/screens/ScheduleDetailsScreen';
 import EarningsHistoryScreen from './src/screens/EarningsHistoryScreen';
 import EarningsOverviewScreen from './src/screens/EarningsOverviewScreen';
+import EditDoctorProfileScreen from './src/screens/EditDoctorProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -47,6 +48,7 @@ const AppNavigator = () => {
             <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
             <Stack.Screen name="MySchedule" component={MyScheduleScreen} />
             <Stack.Screen name="ScheduleDetailsScreen" component={ScheduleDetailsScreen} />
+            <Stack.Screen name="EditDoctorProfileScreen" component={EditDoctorProfileScreen} />
             <Stack.Screen name="EarningsHistory" component={EarningsHistoryScreen} />
             <Stack.Screen name="EarningsOverview" component={EarningsOverviewScreen} />
             <Stack.Screen name="ApplyJob" component={ApplyJobScreen} />

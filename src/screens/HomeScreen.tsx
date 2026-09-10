@@ -252,7 +252,7 @@ const HomeScreen = ({ navigation }: any) => {
     return `${day}/${month}/${year}`;
   };
 
-  const fetchActiveJobs = async () => {
+ const fetchActiveJobs = async () => {
     try {
       const response = await api.get('/api/doctors/jobs');
       if (response.data && response.data.success) {
@@ -268,6 +268,7 @@ const HomeScreen = ({ navigation }: any) => {
           payType: reqItem.billing_shift_type === 'Hourly' ? '/hr' : 'Flat',
           urgency: reqItem.vacancy_status === 'Urgent' ? 'urgent' : 'normal',
           distance: 'N/A', 
+          rawDetails: reqItem // <-- ADD THIS LINE to pass the full API object
         }));
         setActiveJobs(mappedJobs);
       }

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -33,10 +33,13 @@ const C = {
   textMuted: '#9CA3AF',
   white: '#ffffff',
   success: '#10b981',
+  warningLight: '#fef3c7',
+  warning: '#d97706',
 };
 
 const ApplyJobScreen = ({ route, navigation }: any) => {
-  const { job }: { job: Job } = route.params;
+  // We expect rawDetails to be passed along with the mapped Job fields
+  const { job }: { job: Job & { rawDetails?: any } } = route.params;
   const { doctor } = useAuth();
   const { applyJob } = useJobs();
 
@@ -49,9 +52,8 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  // Fallbacks for doctor details
-  const doctorName = doctor?.full_name ? `Dr. ${doctor.full_name}` : 'Dr. Rahul Sharma';
-  const doctorQualifications = doctor?.qualifications || 'MBBS - 5 Years Exp.';
+  // Extract the full details passed from the API via HomeScreen
+  const details = job.rawDetails || {};
 
   const handleConfirmApplication = () => {
     // 1. Mark job as applied in context
@@ -64,7 +66,7 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
     Animated.parallel([
       Animated.spring(scaleAnim, {
         toValue: 1,
-        friction: 4, // Lower friction = more bounciness
+        friction: 4, 
         tension: 50,
         useNativeDriver: true,
       }),
@@ -77,11 +79,21 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
   };
 
   const handleBackToHome = () => {
-    navigation.popToTop(); // Go all the way back to HomeScreen
+    navigation.popToTop();
   };
 
   const handleViewAppliedShifts = () => {
     navigation.navigate('SavedJobs');
+  };
+
+  // Helper for formatting API dates
+  const formatDateString = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
   // ─── SUCCESS VIEW ────────────────────────────────────────────────────────
@@ -96,7 +108,6 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
         </View>
 
         <View style={styles.successContainer}>
-          {/* Animated Checkmark Bubble */}
           <Animated.View 
             style={[
               styles.successIconOuter, 
@@ -146,40 +157,104 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={scale(24)} color={C.ink} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Apply for this Shift</Text>
+        <Text style={styles.headerTitle}>Shift Details</Text>
         <View style={{ width: scale(32) }} />
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          {/* Job Summary Card */}
+         {/* Header Card */}
           <View style={styles.jobCard}>
             <View style={styles.jobIconBox}>
               <Ionicons name="business-outline" size={scale(24)} color={C.primary} />
             </View>
             <View style={styles.jobMeta}>
-              <Text style={styles.jobTitle}>{job.specialization}</Text>
-              <Text style={styles.jobHospital}>{job.hospital}</Text>
-              <Text style={styles.jobDetailText}>{job.location}</Text>
-              <Text style={styles.jobDetailText}>{job.date}</Text>
+              <Text style={styles.jobTitle}>{details.speciality || job.specialization}</Text>
+              
+              {/* UPDATED: Wrap Hospital Name in TouchableOpacity */}
+              <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => {
+                  if (details.hospital_details?.hospital_id) {
+                    navigation.navigate('HospitalDetailsScreen', { hospitalId: details.hospital_details.hospital_id });
+                  }
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: scale(2) }}
+              >
+                <Text style={[styles.jobHospital, { color: C.primary, textDecorationLine: 'underline' }]}>
+                  {details.hospital_name || job.hospital}
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={C.primary} style={{ marginLeft: 2 }} />
+              </TouchableOpacity>
+              {/* END UPDATE */}
+
+              <Text style={styles.jobDetailText}>{details.location?.city || details.city}, {details.state}</Text>
+              {details.hospital_details?.branch?.name && (
+                <View style={styles.branchBadge}>
+                  <Text style={styles.branchText}>Branch: {details.hospital_details.branch.name}</Text>
+                </View>
+              )}
             </View>
           </View>
 
-          {/* User Details */}
-          <Text style={styles.sectionTitle}>Your Profile</Text>
-          <View style={styles.userCard}>
-            <View style={styles.avatar}>
-              <Ionicons name="person" size={scale(20)} color={C.white} />
-            </View>
-            <View>
-              <Text style={styles.userName}>{doctorName}</Text>
-              <Text style={styles.userQual}>{doctorQualifications}</Text>
-            </View>
+          {/* Schedule Details */}
+          <Text style={styles.sectionTitle}>Schedule & Timings</Text>
+          <View style={styles.infoCard}>
+             <View style={styles.infoRow}>
+                <Ionicons name="calendar-outline" size={scale(18)} color={C.primary} style={styles.infoIcon} />
+                <View>
+                  <Text style={styles.infoLabel}>Dates</Text>
+                  <Text style={styles.infoValue}>
+                    {formatDateString(details.shift_start_date)} - {formatDateString(details.shift_end_date)}
+                  </Text>
+                </View>
+             </View>
+             <View style={styles.divider} />
+             <View style={styles.infoRow}>
+                <Ionicons name="time-outline" size={scale(18)} color={C.primary} style={styles.infoIcon} />
+                <View>
+                  <Text style={styles.infoLabel}>Duty Timing</Text>
+                  <Text style={styles.infoValue}>
+                    {details.duty_from_time || 'N/A'} to {details.duty_to_time || 'N/A'} 
+                    {details.total_shift_hours ? ` (${details.total_shift_hours} Hrs Total)` : ''}
+                  </Text>
+                </View>
+             </View>
           </View>
 
-          {/* Contact Number Field */}
-          <Text style={styles.sectionTitle}>Contact Number</Text>
+          {/* Requirements & Compensation */}
+          <Text style={styles.sectionTitle}>Requirements & Pay</Text>
+          <View style={styles.infoCard}>
+             <View style={styles.infoRow}>
+                <Ionicons name="medkit-outline" size={scale(18)} color={C.primary} style={styles.infoIcon} />
+                <View>
+                  <Text style={styles.infoLabel}>Department</Text>
+                  <Text style={styles.infoValue}>{details.department || 'General'} ({details.doctor_type || 'Any'} required)</Text>
+                </View>
+             </View>
+             <View style={styles.divider} />
+             <View style={styles.infoRow}>
+                <Ionicons name="cash-outline" size={scale(18)} color={C.success} style={styles.infoIcon} />
+                <View>
+                  <Text style={styles.infoLabel}>Compensation</Text>
+                  <Text style={[styles.infoValue, { color: C.success, fontWeight: '800' }]}>
+                    ₹{details.offered_rate || '0'} <Text style={{fontWeight: '500', fontSize: scale(12)}}>{details.billing_shift_type || 'Per Shift'}</Text>
+                  </Text>
+                </View>
+             </View>
+             <View style={styles.divider} />
+             <View style={styles.infoRow}>
+                <Ionicons name="people-outline" size={scale(18)} color={C.primary} style={styles.infoIcon} />
+                <View>
+                  <Text style={styles.infoLabel}>Openings</Text>
+                  <Text style={styles.infoValue}>{details.openings || 1} Position(s) | {details.shifts_required || 1} Shifts Required</Text>
+                </View>
+             </View>
+          </View>
+
+          {/* Application Form */}
+          <Text style={styles.sectionTitle}>Apply</Text>
           <View style={styles.singleInputContainer}>
             <Ionicons name="call-outline" size={scale(18)} color={C.textMuted} style={styles.inputIcon} />
             <TextInput
@@ -192,12 +267,10 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
             />
           </View>
 
-          {/* Optional Note Field */}
-          <Text style={styles.sectionTitle}>Your Note (Optional)</Text>
           <View style={styles.multiInputContainer}>
             <TextInput
               style={styles.multiInput}
-              placeholder="Any specific requests or availability notes?"
+              placeholder="Any specific requests or availability notes? (Optional)"
               placeholderTextColor={C.textMuted}
               multiline={true}
               numberOfLines={4}
@@ -216,7 +289,7 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
           style={styles.btnWrapper} 
           activeOpacity={0.85} 
           onPress={handleConfirmApplication}
-          disabled={!contactNumber.trim()} // Prevent submission if no phone number
+          disabled={!contactNumber.trim()} 
         >
           <LinearGradient 
             colors={contactNumber.trim() ? ['#00a8c2', '#007b8e'] : ['#9CA3AF', '#6B7280']} 
@@ -246,13 +319,17 @@ const styles = StyleSheet.create({
   jobTitle: { fontSize: scale(15), fontWeight: '800', color: C.ink },
   jobHospital: { fontSize: scale(13), color: C.textSub, fontWeight: '600' },
   jobDetailText: { fontSize: scale(12), color: C.textMuted },
-
+  
   sectionTitle: { fontSize: scale(14), fontWeight: '800', color: C.ink, marginBottom: scale(12), marginTop: scale(8) },
   
-  userCard: { flexDirection: 'row', alignItems: 'center', marginBottom: scale(16) },
-  avatar: { width: scale(48), height: scale(48), borderRadius: scale(24), backgroundColor: '#9CA3AF', alignItems: 'center', justifyContent: 'center', marginRight: scale(12) },
-  userName: { fontSize: scale(14), fontWeight: '700', color: C.ink },
-  userQual: { fontSize: scale(12), color: C.textMuted, marginTop: scale(2) },
+  infoCard: { backgroundColor: C.cardBg, borderRadius: scale(16), borderWidth: 1, borderColor: C.border, marginBottom: scale(20), overflow: 'hidden' },
+  infoRow: { flexDirection: 'row', alignItems: 'center', padding: scale(16) },
+  infoIcon: { marginRight: scale(14), backgroundColor: C.primaryLight, padding: scale(8), borderRadius: scale(10), overflow: 'hidden' },
+  infoLabel: { fontSize: scale(12), color: C.textMuted, fontWeight: '600', marginBottom: scale(2) },
+  infoValue: { fontSize: scale(14), color: C.ink, fontWeight: '700' },
+  divider: { height: 1, backgroundColor: C.border, marginLeft: scale(56) },
+  branchBadge: { marginTop: scale(6), backgroundColor: C.warningLight, alignSelf: 'flex-start', paddingHorizontal: scale(8), paddingVertical: scale(4), borderRadius: scale(6) },
+  branchText: { fontSize: scale(11), color: C.warning, fontWeight: '700' },
 
   // Input Styles
   singleInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.cardBg, borderRadius: scale(12), borderWidth: 1, borderColor: C.border, paddingHorizontal: scale(12), height: scale(48), marginBottom: scale(16) },

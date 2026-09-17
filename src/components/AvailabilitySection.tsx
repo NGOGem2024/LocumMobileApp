@@ -103,10 +103,10 @@ function firstDay(y: number, m: number) {
 // ══════════════════════════════════════════════════════════════════════════════
 // ── CLOCK PICKER ──────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
-const CS = scale(220);
+const CS = scale(200); // Reduced size
 const CR = CS / 2;
-const NR = CR - scale(26);
-const HR = CR - scale(30);
+const NR = CR - scale(22);
+const HR = CR - scale(26);
 
 function degToXY(r: number, deg: number) {
   const rad = (deg - 90) * (Math.PI / 180);
@@ -313,7 +313,7 @@ const ClockPicker: React.FC<{
               style={[
                 styles.clock_numWrap,
                 on ? styles.bgPrimary : styles.bgTransparent,
-                { left: pos.x - scale(13), top: pos.y - scale(13) },
+                { left: pos.x - scale(11), top: pos.y - scale(11) },
               ]}
             >
               <Text style={[styles.clock_numTxt, on ? styles.clock_numTxtOn : styles.clock_numTxtOff]}>
@@ -331,7 +331,7 @@ const ClockPicker: React.FC<{
           ]}
         />
 
-        <View style={[styles.clock_tip, { left: tip.x - scale(9), top: tip.y - scale(9) }]} />
+        <View style={[styles.clock_tip, { left: tip.x - scale(7), top: tip.y - scale(7) }]} />
         <View style={styles.clock_dot} />
       </View>
 
@@ -441,7 +441,7 @@ const ShiftModal: React.FC<{
                 <Text style={styles.sh_sub}>{dateLabel}</Text>
               </View>
               <TouchableOpacity onPress={onClose} style={styles.sh_close}>
-                <Ionicons name="close" size={scale(18)} color={C.textSub} />
+                <Ionicons name="close" size={scale(16)} color={C.textSub} />
               </TouchableOpacity>
             </View>
 
@@ -480,13 +480,13 @@ const ShiftModal: React.FC<{
               >
                 <Text style={styles.sh_timeLabel}>Start Time</Text>
                 <View style={styles.sh_timePill}>
-                  <Ionicons name="time-outline" size={scale(13)} color={C.primary} />
+                  <Ionicons name="time-outline" size={scale(12)} color={C.primary} />
                   <Text style={styles.sh_timeVal}>{start}</Text>
                   <Ionicons name="chevron-down" size={scale(12)} color={C.textMuted} style={styles.mlAuto} />
                 </View>
               </TouchableOpacity>
-              <View style={styles.pb10}>
-                <Ionicons name="arrow-forward" size={scale(14)} color={C.textMuted} />
+              <View style={styles.pb6}>
+                <Ionicons name="arrow-forward" size={scale(12)} color={C.textMuted} />
               </View>
               <TouchableOpacity
                 style={[styles.sh_timeBox, styles.flex1]}
@@ -495,7 +495,7 @@ const ShiftModal: React.FC<{
               >
                 <Text style={styles.sh_timeLabel}>End Time</Text>
                 <View style={styles.sh_timePill}>
-                  <Ionicons name="time-outline" size={scale(13)} color={C.primary} />
+                  <Ionicons name="time-outline" size={scale(12)} color={C.primary} />
                   <Text style={styles.sh_timeVal}>{end}</Text>
                   <Ionicons name="chevron-down" size={scale(12)} color={C.textMuted} style={styles.mlAuto} />
                 </View>
@@ -521,7 +521,7 @@ const ShiftModal: React.FC<{
             <View style={styles.sh_actions}>
               {existing && (
                 <TouchableOpacity style={styles.sh_del} onPress={onDelete} activeOpacity={0.85}>
-                  <Ionicons name="trash-outline" size={scale(14)} color={C.danger} />
+                  <Ionicons name="trash-outline" size={scale(12)} color={C.danger} />
                   <Text style={styles.sh_delTxt}>Remove</Text>
                 </TouchableOpacity>
               )}
@@ -535,7 +535,7 @@ const ShiftModal: React.FC<{
                   <ActivityIndicator size="small" color={C.white} />
                 ) : (
                   <>
-                    <Ionicons name="checkmark" size={scale(14)} color={C.white} />
+                    <Ionicons name="checkmark" size={scale(13)} color={C.white} />
                     <Text style={styles.sh_saveTxt}>{existing ? 'Update' : 'Save'}</Text>
                   </>
                 )}
@@ -645,11 +645,11 @@ const AvailabilitySection: React.FC<Props> = ({
       <View style={styles.av_card}>
         <View style={styles.av_monthNav}>
           <TouchableOpacity onPress={prevM} style={styles.av_navBtn}>
-            <Ionicons name="chevron-back" size={scale(16)} color={C.primary} />
+            <Ionicons name="chevron-back" size={scale(14)} color={C.primary} />
           </TouchableOpacity>
           <Text style={styles.av_monthLabel}>{MONTHS[viewM]} {viewY}</Text>
           <TouchableOpacity onPress={nextM} style={styles.av_navBtn}>
-            <Ionicons name="chevron-forward" size={scale(16)} color={C.primary} />
+            <Ionicons name="chevron-forward" size={scale(14)} color={C.primary} />
           </TouchableOpacity>
         </View>
 
@@ -722,7 +722,7 @@ const AvailabilitySection: React.FC<Props> = ({
             return (
               <TouchableOpacity key={entry.date} style={styles.av_upCard} onPress={() => setSelDate(ds)} activeOpacity={0.8}>
                 <View style={[styles.av_upIcon, pStyles.bg]}>
-                  <Text style={styles.fs16}>{PRESETS[entry.shift_type].icon}</Text>
+                  <Text style={styles.fs14}>{PRESETS[entry.shift_type].icon}</Text>
                 </View>
                 <View style={styles.flex1}>
                   <Text style={styles.av_upDate}>{ed} {MONTHS[em - 1]}</Text>
@@ -731,7 +731,7 @@ const AvailabilitySection: React.FC<Props> = ({
                 <View style={[styles.av_upBadge, pStyles.bg]}>
                   <Text style={[styles.av_upBadgeTxt, pStyles.text]}>{entry.slot_duration}h slots</Text>
                 </View>
-                <Ionicons name="pencil-outline" size={scale(14)} color={C.textMuted} style={styles.ml6} />
+                <Ionicons name="pencil-outline" size={scale(12)} color={C.textMuted} style={styles.ml6} />
               </TouchableOpacity>
             );
           })}
@@ -760,9 +760,9 @@ const styles = StyleSheet.create({
   flex1: { flex: 1 },
   mlAuto: { marginLeft: 'auto' },
   opacity70: { opacity: 0.7 },
-  pb10: { paddingBottom: scale(10) },
+  pb6: { paddingBottom: scale(6) },
   ml6: { marginLeft: scale(6) },
-  fs16: { fontSize: scale(16) },
+  fs14: { fontSize: scale(14) },
   bgPrimary: { backgroundColor: C.primary },
   bgTransparent: { backgroundColor: 'transparent' },
 
@@ -782,31 +782,31 @@ const styles = StyleSheet.create({
   preset_full_border: { borderColor: '#10b981' },
   preset_full_text: { color: '#10b981' },
 
-  clock_wrap: { alignItems: 'center', gap: scale(12) },
+  clock_wrap: { alignItems: 'center', gap: scale(10) },
   clock_row: { flexDirection: 'row', alignItems: 'center', gap: scale(6) },
   clock_box: {
     alignItems: 'center',
-    paddingHorizontal: scale(14),
-    paddingVertical: scale(8),
-    borderRadius: scale(12),
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(6),
+    borderRadius: scale(10),
     backgroundColor: C.primaryLight,
     borderWidth: 1.5,
     borderColor: C.border,
-    minWidth: scale(60),
+    minWidth: scale(52),
   },
   clock_boxOn: { backgroundColor: C.primary, borderColor: C.primary },
   clock_boxTxt: {
-    fontSize: scale(26),
+    fontSize: scale(22),
     fontWeight: '900',
     color: C.textSub,
     letterSpacing: 1,
     textAlign: 'center',
-    width: scale(40),
+    width: scale(36),
     padding: 0,
   },
   clock_boxTxtOn: { color: C.white },
   clock_boxSub: {
-    fontSize: scale(9),
+    fontSize: scale(8),
     fontWeight: '800',
     color: C.textMuted,
     letterSpacing: 1,
@@ -814,25 +814,25 @@ const styles = StyleSheet.create({
   },
   clock_boxSubOn: { color: 'rgba(255,255,255,0.7)' },
   clock_colon: {
-    fontSize: scale(28),
+    fontSize: scale(24),
     fontWeight: '900',
     color: C.textMuted,
-    marginBottom: scale(10),
+    marginBottom: scale(8),
   },
   clock_period: {
-    borderRadius: scale(10),
+    borderRadius: scale(8),
     overflow: 'hidden',
     borderWidth: 1.5,
     borderColor: C.border,
     marginLeft: scale(4),
   },
   clock_pBtn: {
-    paddingHorizontal: scale(10),
-    paddingVertical: scale(7),
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(6),
     backgroundColor: C.white,
   },
   clock_pOn: { backgroundColor: C.primary },
-  clock_pTxt: { fontSize: scale(11), fontWeight: '800', color: C.textSub },
+  clock_pTxt: { fontSize: scale(10), fontWeight: '800', color: C.textSub },
   clock_pTxtOn: { color: C.white },
   clock_face: { width: CS, height: CS, position: 'relative' },
   clock_ring: {
@@ -841,95 +841,95 @@ const styles = StyleSheet.create({
     height: CS,
     borderRadius: CR,
     backgroundColor: C.primaryLight,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: C.border,
   },
   clock_numWrap: {
     position: 'absolute',
-    width: scale(26),
-    height: scale(26),
-    borderRadius: scale(13),
+    width: scale(22),
+    height: scale(22),
+    borderRadius: scale(11),
     alignItems: 'center',
     justifyContent: 'center',
   },
-  clock_numTxt: { fontSize: scale(11), fontWeight: '700' },
+  clock_numTxt: { fontSize: scale(10), fontWeight: '700' },
   clock_numTxtOn: { color: C.white },
   clock_numTxtOff: { color: C.textSub },
   clock_hand: {
     position: 'absolute',
     width: HR,
-    height: scale(3),
+    height: scale(2),
     backgroundColor: C.primary,
-    borderRadius: scale(2),
+    borderRadius: scale(1.5),
   },
   clock_tip: {
     position: 'absolute',
-    width: scale(18),
-    height: scale(18),
-    borderRadius: scale(9),
+    width: scale(14),
+    height: scale(14),
+    borderRadius: scale(7),
     backgroundColor: C.primary,
   },
   clock_dot: {
     position: 'absolute',
-    width: scale(10),
-    height: scale(10),
-    borderRadius: scale(5),
+    width: scale(8),
+    height: scale(8),
+    borderRadius: scale(4),
     backgroundColor: C.primary,
     zIndex: 3,
-    left: CR - scale(5),
-    top: CR - scale(5),
+    left: CR - scale(4),
+    top: CR - scale(4),
   },
-  clock_hint: { fontSize: scale(11), color: C.textMuted, fontWeight: '600' },
+  clock_hint: { fontSize: scale(10), color: C.textMuted, fontWeight: '600' },
 
   tp_overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,30,40,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: scale(20),
+    padding: scale(16),
   },
   tp_card: {
     backgroundColor: C.white,
-    borderRadius: scale(24),
-    padding: scale(20),
+    borderRadius: scale(20),
+    padding: scale(16),
     width: '100%',
     alignItems: 'center',
-    gap: scale(16),
+    gap: scale(14),
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
   },
   tp_title: {
-    fontSize: scale(15),
+    fontSize: scale(14),
     fontWeight: '900',
     color: C.text,
     alignSelf: 'flex-start',
   },
-  tp_row: { flexDirection: 'row', gap: scale(10), width: '100%' },
+  tp_row: { flexDirection: 'row', gap: scale(8), width: '100%' },
   tp_cancel: {
     flex: 1,
-    paddingVertical: scale(12),
-    borderRadius: scale(12),
+    paddingVertical: scale(10),
+    borderRadius: scale(10),
     borderWidth: 1.5,
     borderColor: C.border,
     alignItems: 'center',
   },
-  tp_cancelTxt: { fontSize: scale(13), fontWeight: '700', color: C.textSub },
+  tp_cancelTxt: { fontSize: scale(12), fontWeight: '700', color: C.textSub },
   tp_confirm: {
     flex: 1,
-    paddingVertical: scale(12),
-    borderRadius: scale(12),
+    paddingVertical: scale(10),
+    borderRadius: scale(10),
     backgroundColor: C.primary,
     alignItems: 'center',
     shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  tp_confirmTxt: { fontSize: scale(13), fontWeight: '800', color: C.white },
+  tp_confirmTxt: { fontSize: scale(12), fontWeight: '800', color: C.white },
 
   sh_overlay: {
     flex: 1,
@@ -938,174 +938,174 @@ const styles = StyleSheet.create({
   },
   sh_sheet: {
     backgroundColor: C.white,
-    borderTopLeftRadius: scale(28),
-    borderTopRightRadius: scale(28),
-    paddingHorizontal: scale(24),
-    paddingBottom: Platform.OS === 'ios' ? scale(36) : scale(24),
+    borderTopLeftRadius: scale(24),
+    borderTopRightRadius: scale(24),
+    paddingHorizontal: scale(20),
+    paddingBottom: Platform.OS === 'ios' ? scale(30) : scale(20),
     paddingTop: scale(8),
   },
   sh_handle: {
-    width: scale(40),
-    height: scale(5),
-    borderRadius: scale(2.5),
+    width: scale(36),
+    height: scale(4),
+    borderRadius: scale(2),
     backgroundColor: C.border,
     alignSelf: 'center',
-    marginBottom: scale(16),
+    marginBottom: scale(14),
   },
   sh_header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: scale(16),
+    marginBottom: scale(14),
   },
-  sh_title: { fontSize: scale(17), fontWeight: '900', color: C.text, letterSpacing: -0.3 },
+  sh_title: { fontSize: scale(15), fontWeight: '900', color: C.text, letterSpacing: -0.3 },
   sh_sub: {
-    fontSize: scale(12),
+    fontSize: scale(11),
     color: C.textMuted,
     marginTop: scale(2),
     fontWeight: '500',
   },
   sh_close: {
-    width: scale(32),
-    height: scale(32),
-    borderRadius: scale(16),
+    width: scale(28),
+    height: scale(28),
+    borderRadius: scale(14),
     backgroundColor: C.inputBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sh_lbl: {
-    fontSize: scale(11),
+    fontSize: scale(10),
     fontWeight: '800',
     color: C.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: scale(8),
+    marginBottom: scale(6),
   },
-  sh_chipRow: { flexDirection: 'row', gap: scale(8), marginBottom: scale(16) },
+  sh_chipRow: { flexDirection: 'row', gap: scale(6), marginBottom: scale(14) },
   sh_chip: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: scale(9),
-    borderRadius: scale(12),
+    paddingVertical: scale(8),
+    borderRadius: scale(10),
     borderWidth: 1.5,
-    gap: scale(3),
+    gap: scale(2),
   },
   sh_chipOn: { borderWidth: 1.5 },
   sh_chipOff: { borderColor: C.border, backgroundColor: C.white },
-  sh_chipIcon: { fontSize: scale(14) },
-  sh_chipLabel: { fontSize: scale(10), fontWeight: '700' },
+  sh_chipIcon: { fontSize: scale(12) },
+  sh_chipLabel: { fontSize: scale(9), fontWeight: '700' },
   sh_chipLabelOff: { color: C.textSub },
   sh_timeRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: scale(6),
-    marginBottom: scale(16),
+    marginBottom: scale(14),
   },
-  sh_timeBox: { gap: scale(5) },
-  sh_timeLabel: { fontSize: scale(11), fontWeight: '700', color: C.textSub },
+  sh_timeBox: { gap: scale(4) },
+  sh_timeLabel: { fontSize: scale(10), fontWeight: '700', color: C.textSub },
   sh_timePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: scale(5),
+    gap: scale(4),
     backgroundColor: C.primaryLight,
-    borderRadius: scale(10),
-    paddingHorizontal: scale(10),
-    paddingVertical: scale(10),
+    borderRadius: scale(8),
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(8),
     borderWidth: 1,
     borderColor: C.border,
   },
-  sh_timeVal: { fontSize: scale(14), fontWeight: '800', color: C.primary },
+  sh_timeVal: { fontSize: scale(13), fontWeight: '800', color: C.primary },
   sh_slotRow: {
     flexDirection: 'row',
-    gap: scale(8),
-    marginBottom: scale(20),
+    gap: scale(6),
+    marginBottom: scale(16),
     flexWrap: 'wrap',
   },
   sh_slotChip: {
-    paddingHorizontal: scale(14),
-    paddingVertical: scale(8),
-    borderRadius: scale(10),
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(6),
+    borderRadius: scale(8),
     borderWidth: 1.5,
     borderColor: C.border,
     backgroundColor: C.white,
-    minWidth: scale(44),
+    minWidth: scale(38),
     alignItems: 'center',
   },
   sh_slotChipOn: { backgroundColor: C.primaryLight, borderColor: C.primary },
-  sh_slotTxt: { fontSize: scale(12), fontWeight: '700' },
+  sh_slotTxt: { fontSize: scale(11), fontWeight: '700' },
   sh_slotTxtOn: { color: C.primary },
   sh_slotTxtOff: { color: C.textSub },
-  sh_actions: { flexDirection: 'row', gap: scale(10) },
+  sh_actions: { flexDirection: 'row', gap: scale(8) },
   sh_del: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: scale(5),
+    gap: scale(4),
     borderWidth: 1.5,
     borderColor: C.danger,
-    borderRadius: scale(12),
-    paddingHorizontal: scale(16),
-    paddingVertical: scale(12),
+    borderRadius: scale(10),
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(10),
   },
-  sh_delTxt: { fontSize: scale(13), fontWeight: '700', color: C.danger },
+  sh_delTxt: { fontSize: scale(12), fontWeight: '700', color: C.danger },
   sh_save: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: scale(6),
+    gap: scale(5),
     backgroundColor: C.primary,
-    borderRadius: scale(12),
-    paddingVertical: scale(13),
+    borderRadius: scale(10),
+    paddingVertical: scale(10),
     shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  sh_saveTxt: { fontSize: scale(14), fontWeight: '800', color: C.white },
+  sh_saveTxt: { fontSize: scale(13), fontWeight: '800', color: C.white },
 
-  av_wrap: { gap: scale(16) },
+  av_wrap: { gap: scale(12) },
   av_card: {
     backgroundColor: C.white,
-    borderRadius: scale(24),
-    padding: scale(20),
+    borderRadius: scale(20),
+    padding: scale(14),
     borderWidth: 1,
     borderColor: C.border,
     shadowColor: C.cardShadow,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 4,
+    shadowRadius: 12,
+    elevation: 2,
   },
   av_monthNav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: scale(16),
+    marginBottom: scale(12),
   },
   av_navBtn: {
-    width: scale(36),
-    height: scale(36),
-    borderRadius: scale(12),
+    width: scale(30),
+    height: scale(30),
+    borderRadius: scale(10),
     backgroundColor: C.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  av_monthLabel: { fontSize: scale(15), fontWeight: '900', color: C.text, letterSpacing: -0.3 },
-  av_dayRow: { flexDirection: 'row', marginBottom: scale(8) },
+  av_monthLabel: { fontSize: scale(14), fontWeight: '900', color: C.text, letterSpacing: -0.3 },
+  av_dayRow: { flexDirection: 'row', marginBottom: scale(6) },
   av_dayHdr: {
     flex: 1,
     textAlign: 'center',
-    fontSize: scale(11),
+    fontSize: scale(10),
     fontWeight: '800',
     color: C.textMuted,
     textTransform: 'uppercase',
   },
   av_grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  av_cellWrap: { width: `${100 / 7}%`, aspectRatio: 1, padding: scale(3) },
+  av_cellWrap: { width: `${100 / 7}%`, aspectRatio: 1, padding: scale(2) },
   av_cell: {
     flex: 1,
-    borderRadius: scale(10),
+    borderRadius: scale(8),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1113,70 +1113,70 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: C.primary,
     backgroundColor: C.primaryLight,
-    borderRadius: scale(10),
+    borderRadius: scale(8),
   },
   av_cellConfigured: {
     borderWidth: 1,
-    borderRadius: scale(10),
+    borderRadius: scale(8),
   },
   av_cellToday: { borderWidth: 2, borderColor: C.primary },
   av_cellPast: { opacity: 0.35 },
   av_cellTxt: {
-    fontSize: scale(12),
+    fontSize: scale(11),
     fontWeight: '800',
     color: C.text,
-    lineHeight: scale(14),
+    lineHeight: scale(13),
   },
   av_cellTxtToday: { color: C.primary },
   av_cellTxtPast: { color: C.textMuted },
-  av_cellDot: { fontSize: scale(7), lineHeight: scale(9) },
+  av_cellDot: { fontSize: scale(6), lineHeight: scale(8) },
   av_legend: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: scale(12),
-    marginTop: scale(16),
-    paddingTop: scale(16),
+    gap: scale(10),
+    marginTop: scale(12),
+    paddingTop: scale(12),
     borderTopWidth: 1,
     borderTopColor: C.border,
   },
-  av_lgItem: { flexDirection: 'row', alignItems: 'center', gap: scale(6) },
-  av_lgDot: { width: scale(10), height: scale(10), borderRadius: scale(5) },
-  av_lgTxt: { fontSize: scale(11), color: C.textSub, fontWeight: '700' },
-  av_upWrap: { gap: scale(12), marginTop: scale(4) },
-  av_upTitle: { fontSize: scale(14), fontWeight: '900', color: C.text, letterSpacing: -0.3 },
+  av_lgItem: { flexDirection: 'row', alignItems: 'center', gap: scale(4) },
+  av_lgDot: { width: scale(8), height: scale(8), borderRadius: scale(4) },
+  av_lgTxt: { fontSize: scale(10), color: C.textSub, fontWeight: '700' },
+  av_upWrap: { gap: scale(10), marginTop: scale(4) },
+  av_upTitle: { fontSize: scale(13), fontWeight: '900', color: C.text, letterSpacing: -0.3 },
   av_upCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: scale(12),
+    gap: scale(10),
     backgroundColor: C.white,
-    borderRadius: scale(16),
-    padding: scale(14),
+    borderRadius: scale(14),
+    padding: scale(12),
     borderWidth: 1,
     borderColor: C.border,
     shadowColor: C.cardShadow,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 1,
   },
   av_upIcon: {
-    width: scale(44),
-    height: scale(44),
-    borderRadius: scale(12),
+    width: scale(36),
+    height: scale(36),
+    borderRadius: scale(10),
     alignItems: 'center',
     justifyContent: 'center',
   },
   av_upDate: {
-    fontSize: scale(14),
+    fontSize: scale(13),
     fontWeight: '900',
     color: C.text,
     marginBottom: scale(2),
   },
-  av_upShift: { fontSize: scale(12), color: C.textSub, fontWeight: '600' },
+  av_upShift: { fontSize: scale(11), color: C.textSub, fontWeight: '600' },
   av_upBadge: {
-    borderRadius: scale(8),
-    paddingHorizontal: scale(10),
-    paddingVertical: scale(6),
+    borderRadius: scale(6),
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(4),
   },
-  av_upBadgeTxt: { fontSize: scale(11), fontWeight: '800' },
+  av_upBadgeTxt: { fontSize: scale(10), fontWeight: '800' },
 });

@@ -13,6 +13,7 @@ import {
   View,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -25,7 +26,6 @@ import api from '../services/axiosConfig';
 const { width: SW, height: SH } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
 
-// ── UNIFIED CLEAN LIGHT THEME ──
 const C = {
   background: '#F9FAFB',
   cardBg: '#FFFFFF',
@@ -59,54 +59,49 @@ type RateEntry = {
   payment_terms?: PaymentTerm;
 };
 
-// ── Helpers ──
 const formatRate = (val?: number | null) => (val == null ? '—' : `₹${val}`);
 
 const getPaymentConfig = (term?: PaymentTerm) => {
-  if (term === 'Next Day Payout')
-    return { icon: 'flash-outline', color: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'Next Day Payout' };
-  if (term === 'Weekly Payout')
-    return { icon: 'calendar-outline', color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', label: 'Weekly Payout' };
-  if (term === 'Monthly Payout')
-    return { icon: 'albums-outline', color: '#6d28d9', bg: '#f5f3ff', border: '#ddd6fe', label: 'Monthly Payout' };
-  return { icon: 'cash-outline', color: C.textMuted, bg: '#F9FAFB', border: C.border, label: term ?? '' };
+  const configs: Record<string, any> = {
+    'Next Day Payout': { icon: 'flash-outline', color: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'Next Day Payout' },
+    'Weekly Payout': { icon: 'calendar-outline', color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', label: 'Weekly Payout' },
+    'Monthly Payout': { icon: 'albums-outline', color: '#6d28d9', bg: '#f5f3ff', border: '#ddd6fe', label: 'Monthly Payout' },
+  };
+  return configs[term ?? ''] || { icon: 'cash-outline', color: C.textMuted, bg: '#F9FAFB', border: C.border, label: term ?? '' };
 };
 
-// ── Job Board Style UrgencyBadge ──
 const UrgencyBadge = ({ urgency }: { urgency: string }) => {
-  const config =
-    urgency === 'urgent'
-      ? { color: C.urgent, label: 'Actively hiring' }
-      : urgency === 'high'
-      ? { color: C.warning, label: 'High Priority' }
-      : { color: C.success, label: 'Open' };
+  const status = (urgency || '').toLowerCase();
+  
+  let config;
+  if (status === 'urgent' || status === 'in progress') {
+    config = { color: C.urgent, label: 'Actively Hiring', icon: 'flash' };
+  } else if (status === 'closed') {
+    config = { color: C.textMuted, label: 'Closed', icon: 'lock-closed' };
+  } else {
+    config = { color: C.success, label: 'Open', icon: 'checkmark-circle' };
+  }
 
   return (
     <View style={styles.badgeWrap}>
-      <Ionicons name="flash" size={12} color={config.color} />
+      <Ionicons name={config.icon} size={scale(12)} color={config.color} />
       <Text style={[styles.badgeText, { color: C.textSub }]}>{config.label}</Text>
     </View>
   );
 };
 
-// ── RateCardBottomSheet ──
 const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; rates: RateEntry[]; onClose: () => void; }) => {
   const slideAnim = useRef(new Animated.Value(SH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.spring(slideAnim, { toValue: 0, damping: 20, stiffness: 200, useNativeDriver: true }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: SH, duration: 220, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [visible]);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: visible ? 1 : 0, duration: visible ? 220 : 180, useNativeDriver: true }),
+      visible 
+        ? Animated.spring(slideAnim, { toValue: 0, damping: 20, stiffness: 200, useNativeDriver: true })
+        : Animated.timing(slideAnim, { toValue: SH, duration: 220, useNativeDriver: true }),
+    ]).start();
+  }, [visible, fadeAnim, slideAnim]);
 
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
@@ -122,9 +117,7 @@ const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; ra
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.sheetTitle}>Rate Card</Text>
-            <Text style={styles.sheetSub}>
-              {rates.length} duty {rates.length === 1 ? 'type' : 'types'} configured
-            </Text>
+            <Text style={styles.sheetSub}>{rates.length} duty {rates.length === 1 ? 'type' : 'types'} configured</Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <Ionicons name="close" size={scale(18)} color={C.textSub} />
@@ -170,7 +163,7 @@ const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; ra
                       </View>
                       <View style={styles.rateRowRight}>
                         <Text style={styles.rateAmt}>{formatRate(item.day_shift_rate)}</Text>
-                        {item.day_shift_rate != null ? <Text style={styles.rateUnit}>{unit}</Text> : null}
+                        {item.day_shift_rate != null && <Text style={styles.rateUnit}>{unit}</Text>}
                       </View>
                     </View>
                     <View style={styles.rateRow}>
@@ -182,7 +175,7 @@ const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; ra
                       </View>
                       <View style={styles.rateRowRight}>
                         <Text style={styles.rateAmt}>{formatRate(item.night_shift_rate)}</Text>
-                        {item.night_shift_rate != null ? <Text style={styles.rateUnit}>{unit}</Text> : null}
+                        {item.night_shift_rate != null && <Text style={styles.rateUnit}>{unit}</Text>}
                       </View>
                     </View>
                     <View style={styles.rateRow}>
@@ -194,19 +187,19 @@ const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; ra
                       </View>
                       <View style={styles.rateRowRight}>
                         <Text style={styles.rateAmt}>{formatRate(item.sunday_holiday_rate)}</Text>
-                        {item.sunday_holiday_rate != null ? <Text style={styles.rateUnit}>{unit}</Text> : null}
+                        {item.sunday_holiday_rate != null && <Text style={styles.rateUnit}>{unit}</Text>}
                       </View>
                     </View>
                   </View>
                   <View style={styles.divider} />
-                  <View style={styles.cardFooter}>
-                    {item.payment_terms ? (
+                  {item.payment_terms && (
+                    <View style={styles.cardFooter}>
                       <View style={[styles.paymentChip, { backgroundColor: pc.bg, borderColor: pc.border }]}>
                         <Ionicons name={pc.icon} size={scale(11)} color={pc.color} />
                         <Text style={[styles.paymentChipText, { color: pc.color }]}>{pc.label}</Text>
                       </View>
-                    ) : null}
-                  </View>
+                    </View>
+                  )}
                 </View>
               );
             })
@@ -217,7 +210,29 @@ const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; ra
   );
 };
 
-// ── HomeScreen ─────────────────────────────────────────────────────────────────
+const TopBar = () => {
+  return (
+    <View style={styles.topBarContainer}>
+      <TouchableOpacity style={styles.logoContainer} activeOpacity={0.8}>
+        <Image 
+          source={require('../assets/image.png')} 
+          style={styles.logoImage} 
+          resizeMode="contain" 
+        />
+      </TouchableOpacity>
+
+      <View style={styles.topBarIcons}>
+        <TouchableOpacity style={styles.headerIcon} activeOpacity={0.7}>
+          <Ionicons name="chatbubble-ellipses-outline" size={scale(22)} color={C.ink} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.headerIcon} activeOpacity={0.7}>
+          <Ionicons name="notifications-outline" size={scale(22)} color={C.ink} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
 const HomeScreen = ({ navigation }: any) => {
   const { doctor, token } = useAuth();
   const { isJobSaved, saveJob, unsaveJob, applyJob, isJobApplied } = useJobs();
@@ -226,81 +241,53 @@ const HomeScreen = ({ navigation }: any) => {
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [fetchedAvailability, setFetchedAvailability] = useState<any[]>([]);
   const [rateCard, setRateCard] = useState<RateEntry[]>([]);
-  
-  // Refresh Control State
   const [refreshing, setRefreshing] = useState(false);
-
-  // Toast Notification state
   const [toastMessage, setToastMessage] = useState<string>('');
+  const [showRateSheet, setShowRateSheet] = useState(false);
+  const [activeSection, setActiveSection] = useState<'jobs' | 'availability'>('jobs');
+  
   const toastFadeAnim = useRef(new Animated.Value(0)).current;
 
-  const showToast = (message: string) => {
+  const showToast = useCallback((message: string) => {
     setToastMessage(message);
     Animated.sequence([
       Animated.timing(toastFadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
       Animated.delay(2000),
       Animated.timing(toastFadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
     ]).start();
-  };
+  }, [toastFadeAnim]);
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'TBD';
-    const d = new Date(dateString);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
- const fetchActiveJobs = async () => {
+  const loadAllData = useCallback(async () => {
+    if (!doctor?._id) return;
     try {
-      const response = await api.get('/api/doctors/jobs');
-      if (response.data && response.data.success) {
-        const mappedJobs = response.data.jobs.map((reqItem: any) => ({
+      const [jobsRes, availRes, rateRes] = await Promise.all([
+        api.get('/api/doctors/jobs').catch(() => ({ data: { success: false, jobs: [] } })),
+        api.get(`/${doctor._id}/availability`).catch(() => ({ data: { availability: [] } })),
+        api.get(`/api/doctors/rate-card/${doctor._id}`).catch(() => ({ data: { data: [] } }))
+      ]);
+
+      if (jobsRes.data?.success) {
+        setActiveJobs(jobsRes.data.jobs.map((reqItem: any) => ({
           id: reqItem._id,
           hospital: reqItem.hospital_name,
           location: `${reqItem.city}, ${reqItem.state}`,
-          date: formatDate(reqItem.shift_start_date),
+          date: reqItem.shift_start_date ? new Date(reqItem.shift_start_date).toLocaleDateString('en-GB') : 'TBD',
           specialization: reqItem.speciality,
           department: reqItem.department || 'General',
           status: reqItem.status || 'Available',
           pay: `₹${reqItem.offered_rate}`,
           payType: reqItem.billing_shift_type === 'Hourly' ? '/hr' : 'Flat',
-          urgency: reqItem.vacancy_status === 'Urgent' ? 'urgent' : 'normal',
-          distance: 'N/A', 
-          rawDetails: reqItem // <-- ADD THIS LINE to pass the full API object
-        }));
-        setActiveJobs(mappedJobs);
+          urgency: reqItem.vacancy_status,
+          rawDetails: reqItem,
+        })));
       }
+      
+      setFetchedAvailability(availRes.data?.availability ?? []);
+      setRateCard(rateRes.data?.data ?? []);
     } catch (error) {
-      console.error("Error fetching jobs:", error);
-      showToast('Failed to load active jobs');
+      showToast('Failed to load dashboard data');
     }
-  };
-
-  const fetchAvailabilityData = async () => {
-    if (!doctor?._id) return;
-    try {
-      const res = await api.get(`/${doctor._id}/availability`);
-      if (res.data) setFetchedAvailability(res.data.availability ?? []);
-    } catch (err) {
-      console.log('Error fetching availability:', err);
-    }
-  };
-
-  const fetchRateCardData = async () => {
-    if (!doctor?._id) return;
-    try {
-      const res = await api.get(`/api/doctors/rate-card/${doctor._id}`);
-      if (res.data) setRateCard(res.data.data ?? []);
-    } catch (err) {
-      console.log('Error fetching rate card:', err);
-    }
-  };
-
-  const loadAllData = useCallback(async () => {
-    await Promise.all([fetchActiveJobs(), fetchAvailabilityData(), fetchRateCardData()]);
-  }, [doctor?._id]);
+  }, [doctor?._id, showToast]);
 
   useEffect(() => {
     setLoadingJobs(true);
@@ -315,84 +302,98 @@ const HomeScreen = ({ navigation }: any) => {
 
   const handleBookmarkToggle = async (job: Job) => {
     const originallySaved = isJobSaved(job.id);
-    
-    // Optimistic Update
-    if (originallySaved) {
-      unsaveJob(job.id); 
-    } else {
-      saveJob(job);
-    }
+    originallySaved ? unsaveJob(job.id) : saveJob(job);
 
     try {
-      const response = await api.post(`/api/doctors/jobs/${job.id}/save`);
-      if (response.data.success) {
-        showToast(originallySaved ? 'Removed from Saved Jobs' : 'Job saved successfully!');
-      }
-    } catch (error) {
-      console.error('Error toggling saved job:', error);
-      if (originallySaved) saveJob(job);
-      else unsaveJob(job.id);
+      const { data } = await api.post(`/api/doctors/jobs/${job.id}/save`);
+      if (data.success) showToast(originallySaved ? 'Removed from Saved Jobs' : 'Job saved successfully!');
+    } catch {
+      originallySaved ? saveJob(job) : unsaveJob(job.id);
       showToast('Error updating saved job status');
     }
   };
 
-  // Sheet toggles & Tabs
-  const [showRateSheet, setShowRateSheet] = useState(false);
-  const [activeSection, setActiveSection] = useState<'jobs' | 'availability'>('jobs');
+  const handleApply = async (job: Job) => {
+    try {
+      const { data } = await api.post(`/api/doctors/jobs/${job.id}/apply`);
+      if (data?.success) {
+        applyJob(job);
+        showToast(data.message || 'Applied successfully!');
+      } else {
+        showToast(data.message || 'Failed to apply.');
+      }
+    } catch (error: any) {
+      showToast(error.response?.data?.message || 'Error applying to job');
+    }
+  };
+
+  const currentHour = new Date().getHours();
+  const isMorning = currentHour < 12;
+  const isAfternoon = currentHour >= 12 && currentHour < 17;
+  
+  const greeting = isMorning ? 'Good morning' : isAfternoon ? 'Good afternoon' : 'Good evening';
+  const greetingIcon = isMorning ? 'partly-sunny' : isAfternoon ? 'sunny' : 'moon';
+  const greetingColor = isMorning ? '#f59e0b' : isAfternoon ? '#d97706' : '#6366f1';
+  
+  const userName = doctor?.first_name || 'Doctor';
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.cardBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={C.background} />
 
       <Animated.View pointerEvents="none" style={[styles.toastContainer, { opacity: toastFadeAnim }]}>
         <Ionicons name="checkmark-circle" size={18} color={C.white} />
         <Text style={styles.toastText}>{toastMessage}</Text>
       </Animated.View>
 
-      <View style={styles.searchHeader}>
+      <TopBar />
+
+      <View style={styles.headerContainer}>
+        <View style={styles.greetingRow}>
+          <View style={styles.greetingTextWrap}>
+            <Ionicons name={greetingIcon} size={scale(14)} color={greetingColor} />
+            <Text style={styles.greetingText}>{greeting},</Text>
+          </View>
+          <Text style={styles.userNameText}>{userName}</Text>
+        </View>
+        
         <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={scale(18)} color={C.textMuted} />
+          <Ionicons name="search-outline" size={scale(16)} color={C.textMuted} />
           <TextInput placeholder="Search shifts, hospitals..." placeholderTextColor={C.textMuted} style={styles.searchInput} />
         </View>
-        <TouchableOpacity style={styles.headerIcon}>
-          <Ionicons name="chatbubble-ellipses-outline" size={scale(24)} color={C.ink} />
-        </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        contentContainerStyle={styles.scroll} 
+      <ScrollView
+        contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.primary]} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.primary]} />}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScroll}>
           <TouchableOpacity style={[styles.actionChip, activeSection === 'jobs' && styles.actionChipActive]} onPress={() => setActiveSection('jobs')}>
-            <Ionicons name="briefcase-outline" size={14} color={activeSection === 'jobs' ? C.primary : C.textSub} style={{ marginRight: 4 }} />
+            <Ionicons name="briefcase-outline" size={scale(13)} color={activeSection === 'jobs' ? C.primary : C.textSub} style={{ marginRight: scale(4) }} />
             <Text style={[styles.actionChipText, activeSection === 'jobs' && { color: C.primary }]}>Jobs</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionChip} onPress={() => navigation.navigate('MySchedule')}>
-            <Text style={styles.actionChipText}>My Schedule</Text>
+          <TouchableOpacity style={styles.actionChip} onPress={() => navigation.navigate('DutiesScreen')}>
+            <Text style={styles.actionChipText}>Duties Screen</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.actionChip, activeSection === 'availability' && styles.actionChipActive]} onPress={() => setActiveSection('availability')}>
-            <Ionicons name="calendar-outline" size={14} color={activeSection === 'availability' ? C.primary : C.textSub} style={{ marginRight: 4 }} />
+            <Ionicons name="calendar-outline" size={scale(13)} color={activeSection === 'availability' ? C.primary : C.textSub} style={{ marginRight: scale(4) }} />
             <Text style={[styles.actionChipText, activeSection === 'availability' && { color: C.primary }]}>Manage Availability</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionChip} onPress={() => setShowRateSheet(true)}>
-            <Ionicons name="pricetags-outline" size={14} color={C.textSub} style={{ marginRight: 4 }} />
+            <Ionicons name="pricetags-outline" size={scale(13)} color={C.textSub} style={{ marginRight: scale(4) }} />
             <Text style={styles.actionChipText}>Rate Card</Text>
           </TouchableOpacity>
-
         </ScrollView>
 
         {activeSection === 'availability' ? (
           <View style={styles.availabilityWrapper}>
             <View style={styles.availabilityHeader}>
               <Text style={styles.availabilityTitle}>Manage Availability</Text>
-              <Ionicons name="ellipsis-horizontal" size={20} color={C.textMuted} />
+              <Ionicons name="ellipsis-horizontal" size={scale(20)} color={C.textMuted} />
             </View>
             <AvailabilitySection
               doctorId={doctor?._id || ''}
@@ -409,9 +410,9 @@ const HomeScreen = ({ navigation }: any) => {
             </View>
 
             {loadingJobs && !refreshing ? (
-               <ActivityIndicator size="large" color={C.primary} style={{ marginTop: 20 }} />
+              <ActivityIndicator size="large" color={C.primary} style={{ marginTop: 20 }} />
             ) : activeJobs.length === 0 ? (
-               <Text style={{ textAlign: 'center', color: C.textMuted, marginTop: 20 }}>No active jobs found right now.</Text>
+              <Text style={{ textAlign: 'center', color: C.textMuted, marginTop: 20 }}>No active jobs found right now.</Text>
             ) : (
               activeJobs.map(req => {
                 const saved = isJobSaved(req.id);
@@ -430,17 +431,17 @@ const HomeScreen = ({ navigation }: any) => {
                         <UrgencyBadge urgency={req.urgency} />
                       </View>
                       <TouchableOpacity onPress={() => handleBookmarkToggle(req)} style={styles.bookmarkBtn}>
-                        <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={24} color={saved ? C.primary : C.textMuted} />
+                        <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={scale(22)} color={saved ? C.primary : C.textMuted} />
                       </TouchableOpacity>
                     </View>
 
                     <View style={styles.jobDetailsList}>
                       <View style={styles.jobDetailItem}>
-                        <Ionicons name="time-outline" size={14} color={C.textSub} />
+                        <Ionicons name="time-outline" size={scale(13)} color={C.textSub} />
                         <Text style={styles.jobDetailText}>{req.date}</Text>
                       </View>
                       <View style={styles.jobDetailItem}>
-                        <Ionicons name="cash-outline" size={14} color={C.textSub} />
+                        <Ionicons name="cash-outline" size={scale(13)} color={C.textSub} />
                         <Text style={styles.jobDetailText}>{req.pay} {req.payType}</Text>
                       </View>
                     </View>
@@ -448,11 +449,11 @@ const HomeScreen = ({ navigation }: any) => {
                     <View style={styles.jobActions}>
                       {applied ? (
                         <View style={styles.appliedBadge}>
-                          <Ionicons name="checkmark-circle" size={16} color={C.success} />
+                          <Ionicons name="checkmark-circle" size={scale(14)} color={C.success} />
                           <Text style={styles.appliedBadgeText}>Applied</Text>
                         </View>
                       ) : (
-                        <TouchableOpacity style={styles.btnShadowWrapper} activeOpacity={0.85} onPress={() => { applyJob(req); showToast('Applied successfully!'); }}>
+                        <TouchableOpacity style={styles.btnShadowWrapper} activeOpacity={0.85} onPress={() => handleApply(req)}>
                           <LinearGradient colors={['#00a8c2', '#007b8e']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.applyBtnPrimary}>
                             <Text style={styles.applyBtnText}>Easy Apply</Text>
                           </LinearGradient>
@@ -477,41 +478,161 @@ export default HomeScreen;
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   scroll: { paddingBottom: scale(100) },
-  toastContainer: { position: 'absolute', top: scale(54), alignSelf: 'center', backgroundColor: C.ink, flexDirection: 'row', alignItems: 'center', gap: scale(8), paddingHorizontal: scale(16), paddingVertical: scale(10), borderRadius: scale(20), zIndex: 9999, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 8 },
+  toastContainer: {
+    position: 'absolute', top: scale(54), alignSelf: 'center', backgroundColor: C.ink,
+    flexDirection: 'row', alignItems: 'center', gap: scale(8), paddingHorizontal: scale(16),
+    paddingVertical: scale(10), borderRadius: scale(20), zIndex: 9999,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 8,
+  },
   toastText: { color: C.white, fontSize: scale(13), fontWeight: '700' },
   badgeWrap: { flexDirection: 'row', alignItems: 'center', gap: scale(4) },
   badgeText: { fontSize: scale(11), fontWeight: '700' },
-  searchHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.cardBg, paddingHorizontal: scale(20), paddingVertical: scale(14), borderBottomWidth: 1, borderBottomColor: C.border, gap: scale(14) },
-  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: C.inputBg, borderRadius: scale(14), paddingHorizontal: scale(14), height: scale(40), borderWidth: 1.5, borderColor: C.inputBg },
-  searchInput: { flex: 1, marginLeft: scale(8), fontSize: scale(14), color: C.ink, fontWeight: '600', padding: 0 },
-  headerIcon: { padding: scale(4) },
-  actionsScroll: { paddingHorizontal: scale(20), paddingTop: scale(20), paddingBottom: scale(24), gap: scale(10) },
-  actionChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.cardBg, borderWidth: 1, borderColor: C.border, borderRadius: scale(14), paddingHorizontal: scale(16), paddingVertical: scale(10) },
+  
+  // TOP BAR STYLES (Compact Layout)
+  topBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: scale(20),
+    paddingTop: scale(4),
+    paddingBottom: scale(2),
+  },
+  logoContainer: {
+    width: scale(95),
+    height: scale(42),
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  topBarIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(10),
+  },
+  headerIcon: {
+    padding: scale(2),
+  },
+
+  // HEADER CONTAINER (Greeting & Search - Compact Layout)
+  headerContainer: {
+    paddingHorizontal: scale(20),
+    paddingTop: scale(2),
+    paddingBottom: scale(4),
+    gap: scale(8),
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  greetingTextWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  greetingText: {
+    fontSize: scale(13),
+    color: C.textSub,
+    fontWeight: '700',
+    marginLeft: scale(4),
+  },
+  userNameText: {
+    fontSize: scale(16),
+    color: C.ink,
+    fontWeight: '900',
+    marginLeft: scale(4),
+  },
+  
+  // SEARCH BAR (Slimmer profile)
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: C.cardBg,
+    borderRadius: scale(12), paddingHorizontal: scale(12), height: scale(38),
+    borderWidth: 1, borderColor: C.border,
+    shadowColor: C.ink, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+  },
+  searchInput: { 
+    flex: 1, marginLeft: scale(8), fontSize: scale(13), color: C.ink, fontWeight: '600', padding: 0 
+  },
+  
+  // ACTIONS TABS (Reduced Size)
+  actionsScroll: { 
+    paddingHorizontal: scale(20), 
+    paddingTop: scale(10), 
+    paddingBottom: scale(14), 
+    gap: scale(8) 
+  },
+  actionChip: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: C.cardBg,
+    borderWidth: 1, borderColor: C.border, 
+    borderRadius: scale(10), // Reduced from 14
+    paddingHorizontal: scale(12), // Reduced from 16
+    paddingVertical: scale(8), // Reduced from 10
+  },
   actionChipActive: { borderColor: C.primary, backgroundColor: C.primaryLight },
-  actionChipText: { fontSize: scale(13), fontWeight: '700', color: C.ink },
+  actionChipText: { fontSize: scale(12), fontWeight: '700', color: C.ink }, // Reduced from 13
+
   availabilityWrapper: { marginHorizontal: scale(20), marginBottom: scale(24) },
   availabilityHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: scale(12), paddingHorizontal: scale(4) },
   availabilityTitle: { fontSize: scale(16), fontWeight: '900', color: C.ink, letterSpacing: -0.5 },
-  feedDividerRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: scale(20), marginBottom: scale(20) },
-  feedDividerText: { fontSize: scale(11), color: C.primary, fontWeight: '800', letterSpacing: 1.5, marginRight: scale(12) },
+  
+  // --- JOB FEED & CARDS (Compact Layout) ---
+  feedDividerRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: scale(20), marginBottom: scale(14) },
+  feedDividerText: { fontSize: scale(10), color: C.primary, fontWeight: '800', letterSpacing: 1.2, marginRight: scale(12) },
   feedDividerLine: { flex: 1, height: 1, backgroundColor: C.border },
-  jobCard: { backgroundColor: C.cardBg, borderRadius: scale(24), marginHorizontal: scale(20), marginBottom: scale(16), borderWidth: 1, borderColor: C.border, shadowColor: C.ink, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 20, elevation: 4, padding: scale(20) },
+  
+  jobCard: {
+    backgroundColor: C.cardBg, 
+    borderRadius: scale(20), 
+    marginHorizontal: scale(20),
+    marginBottom: scale(12), 
+    borderWidth: 1, 
+    borderColor: C.border,
+    shadowColor: C.ink, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3, 
+    padding: scale(16), 
+  },
   jobCardHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-  companyLogo: { width: scale(52), height: scale(52), backgroundColor: C.inputBg, borderRadius: scale(14), borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginRight: scale(14) },
-  jobCardMeta: { flex: 1, gap: scale(3) },
-  jobTitle: { fontSize: scale(16), fontWeight: '900', color: C.ink, letterSpacing: -0.3 },
-  companyName: { fontSize: scale(14), color: C.textSub, fontWeight: '600' },
-  jobLocation: { fontSize: scale(12), color: C.textMuted, marginBottom: scale(6), fontWeight: '500' },
+  
+  companyLogo: {
+    width: scale(44), 
+    height: scale(44), 
+    backgroundColor: C.inputBg,
+    borderRadius: scale(12), 
+    borderWidth: 1, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center', 
+    marginRight: scale(12), 
+  },
+  jobCardMeta: { flex: 1, gap: scale(2) }, 
+  jobTitle: { fontSize: scale(15), fontWeight: '900', color: C.ink, letterSpacing: -0.3 }, 
+  companyName: { fontSize: scale(13), color: C.textSub, fontWeight: '600' }, 
+  jobLocation: { fontSize: scale(11), color: C.textMuted, marginBottom: scale(4), fontWeight: '500' }, 
+  
   bookmarkBtn: { padding: scale(4) },
-  jobDetailsList: { marginTop: scale(16), gap: scale(8) },
-  jobDetailItem: { flexDirection: 'row', alignItems: 'center', gap: scale(8) },
-  jobDetailText: { fontSize: scale(13), color: C.textSub, fontWeight: '600' },
-  jobActions: { marginTop: scale(20), flexDirection: 'row' },
-  btnShadowWrapper: { shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 6, borderRadius: scale(14) },
-  applyBtnPrimary: { paddingVertical: scale(12), paddingHorizontal: scale(24), borderRadius: scale(14), alignItems: 'center' },
-  applyBtnText: { color: C.white, fontSize: scale(14), fontWeight: '800' },
-  appliedBadge: { flexDirection: 'row', alignItems: 'center', gap: scale(6), backgroundColor: '#d1fae5', paddingHorizontal: scale(16), paddingVertical: scale(10), borderRadius: scale(12) },
-  appliedBadgeText: { color: C.success, fontSize: scale(13), fontWeight: '700' },
+  
+  jobDetailsList: { marginTop: scale(12), gap: scale(6) }, 
+  jobDetailItem: { flexDirection: 'row', alignItems: 'center', gap: scale(6) },
+  jobDetailText: { fontSize: scale(12), color: C.textSub, fontWeight: '600' }, 
+  
+  jobActions: { marginTop: scale(14), flexDirection: 'row' }, 
+  btnShadowWrapper: { shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4, borderRadius: scale(12) },
+  
+  applyBtnPrimary: { 
+    paddingVertical: scale(10), 
+    paddingHorizontal: scale(20), 
+    borderRadius: scale(12), 
+    alignItems: 'center' 
+  },
+  applyBtnText: { color: C.white, fontSize: scale(13), fontWeight: '800' }, 
+  
+  appliedBadge: { 
+    flexDirection: 'row', alignItems: 'center', gap: scale(6), 
+    backgroundColor: '#d1fae5', 
+    paddingHorizontal: scale(14), 
+    paddingVertical: scale(8), 
+    borderRadius: scale(10) 
+  },
+  appliedBadgeText: { color: C.success, fontSize: scale(12), fontWeight: '700' },
+
   backdrop: { flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.4)' },
   sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.background, borderTopLeftRadius: scale(28), borderTopRightRadius: scale(28), maxHeight: SH * 0.85, paddingBottom: scale(34) },
   handle: { width: scale(40), height: scale(5), borderRadius: scale(2.5), backgroundColor: C.border, alignSelf: 'center', marginTop: scale(12), marginBottom: scale(4) },

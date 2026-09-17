@@ -77,6 +77,7 @@ const SavedJobsScreen = ({ navigation }: any) => {
             payType: reqItem.billing_shift_type === 'Hourly' ? '/hr' : 'Flat',
             urgency: reqItem.vacancy_status === 'Urgent' ? 'urgent' : 'normal',
             distance: 'N/A', 
+            rawDetails: reqItem,
           }));
           setDbSavedJobs(mappedSaved);
         }

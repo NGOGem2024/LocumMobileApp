@@ -36,8 +36,18 @@ const C = {
   textMuted: '#9CA3AF',
   white: '#ffffff',
   success: '#10b981',
-  warningLight: '#fef3c7',
-  warning: '#d97706',
+  successLight: '#d1fae5',
+  warningLight: '#ffedd5',
+  warning: '#fb923c',
+  errorLight: '#fee2e2',
+  error: '#f87171',
+};
+
+// Helper function for Circular Ring colors (Lighter, softer colors)
+const getMatchStyle = (match: number) => {
+  if (match >= 75) return { color: '#007b8e', bg: '#dcfce7' }; // Light Green
+  if (match >= 50) return { color: '#fb923c', bg: '#ffedd5' }; // Light Orange
+  return { color: '#f87171', bg: '#fee2e2' }; // Light Red (Coral)
 };
 
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -56,7 +66,7 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
 };
 
 const ApplyJobScreen = ({ route, navigation }: any) => {
-  const { job }: { job: Job & { rawDetails?: any } } = route.params;
+  const { job }: { job: Job & { rawDetails?: any, matchPercentage?: number, matchedCriteria?: any } } = route.params;
   const { doctor } = useAuth();
   const { applyJob, isJobApplied } = useJobs();
 
@@ -70,6 +80,18 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   const details = job.rawDetails || {};
+  const matchPercentage = job.matchPercentage || 0;
+  const criteria = job.matchedCriteria || {};
+
+  // Calculate Matches
+  const degMatch = criteria.degree?.matched ?? false;
+  const specMatch = criteria.speciality?.matched ?? false;
+  const rateMatch = criteria.rate?.matched ?? false;
+  const locMatch = criteria.location?.matched ?? false;
+
+  const matchedCount = [degMatch, specMatch, rateMatch, locMatch].filter(Boolean).length;
+  const unmatchedCount = 4 - matchedCount;
+  const matchStyle = getMatchStyle(matchPercentage);
 
   useEffect(() => {
     Geolocation.getCurrentPosition(
@@ -140,7 +162,6 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
           <style>
             body, html { margin: 0; padding: 0; width: 100%; height: 100%; }
             #map { width: 100%; height: 100%; }
-            /* Hide the turn-by-turn instruction panel to keep the map clean */
             .leaflet-routing-container { display: none !important; }
             .leaflet-control-attribution { font-size: 8px !important; }
           </style>
@@ -180,6 +201,18 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
     `;
   }, [userLocation, jobCoords]);
 
+  // Helper for rendering match rows
+  const renderMatchRow = (title: string, matched: boolean, text: string) => (
+    <View style={styles.matchRow}>
+      <View style={[styles.matchIconWrap, { backgroundColor: matched ? C.successLight : C.warningLight }]}>
+        <Ionicons name={matched ? "checkmark" : "close"} size={scale(14)} color={matched ? C.success : C.warning} />
+      </View>
+      <View style={styles.matchRowContent}>
+        <Text style={styles.matchRowTitle}>{title}</Text>
+        <Text style={[styles.matchRowDesc, { color: matched ? C.textSub : C.warning }]}>{text}</Text>
+      </View>
+    </View>
+  );
 
   if (isSubmitted) {
     return (
@@ -233,9 +266,16 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
           <View style={styles.jobCard}>
-            <View style={styles.jobIconBox}>
-              <Ionicons name="business-outline" size={scale(24)} color={C.primary} />
+            {/* ✅ CIRCULAR MATCH RING */}
+            <View style={[styles.matchRing, { borderColor: matchStyle.color }]}>
+              <View style={styles.jobIconBox}>
+                <Ionicons name="business-outline" size={scale(24)} color={matchStyle.color} />
+              </View>
+              <View style={[styles.matchPercentPill, { backgroundColor: matchStyle.color }]}>
+                <Text style={styles.matchPercentText}>{matchPercentage}%</Text>
+              </View>
             </View>
+
             <View style={styles.jobMeta}>
               <Text style={styles.jobTitle}>{details.speciality || job.specialization}</Text>
               
@@ -270,6 +310,53 @@ const ApplyJobScreen = ({ route, navigation }: any) => {
                   </View>
                 )}
               </View>
+            </View>
+          </View>
+
+          {/* ✅ MATCH ANALYSIS SECTION */}
+          <Text style={styles.sectionTitle}>Profile Match Analysis</Text>
+          <View style={styles.infoCard}>
+            {unmatchedCount > 0 ? (
+              <View style={styles.matchWarningHeader}>
+                <Ionicons name="warning" size={scale(16)} color={C.warning} />
+                <Text style={styles.matchWarningText}>{unmatchedCount} requirement(s) missing</Text>
+              </View>
+            ) : (
+              <View style={styles.matchSuccessHeader}>
+                <Ionicons name="checkmark-circle" size={scale(16)} color={C.success} />
+                <Text style={styles.matchSuccessText}>Perfect match!</Text>
+              </View>
+            )}
+            
+            <View style={styles.matchRowsContainer}>
+              {renderMatchRow(
+                "Degree", 
+                degMatch, 
+                degMatch 
+                  ? `Your degree matches the required ${criteria.degree?.required_degree || 'Any'}`
+                  : `Requires: ${criteria.degree?.required_degree || 'Specific degree'}`
+              )}
+              {renderMatchRow(
+                "Speciality", 
+                specMatch, 
+                specMatch 
+                  ? `Your speciality matches the requirement`
+                  : `Requires experience in ${criteria.speciality?.required_speciality || 'Specific department'}`
+              )}
+              {renderMatchRow(
+                "Compensation", 
+                rateMatch, 
+                rateMatch 
+                  ? `Offered rate meets or exceeds your rate card`
+                  : `Offered rate is below your configured rate (₹${criteria.rate?.doctor_rate || 0})`
+              )}
+              {renderMatchRow(
+                "Location", 
+                locMatch, 
+                locMatch 
+                  ? `Within your preferred travel radius`
+                  : `Outside your travel radius (${criteria.location?.distance_km} km away)`
+              )}
             </View>
           </View>
 
@@ -394,21 +481,61 @@ const styles = StyleSheet.create({
   scrollContent: { padding: scale(20), paddingBottom: scale(40) },
   
   jobCard: { flexDirection: 'row', backgroundColor: C.cardBg, padding: scale(16), borderRadius: scale(16), borderWidth: 1, borderColor: C.border, marginBottom: scale(24), alignItems: 'center' },
-  jobIconBox: { width: scale(56), height: scale(56), borderRadius: scale(12), backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginRight: scale(16) },
+  
+  // Match Ring Styles
+  matchRing: {
+    width: scale(64),
+    height: scale(64),
+    borderRadius: scale(32),
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: scale(16),
+    position: 'relative',
+  },
+  jobIconBox: { width: scale(52), height: scale(52), borderRadius: scale(26), backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center' },
+  matchPercentPill: {
+    position: 'absolute',
+    bottom: scale(-10),
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(2),
+    borderRadius: scale(10),
+    borderWidth: 2,
+    borderColor: C.white,
+  },
+  matchPercentText: {
+    fontSize: scale(10),
+    fontWeight: '900',
+    color: C.white,
+  },
+
   jobMeta: { flex: 1, gap: scale(2) },
   jobTitle: { fontSize: scale(15), fontWeight: '800', color: C.ink },
   jobHospital: { fontSize: scale(13), color: C.textSub, fontWeight: '600' },
   jobDetailText: { fontSize: scale(12), color: C.textMuted },
   
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: scale(6), marginTop: scale(4) },
-  branchBadge: { backgroundColor: C.warningLight, alignSelf: 'flex-start', paddingHorizontal: scale(8), paddingVertical: scale(4), borderRadius: scale(6) },
-  branchText: { fontSize: scale(11), color: C.warning, fontWeight: '700' },
+  branchBadge: { backgroundColor: '#fef3c7', alignSelf: 'flex-start', paddingHorizontal: scale(8), paddingVertical: scale(4), borderRadius: scale(6) },
+  branchText: { fontSize: scale(11), color: '#d97706', fontWeight: '700' },
   distanceBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.primaryLight, paddingHorizontal: scale(6), paddingVertical: scale(3), borderRadius: scale(6), alignSelf: 'flex-start' },
   distanceText: { fontSize: scale(11), color: C.primary, fontWeight: '700' },
   
   sectionTitle: { fontSize: scale(14), fontWeight: '800', color: C.ink, marginBottom: scale(12), marginTop: scale(8) },
   
   infoCard: { backgroundColor: C.cardBg, borderRadius: scale(16), borderWidth: 1, borderColor: C.border, marginBottom: scale(20), overflow: 'hidden' },
+  
+  // Match Analysis Styles
+  matchWarningHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.warningLight, paddingHorizontal: scale(16), paddingVertical: scale(12), borderBottomWidth: 1, borderBottomColor: C.border },
+  matchWarningText: { fontSize: scale(13), color: C.warning, fontWeight: '700', marginLeft: scale(8) },
+  matchSuccessHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.successLight, paddingHorizontal: scale(16), paddingVertical: scale(12), borderBottomWidth: 1, borderBottomColor: C.border },
+  matchSuccessText: { fontSize: scale(13), color: C.success, fontWeight: '700', marginLeft: scale(8) },
+  matchRowsContainer: { padding: scale(16), gap: scale(16) },
+  matchRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  matchIconWrap: { width: scale(24), height: scale(24), borderRadius: scale(12), alignItems: 'center', justifyContent: 'center', marginRight: scale(12), marginTop: scale(2) },
+  matchRowContent: { flex: 1 },
+  matchRowTitle: { fontSize: scale(13), fontWeight: '700', color: C.ink, marginBottom: scale(2) },
+  matchRowDesc: { fontSize: scale(12), fontWeight: '500' },
+
   infoRow: { flexDirection: 'row', alignItems: 'center', padding: scale(16) },
   infoIcon: { marginRight: scale(14), backgroundColor: C.primaryLight, padding: scale(8), borderRadius: scale(10), overflow: 'hidden' },
   infoLabel: { fontSize: scale(12), color: C.textMuted, fontWeight: '600', marginBottom: scale(2) },

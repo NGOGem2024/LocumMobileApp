@@ -39,9 +39,7 @@ const C = {
   textMuted: '#9CA3AF',
   white: '#ffffff',
   urgent: '#ef4444',
-  urgentLight: '#FEF2F2',
   success: '#10b981',
-  successLight: '#d1fae5',
   warning: '#f59e0b',
   warningLight: '#fef3c7',
 };
@@ -70,24 +68,11 @@ const getPaymentConfig = (term?: PaymentTerm) => {
   return configs[term ?? ''] || { icon: 'cash-outline', color: C.textMuted, bg: '#F9FAFB', border: C.border, label: term ?? '' };
 };
 
-const UrgencyBadge = ({ urgency }: { urgency: string }) => {
-  const status = (urgency || '').toLowerCase();
-  
-  let config;
-  if (status === 'urgent' || status === 'in progress') {
-    config = { color: C.urgent, label: 'Actively Hiring', icon: 'flash' };
-  } else if (status === 'closed') {
-    config = { color: C.textMuted, label: 'Closed', icon: 'lock-closed' };
-  } else {
-    config = { color: C.success, label: 'Open', icon: 'checkmark-circle' };
-  }
-
-  return (
-    <View style={styles.badgeWrap}>
-      <Ionicons name={config.icon} size={scale(12)} color={config.color} />
-      <Text style={[styles.badgeText, { color: C.textSub }]}>{config.label}</Text>
-    </View>
-  );
+// Helper function for Circular Ring colors (Lighter, softer colors)
+const getMatchStyle = (match: number) => {
+  if (match >= 75) return { color: '#007b8e', bg: '#dcfce7' }; // Light Green
+  if (match >= 50) return { color: '#fb923c', bg: '#ffedd5' }; // Light Orange
+  return { color: '#f87171', bg: '#fee2e2' }; // Light Red (Coral)
 };
 
 const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; rates: RateEntry[]; onClose: () => void; }) => {
@@ -108,7 +93,7 @@ const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; ra
       <TouchableWithoutFeedback onPress={onClose}>
         <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
       </TouchableWithoutFeedback>
-
+      
       <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.handle} />
         <View style={styles.sheetHeader}>
@@ -166,30 +151,6 @@ const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; ra
                         {item.day_shift_rate != null && <Text style={styles.rateUnit}>{unit}</Text>}
                       </View>
                     </View>
-                    <View style={styles.rateRow}>
-                      <View style={styles.rateRowLeft}>
-                        <View style={[styles.rateIconBox, { backgroundColor: '#eef2ff' }]}>
-                          <Ionicons name="moon-outline" size={scale(13)} color="#6366f1" />
-                        </View>
-                        <Text style={styles.rateRowLabel}>Night Shift</Text>
-                      </View>
-                      <View style={styles.rateRowRight}>
-                        <Text style={styles.rateAmt}>{formatRate(item.night_shift_rate)}</Text>
-                        {item.night_shift_rate != null && <Text style={styles.rateUnit}>{unit}</Text>}
-                      </View>
-                    </View>
-                    <View style={styles.rateRow}>
-                      <View style={styles.rateRowLeft}>
-                        <View style={[styles.rateIconBox, { backgroundColor: '#fef2f2' }]}>
-                          <Ionicons name="star-outline" size={scale(13)} color="#ef4444" />
-                        </View>
-                        <Text style={styles.rateRowLabel}>Sun / Holiday</Text>
-                      </View>
-                      <View style={styles.rateRowRight}>
-                        <Text style={styles.rateAmt}>{formatRate(item.sunday_holiday_rate)}</Text>
-                        {item.sunday_holiday_rate != null && <Text style={styles.rateUnit}>{unit}</Text>}
-                      </View>
-                    </View>
                   </View>
                   <View style={styles.divider} />
                   {item.payment_terms && (
@@ -220,7 +181,6 @@ const TopBar = () => {
           resizeMode="contain" 
         />
       </TouchableOpacity>
-
       <View style={styles.topBarIcons}>
         <TouchableOpacity style={styles.headerIcon} activeOpacity={0.7}>
           <Ionicons name="chatbubble-ellipses-outline" size={scale(22)} color={C.ink} />
@@ -237,16 +197,83 @@ const HomeScreen = ({ navigation }: any) => {
   const { doctor, token } = useAuth();
   const { isJobSaved, saveJob, unsaveJob, applyJob, isJobApplied } = useJobs();
 
-  const [activeJobs, setActiveJobs] = useState<Job[]>([]);
+  const [activeJobs, setActiveJobs] = useState<any[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [fetchedAvailability, setFetchedAvailability] = useState<any[]>([]);
   const [rateCard, setRateCard] = useState<RateEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [showRateSheet, setShowRateSheet] = useState(false);
+  
   const [activeSection, setActiveSection] = useState<'jobs' | 'availability'>('jobs');
   
   const toastFadeAnim = useRef(new Animated.Value(0)).current;
+
+  // --- MOCK DATA FOR NEW SECTIONS (Replace with API data later) ---
+  const currentDuty = {
+    title: 'Radiology',
+    hospital: 'Smile Hospital Pandharpur',
+    location: 'Solapur, Maharashtra',
+    date: 'Today\n09 Sep 2026',
+    time: '09:00 AM - 05:00 PM\nEnds in 4h 32m',
+  };
+
+  const upcomingDuties = [
+    {
+      id: '1',
+      title: 'General Medicine',
+      hospital: 'TestAMK_Hospital',
+      location: 'Rangareddy, Telangana',
+      date: '10 Sep 2026',
+      time: '09:00 AM - 05:00 PM',
+      pay: '₹4500 Flat',
+      badge: 'Tomorrow',
+      badgeColor: '#10b981',
+      badgeBg: '#d1fae5',
+    },
+    {
+      id: '2',
+      title: 'Cardiology',
+      hospital: 'City Care Hospital',
+      location: 'Hyderabad, Telangana',
+      date: '14 Sep 2026',
+      time: '10:00 AM - 06:00 PM',
+      pay: '₹5000 Flat',
+      badge: 'In 5 days',
+      badgeColor: '#d97706',
+      badgeBg: '#fef3c7',
+    }
+  ];
+
+  const quickActions = [
+    {
+      id: 'jobs', title: 'Find Jobs', sub: 'Explore opportunities', icon: 'briefcase-outline',
+      color: '#4A90E2', lightBg: '#F4F8FF', borderColor: '#E6F0FA', 
+      onPress: () => navigation.navigate('ViewAllJobs'), 
+    },
+    {
+      id: 'duties', title: 'My Duties', sub: 'View all duties', icon: 'calendar-outline',
+      color: '#2DCC70', lightBg: '#F0FCF5', borderColor: '#E2F7EB',
+      onPress: () => navigation.navigate('DutiesScreen'),
+    },
+    {
+      id: 'availability', title: 'Availability', sub: 'Set preferences', icon: 'time-outline',
+      color: '#F39C12', lightBg: '#FFF7F0', borderColor: '#FCEADA',
+      onPress: () => navigation.navigate('AvailabilitySection'),
+    },
+    {
+      id: 'rate', title: 'Rate Card', sub: 'View your rates', icon: 'pricetags-outline',
+      color: '#9B59B6', lightBg: '#F8F5FF', borderColor: '#EFE8FA',
+      onPress: () => setShowRateSheet(true),
+    }
+  ];
+
+  const summaryStats = [
+    { id: '1', icon: 'calendar-outline', value: '3', label: 'Upcoming\nDuties', color: '#10b981', bg: '#ecfdf5' },
+    { id: '2', icon: 'checkmark-circle', value: '8', label: 'Completed\nDuties', color: '#3b82f6', bg: '#eff6ff' },
+    { id: '3', icon: 'close-circle', value: '1', label: 'Cancelled\nDuties', color: '#ef4444', bg: '#fef2f2' },
+    { id: '4', icon: 'wallet-outline', value: '₹24,500', label: 'Total Earnings', color: '#8b5cf6', bg: '#f5f3ff', hasChevron: true },
+  ];
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -262,7 +289,7 @@ const HomeScreen = ({ navigation }: any) => {
     try {
       const [jobsRes, availRes, rateRes] = await Promise.all([
         api.get('/api/doctors/jobs').catch(() => ({ data: { success: false, jobs: [] } })),
-        api.get(`/${doctor._id}/availability`).catch(() => ({ data: { availability: [] } })),
+        api.get(`/api/doctors/${doctor._id}/availability`).catch(() => ({ data: { availability: [] } })),
         api.get(`/api/doctors/rate-card/${doctor._id}`).catch(() => ({ data: { data: [] } }))
       ]);
 
@@ -271,17 +298,18 @@ const HomeScreen = ({ navigation }: any) => {
           id: reqItem._id,
           hospital: reqItem.hospital_name,
           location: `${reqItem.city}, ${reqItem.state}`,
-          date: reqItem.shift_start_date ? new Date(reqItem.shift_start_date).toLocaleDateString('en-GB') : 'TBD',
+          date: reqItem.shift_start_date ? new Date(reqItem.shift_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD',
           specialization: reqItem.speciality,
           department: reqItem.department || 'General',
           status: reqItem.status || 'Available',
           pay: `₹${reqItem.offered_rate}`,
           payType: reqItem.billing_shift_type === 'Hourly' ? '/hr' : 'Flat',
           urgency: reqItem.vacancy_status,
+          matchPercentage: reqItem.match_percentage || 0,
+          matchedCriteria: reqItem.matched_criteria || null,
           rawDetails: reqItem,
         })));
       }
-      
       setFetchedAvailability(availRes.data?.availability ?? []);
       setRateCard(rateRes.data?.data ?? []);
     } catch (error) {
@@ -300,10 +328,9 @@ const HomeScreen = ({ navigation }: any) => {
     setRefreshing(false);
   }, [loadAllData]);
 
-  const handleBookmarkToggle = async (job: Job) => {
+  const handleBookmarkToggle = async (job: any) => {
     const originallySaved = isJobSaved(job.id);
     originallySaved ? unsaveJob(job.id) : saveJob(job);
-
     try {
       const { data } = await api.post(`/api/doctors/jobs/${job.id}/save`);
       if (data.success) showToast(originallySaved ? 'Removed from Saved Jobs' : 'Job saved successfully!');
@@ -313,7 +340,7 @@ const HomeScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleApply = async (job: Job) => {
+  const handleApply = async (job: any) => {
     try {
       const { data } = await api.post(`/api/doctors/jobs/${job.id}/apply`);
       if (data?.success) {
@@ -330,11 +357,9 @@ const HomeScreen = ({ navigation }: any) => {
   const currentHour = new Date().getHours();
   const isMorning = currentHour < 12;
   const isAfternoon = currentHour >= 12 && currentHour < 17;
-  
   const greeting = isMorning ? 'Good morning' : isAfternoon ? 'Good afternoon' : 'Good evening';
   const greetingIcon = isMorning ? 'partly-sunny' : isAfternoon ? 'sunny' : 'moon';
   const greetingColor = isMorning ? '#f59e0b' : isAfternoon ? '#d97706' : '#6366f1';
-  
   const userName = doctor?.first_name || 'Doctor';
 
   return (
@@ -357,9 +382,18 @@ const HomeScreen = ({ navigation }: any) => {
           <Text style={styles.userNameText}>{userName}</Text>
         </View>
         
-        <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={scale(16)} color={C.textMuted} />
-          <TextInput placeholder="Search shifts, hospitals..." placeholderTextColor={C.textMuted} style={styles.searchInput} />
+        <View style={styles.searchFilterContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search-outline" size={scale(18)} color={C.textMuted} />
+            <TextInput 
+              placeholder="Search shifts, hospitals..." 
+              placeholderTextColor={C.textMuted} 
+              style={styles.searchInput} 
+            />
+          </View>
+          <TouchableOpacity style={styles.filterBtn} activeOpacity={0.7}>
+            <Ionicons name="options-outline" size={scale(20)} color={C.ink} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -368,27 +402,7 @@ const HomeScreen = ({ navigation }: any) => {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.primary]} />}
       >
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScroll}>
-          <TouchableOpacity style={[styles.actionChip, activeSection === 'jobs' && styles.actionChipActive]} onPress={() => setActiveSection('jobs')}>
-            <Ionicons name="briefcase-outline" size={scale(13)} color={activeSection === 'jobs' ? C.primary : C.textSub} style={{ marginRight: scale(4) }} />
-            <Text style={[styles.actionChipText, activeSection === 'jobs' && { color: C.primary }]}>Jobs</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionChip} onPress={() => navigation.navigate('DutiesScreen')}>
-            <Text style={styles.actionChipText}>Duties Screen</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.actionChip, activeSection === 'availability' && styles.actionChipActive]} onPress={() => setActiveSection('availability')}>
-            <Ionicons name="calendar-outline" size={scale(13)} color={activeSection === 'availability' ? C.primary : C.textSub} style={{ marginRight: scale(4) }} />
-            <Text style={[styles.actionChipText, activeSection === 'availability' && { color: C.primary }]}>Manage Availability</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionChip} onPress={() => setShowRateSheet(true)}>
-            <Ionicons name="pricetags-outline" size={scale(13)} color={C.textSub} style={{ marginRight: scale(4) }} />
-            <Text style={styles.actionChipText}>Rate Card</Text>
-          </TouchableOpacity>
-        </ScrollView>
-
+        
         {activeSection === 'availability' ? (
           <View style={styles.availabilityWrapper}>
             <View style={styles.availabilityHeader}>
@@ -404,9 +418,193 @@ const HomeScreen = ({ navigation }: any) => {
           </View>
         ) : (
           <>
-            <View style={styles.feedDividerRow}>
-              <Text style={styles.feedDividerText}>RECOMMENDED FOR YOU</Text>
-              <View style={styles.feedDividerLine} />
+            {/* 1. CURRENT DUTY SECTION */}
+            <View style={styles.sectionContainer}>
+              <LinearGradient 
+                colors={['#E5F8FA', '#F3FCFD']} 
+                style={styles.currentDutyCard}
+              >
+                <View style={styles.cdHeader}>
+                  <View style={styles.cdHeaderLeft}>
+                    <View style={styles.cdDot} />
+                    <Text style={styles.cdHeaderText}>CURRENT DUTY</Text>
+                  </View>
+                  <Text style={styles.cdInProgress}>In Progress</Text>
+                </View>
+
+                <View style={styles.cdBody}>
+                  <View style={styles.cdIconBox}>
+                    <Ionicons name="business-outline" size={scale(20)} color={C.primary} />
+                  </View>
+                  <View style={styles.cdInfo}>
+                    <Text style={styles.cdTitle} numberOfLines={1}>{currentDuty.title}</Text>
+                    <Text style={styles.cdHospital} numberOfLines={1}>{currentDuty.hospital}</Text>
+                    <View style={styles.cdLocationRow}>
+                      <Ionicons name="location-outline" size={scale(12)} color={C.textSub} />
+                      <Text style={styles.cdLocationText} numberOfLines={1}>{currentDuty.location}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.cdFooter}>
+                  <View style={styles.cdFooterItem}>
+                    <Ionicons name="calendar-outline" size={scale(14)} color={C.textSub} />
+                    <Text style={styles.cdFooterText}>{currentDuty.date}</Text>
+                  </View>
+                  <View style={styles.cdFooterItem}>
+                    <Ionicons name="time-outline" size={scale(14)} color={C.textSub} />
+                    <Text style={styles.cdFooterText}>{currentDuty.time}</Text>
+                  </View>
+                  <TouchableOpacity style={styles.cdBtn}>
+                    <Text style={styles.cdBtnText}>View Duty</Text>
+                    <Ionicons name="arrow-forward" size={scale(12)} color={C.white} />
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+            </View>
+
+            {/* 2. UPCOMING DUTIES SECTION */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Upcoming Duties</Text>
+                <TouchableOpacity style={styles.viewAllBtn}>
+                  <Text style={styles.viewAllText}>View All </Text>
+                  <Ionicons name="arrow-forward" size={scale(14)} color={C.primary} />
+                </TouchableOpacity>
+              </View>
+
+              {upcomingDuties.map((duty) => (
+                <TouchableOpacity key={duty.id} style={styles.upcomingCard} activeOpacity={0.9}>
+                  <View style={styles.ucTop}>
+                    <View style={styles.ucIconBox}>
+                      <Ionicons name="business-outline" size={scale(18)} color={C.primary} />
+                    </View>
+                    <View style={styles.ucInfo}>
+                      <Text style={styles.ucTitle}>{duty.title}</Text>
+                      <Text style={styles.ucHospital}>{duty.hospital}</Text>
+                    </View>
+                    <View style={[styles.ucBadge, { backgroundColor: duty.badgeBg }]}>
+                      <Text style={[styles.ucBadgeText, { color: duty.badgeColor }]}>{duty.badge}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.ucLocationRowMain}>
+                     <Ionicons name="location-outline" size={scale(12)} color={C.textMuted} />
+                     <Text style={styles.ucLocation}>{duty.location}</Text>
+                  </View>
+
+                  <View style={styles.ucBottom}>
+                    <View style={styles.ucDetailRow}>
+                      <Ionicons name="calendar-outline" size={scale(13)} color={C.textSub} />
+                      <Text style={styles.ucDetailText}>{duty.date}</Text>
+                    </View>
+                    <View style={styles.ucDetailRow}>
+                      <Ionicons name="time-outline" size={scale(13)} color={C.textSub} />
+                      <Text style={styles.ucDetailText}>{duty.time}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.ucBtn}>
+                      <Text style={styles.ucBtnText}>View Details</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* 3. QUICK ACTIONS SECTION */}
+            <View style={styles.quickActionsContainer}>
+              <Text style={styles.sectionTitlePad}>Quick Actions</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={styles.actionsScroll}
+                decelerationRate="fast"
+                snapToInterval={scale(145) + scale(12)}
+              >
+                {quickActions.map((action) => (
+                  <TouchableOpacity 
+                    key={action.id} 
+                    style={[styles.qaCard, { backgroundColor: action.lightBg, borderColor: action.borderColor }]} 
+                    activeOpacity={0.8} onPress={action.onPress}
+                  >
+                    <View style={styles.qaTopRow}>
+                      <View style={[styles.qaIconBox, { backgroundColor: action.color }]}>
+                        <Ionicons name={action.icon} size={scale(16)} color={C.white} />
+                      </View>
+                      <Ionicons name="chevron-forward" size={scale(14)} color={action.color} />
+                    </View>
+                    <Text style={styles.qaTitle} numberOfLines={1}>{action.title}</Text>
+                    <Text style={styles.qaSub} numberOfLines={1}>{action.sub}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* 4. YOUR SUMMARY SECTION (MEDIUM SIZE UI) */}
+            <View style={styles.summaryContainer}>
+              <View style={styles.sectionHeaderNoPad}>
+                <Text style={styles.sectionTitlePad}>Your Summary</Text>
+                <TouchableOpacity style={[styles.viewAllBtn, { marginRight: scale(20) }]}>
+                  <Text style={styles.viewAllText}>This Month </Text>
+                  <Ionicons name="chevron-down" size={scale(14)} color={C.primary} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={styles.summaryScroll}
+                decelerationRate="fast"
+              >
+                {summaryStats.map((stat) => (
+                  <TouchableOpacity key={stat.id} style={styles.summaryCard} activeOpacity={0.9}>
+                    <View style={[styles.summaryIconBox, { backgroundColor: stat.bg }]}>
+                      <Ionicons name={stat.icon} size={scale(18)} color={stat.color} />
+                    </View>
+                    <View style={styles.summaryInfo}>
+                      <View style={styles.summaryValueRow}>
+                        <Text style={styles.summaryValue}>{stat.value}</Text>
+                        {stat.hasChevron && <Ionicons name="chevron-forward" size={scale(11)} color={C.primary} style={{marginLeft: 3, marginTop: 2}} />}
+                      </View>
+                      <Text style={styles.summaryLabel}>{stat.label}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* 5. IMPORTANT UPDATES SECTION (LARGER UI) */}
+            <View style={styles.updatesContainer}>
+              <View style={styles.sectionHeaderNoPad}>
+                <Text style={styles.sectionTitlePad}>Important Updates</Text>
+                <TouchableOpacity style={[styles.viewAllBtn, { marginRight: scale(20) }]}>
+                  <Text style={styles.viewAllText}>View All </Text>
+                  <Ionicons name="arrow-forward" size={scale(14)} color={C.primary} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={{ paddingHorizontal: scale(20) }}>
+                <TouchableOpacity style={styles.updateCard} activeOpacity={0.9}>
+                  <View style={styles.updateIconBox}>
+                    <Ionicons name="notifications-outline" size={scale(24)} color="#d97706" />
+                  </View>
+                  <View style={styles.updateInfo}>
+                    <Text style={styles.updateTitle}>Your next duty starts tomorrow at 9:00 AM</Text>
+                    <Text style={styles.updateSub}>General Medicine at TestAMK_Hospital</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={scale(20)} color={C.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* 6. RECOMMENDED FOR YOU SECTION */}
+            <View style={styles.sectionHeaderNoPad}>
+              <Text style={styles.sectionTitlePad}>Recommended for You</Text>
+              <TouchableOpacity 
+                style={[styles.viewAllBtn, { marginRight: scale(20) }]}
+                onPress={() => navigation.navigate('ViewAllJobs')}
+              >
+                <Text style={styles.viewAllText}>View All </Text>
+                <Ionicons name="arrow-forward" size={scale(14)} color={C.primary} />
+              </TouchableOpacity>
             </View>
 
             {loadingJobs && !refreshing ? (
@@ -414,55 +612,89 @@ const HomeScreen = ({ navigation }: any) => {
             ) : activeJobs.length === 0 ? (
               <Text style={{ textAlign: 'center', color: C.textMuted, marginTop: 20 }}>No active jobs found right now.</Text>
             ) : (
-              activeJobs.map(req => {
-                const saved = isJobSaved(req.id);
-                const applied = isJobApplied(req.id);
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={styles.horizontalJobScroll}
+                snapToInterval={scale(280) + scale(12)} 
+                decelerationRate="fast"
+              >
+                {activeJobs.map(req => {
+                  const saved = isJobSaved(req.id);
+                  const applied = isJobApplied(req.id);
 
-                return (
-                  <TouchableOpacity key={req.id} style={styles.jobCard} activeOpacity={0.9} onPress={() => navigation.navigate('JobDetails', { job: req })}>
-                    <View style={styles.jobCardHeader}>
-                      <View style={styles.companyLogo}>
-                        <Ionicons name="business-outline" size={scale(24)} color={C.primary} />
-                      </View>
-                      <View style={styles.jobCardMeta}>
-                        <Text style={styles.jobTitle}>{req.specialization}</Text>
-                        <Text style={styles.companyName}>{req.hospital}</Text>
-                        <Text style={styles.jobLocation}>{req.location}</Text>
-                        <UrgencyBadge urgency={req.urgency} />
-                      </View>
-                      <TouchableOpacity onPress={() => handleBookmarkToggle(req)} style={styles.bookmarkBtn}>
-                        <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={scale(22)} color={saved ? C.primary : C.textMuted} />
-                      </TouchableOpacity>
-                    </View>
+                  // ✅ CALCULATE CIRCULAR MATCH BADGE COLORS
+                  const matchStyle = getMatchStyle(req.matchPercentage);
+                  
+                  // Extract distance if available
+                  const distanceStr = req.matchedCriteria?.location?.distance_km != null 
+                      ? `${req.matchedCriteria.location.distance_km} km` 
+                      : '';
 
-                    <View style={styles.jobDetailsList}>
-                      <View style={styles.jobDetailItem}>
-                        <Ionicons name="time-outline" size={scale(13)} color={C.textSub} />
-                        <Text style={styles.jobDetailText}>{req.date}</Text>
-                      </View>
-                      <View style={styles.jobDetailItem}>
-                        <Ionicons name="cash-outline" size={scale(13)} color={C.textSub} />
-                        <Text style={styles.jobDetailText}>{req.pay} {req.payType}</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.jobActions}>
-                      {applied ? (
-                        <View style={styles.appliedBadge}>
-                          <Ionicons name="checkmark-circle" size={scale(14)} color={C.success} />
-                          <Text style={styles.appliedBadgeText}>Applied</Text>
+                  return (
+                    <TouchableOpacity key={req.id} style={styles.hJobCard} activeOpacity={0.9} onPress={() => navigation.navigate('JobDetails', { job: req })}>
+                      <View style={styles.hJobTop}>
+                        
+                        {/* ✅ CIRCULAR MATCH RING AROUND LOGO */}
+                        <View style={[styles.matchRing, { borderColor: matchStyle.color }]}>
+                          <View style={styles.hJobIconBox}>
+                            <Ionicons name="business-outline" size={scale(20)} color={matchStyle.color} />
+                          </View>
+                          <View style={[styles.matchPercentPill, { backgroundColor: matchStyle.color }]}>
+                            <Text style={styles.matchPercentText}>{req.matchPercentage}%</Text>
+                          </View>
                         </View>
-                      ) : (
-                        <TouchableOpacity style={styles.btnShadowWrapper} activeOpacity={0.85} onPress={() => handleApply(req)}>
-                          <LinearGradient colors={['#00a8c2', '#007b8e']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.applyBtnPrimary}>
-                            <Text style={styles.applyBtnText}>Easy Apply</Text>
-                          </LinearGradient>
+
+                        <View style={styles.hJobInfo}>
+                          <Text style={styles.hJobTitle} numberOfLines={1}>{req.specialization}</Text>
+                          <Text style={styles.hJobHospital} numberOfLines={1}>{req.hospital}</Text>
+                          <View style={styles.hJobLocationRow}>
+                            <Ionicons name="location-outline" size={scale(12)} color={C.textMuted} />
+                            <Text style={styles.hJobLocation} numberOfLines={1}>
+                              {req.location} {distanceStr ? ` • ${distanceStr}` : ''}
+                            </Text>
+                          </View>
+                        </View>
+                        
+                        <TouchableOpacity onPress={() => handleBookmarkToggle(req)} style={styles.hJobBookmark}>
+                          <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={scale(20)} color={saved ? C.primary : C.textMuted} />
                         </TouchableOpacity>
+                      </View>
+
+                      {/* ✅ MISSING REQUIREMENTS WARNING (If degree doesn't match) */}
+                      {req.matchedCriteria && req.matchedCriteria.degree && req.matchedCriteria.degree.matched === false && (
+                         <View style={styles.missingReqBox}>
+                            <Ionicons name="warning-outline" size={scale(12)} color={C.textSub} />
+                            <Text style={styles.missingReqText}>Requires: {req.matchedCriteria.degree.required_degree}</Text>
+                         </View>
                       )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
+
+                      <View style={styles.hJobBottom}>
+                        <View style={styles.hJobDetails}>
+                          <View style={styles.hJobDetailRow}>
+                            <Ionicons name="calendar-outline" size={scale(14)} color={C.textSub} />
+                            <Text style={styles.hJobDetailText}>{req.date}</Text>
+                          </View>
+                          <View style={styles.hJobDetailRow}>
+                            <Ionicons name="cash-outline" size={scale(14)} color={C.textSub} />
+                            <Text style={styles.hJobDetailText}>{req.pay} {req.payType}</Text>
+                          </View>
+                        </View>
+                        
+                        {applied ? (
+                          <View style={styles.hJobAppliedBadge}>
+                            <Text style={styles.hJobAppliedText}>Applied</Text>
+                          </View>
+                        ) : (
+                          <TouchableOpacity style={styles.hJobApplyBtn} activeOpacity={0.85} onPress={() => handleApply(req)}>
+                            <Text style={styles.hJobApplyText}>Apply Now</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             )}
           </>
         )}
@@ -482,161 +714,201 @@ const styles = StyleSheet.create({
     position: 'absolute', top: scale(54), alignSelf: 'center', backgroundColor: C.ink,
     flexDirection: 'row', alignItems: 'center', gap: scale(8), paddingHorizontal: scale(16),
     paddingVertical: scale(10), borderRadius: scale(20), zIndex: 9999,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 8,
   },
   toastText: { color: C.white, fontSize: scale(13), fontWeight: '700' },
-  badgeWrap: { flexDirection: 'row', alignItems: 'center', gap: scale(4) },
-  badgeText: { fontSize: scale(11), fontWeight: '700' },
   
-  // TOP BAR STYLES (Compact Layout)
   topBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: scale(20),
-    paddingTop: scale(4),
-    paddingBottom: scale(2),
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: scale(20), paddingTop: scale(4), paddingBottom: scale(2),
   },
-  logoContainer: {
-    width: scale(95),
-    height: scale(42),
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  logoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  topBarIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: scale(10),
-  },
-  headerIcon: {
-    padding: scale(2),
-  },
+  logoContainer: { width: scale(95), height: scale(42), justifyContent: 'center', alignItems: 'flex-start' },
+  logoImage: { width: '100%', height: '100%' },
+  topBarIcons: { flexDirection: 'row', alignItems: 'center', gap: scale(10) },
+  headerIcon: { padding: scale(2) },
 
-  // HEADER CONTAINER (Greeting & Search - Compact Layout)
   headerContainer: {
-    paddingHorizontal: scale(20),
-    paddingTop: scale(2),
-    paddingBottom: scale(4),
-    gap: scale(8),
+    paddingHorizontal: scale(20), paddingTop: scale(2), paddingBottom: scale(10), gap: scale(12),
   },
-  greetingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  greetingTextWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  greetingText: {
-    fontSize: scale(13),
-    color: C.textSub,
-    fontWeight: '700',
-    marginLeft: scale(4),
-  },
-  userNameText: {
-    fontSize: scale(16),
-    color: C.ink,
-    fontWeight: '900',
-    marginLeft: scale(4),
-  },
+  greetingRow: { flexDirection: 'row', alignItems: 'center' },
+  greetingTextWrap: { flexDirection: 'row', alignItems: 'center' },
+  greetingText: { fontSize: scale(13), color: C.textSub, fontWeight: '700', marginLeft: scale(4) },
+  userNameText: { fontSize: scale(16), color: C.ink, fontWeight: '900', marginLeft: scale(4) },
   
-  // SEARCH BAR (Slimmer profile)
+  searchFilterContainer: { flexDirection: 'row', alignItems: 'center', gap: scale(10) },
   searchBar: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: C.cardBg,
-    borderRadius: scale(12), paddingHorizontal: scale(12), height: scale(38),
+    flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: C.cardBg,
+    borderRadius: scale(12), paddingHorizontal: scale(14), height: scale(42),
     borderWidth: 1, borderColor: C.border,
-    shadowColor: C.ink, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
-  searchInput: { 
-    flex: 1, marginLeft: scale(8), fontSize: scale(13), color: C.ink, fontWeight: '600', padding: 0 
+  searchInput: { flex: 1, marginLeft: scale(8), fontSize: scale(13), color: C.ink, padding: 0 },
+  filterBtn: {
+    width: scale(42), height: scale(42), backgroundColor: C.cardBg, 
+    borderRadius: scale(12), borderWidth: 1, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center',
   },
   
-  // ACTIONS TABS (Reduced Size)
-  actionsScroll: { 
-    paddingHorizontal: scale(20), 
-    paddingTop: scale(10), 
-    paddingBottom: scale(14), 
-    gap: scale(8) 
-  },
-  actionChip: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: C.cardBg,
-    borderWidth: 1, borderColor: C.border, 
-    borderRadius: scale(10), // Reduced from 14
-    paddingHorizontal: scale(12), // Reduced from 16
-    paddingVertical: scale(8), // Reduced from 10
-  },
-  actionChipActive: { borderColor: C.primary, backgroundColor: C.primaryLight },
-  actionChipText: { fontSize: scale(12), fontWeight: '700', color: C.ink }, // Reduced from 13
+  sectionContainer: { marginHorizontal: scale(20), marginBottom: scale(20) },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: scale(10) },
+  sectionHeaderNoPad: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: scale(10) },
+  sectionTitle: { fontSize: scale(16), fontWeight: '800', color: C.ink },
+  sectionTitlePad: { fontSize: scale(16), fontWeight: '800', color: C.ink, marginLeft: scale(20) },
+  viewAllBtn: { flexDirection: 'row', alignItems: 'center' },
+  viewAllText: { fontSize: scale(12), fontWeight: '700', color: C.primary },
 
-  availabilityWrapper: { marginHorizontal: scale(20), marginBottom: scale(24) },
+  // --- 1. CURRENT DUTY ---
+  currentDutyCard: {
+    borderRadius: scale(14), padding: scale(14),
+    borderWidth: 1, borderColor: '#D4EBEB',
+  },
+  cdHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: scale(12) },
+  cdHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: scale(6) },
+  cdDot: { width: scale(6), height: scale(6), borderRadius: scale(3), backgroundColor: C.success },
+  cdHeaderText: { fontSize: scale(11), fontWeight: '800', color: C.primary, letterSpacing: 0.5 },
+  cdInProgress: { fontSize: scale(12), fontWeight: '700', color: C.primary },
+  
+  cdBody: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: scale(16) },
+  cdIconBox: { width: scale(42), height: scale(42), borderRadius: scale(10), backgroundColor: C.white, alignItems: 'center', justifyContent: 'center', marginRight: scale(12) },
+  cdInfo: { flex: 1, justifyContent: 'center' },
+  cdTitle: { fontSize: scale(15), fontWeight: '700', color: C.ink, marginBottom: scale(2) },
+  cdHospital: { fontSize: scale(13), color: C.textSub, marginBottom: scale(2), fontWeight: '500' },
+  cdLocationRow: { flexDirection: 'row', alignItems: 'center', gap: scale(4) },
+  cdLocationText: { fontSize: scale(12), color: C.textSub, fontWeight: '500' },
+  
+  cdFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cdFooterItem: { flexDirection: 'row', gap: scale(6), alignItems: 'flex-start' },
+  cdFooterText: { fontSize: scale(11), color: C.textSub, fontWeight: '500', lineHeight: scale(15) },
+  cdBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#006C7C', paddingVertical: scale(8), paddingHorizontal: scale(12), borderRadius: scale(8), gap: scale(4) },
+  cdBtnText: { color: C.white, fontSize: scale(12), fontWeight: '700' },
+
+  // --- 2. UPCOMING DUTIES ---
+  upcomingCard: {
+    backgroundColor: C.cardBg, borderRadius: scale(12), borderWidth: 1, borderColor: C.border,
+    padding: scale(12), marginBottom: scale(10),
+  },
+  ucTop: { flexDirection: 'row', alignItems: 'center', marginBottom: scale(6) },
+  ucIconBox: { width: scale(36), height: scale(36), borderRadius: scale(8), backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center', marginRight: scale(10) },
+  ucInfo: { flex: 1 },
+  ucTitle: { fontSize: scale(14), fontWeight: '700', color: C.ink },
+  ucHospital: { fontSize: scale(12), color: C.textSub, fontWeight: '500', marginTop: scale(2) },
+  ucBadge: { paddingHorizontal: scale(6), paddingVertical: scale(3), borderRadius: scale(6) },
+  ucBadgeText: { fontSize: scale(10), fontWeight: '700' },
+  
+  ucLocationRowMain: { flexDirection: 'row', alignItems: 'center', gap: scale(4), marginLeft: scale(46), marginBottom: scale(12) },
+  ucLocation: { fontSize: scale(11), color: C.textMuted, fontWeight: '500' },
+
+  ucBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: scale(10), borderTopWidth: 1, borderTopColor: C.border },
+  ucDetailRow: { flexDirection: 'row', alignItems: 'center', gap: scale(4) },
+  ucDetailText: { fontSize: scale(11), color: C.textSub, fontWeight: '600' },
+  ucBtn: { backgroundColor: C.primaryLight, paddingVertical: scale(6), paddingHorizontal: scale(12), borderRadius: scale(8) },
+  ucBtnText: { color: C.primary, fontSize: scale(11), fontWeight: '700' },
+
+  // --- 3. QUICK ACTIONS ---
+  quickActionsContainer: { marginBottom: scale(20) },
+  actionsScroll: { paddingHorizontal: scale(20), paddingTop: scale(6), gap: scale(10), paddingBottom: scale(4) },
+  qaCard: { width: scale(145), borderRadius: scale(12), padding: scale(14), borderWidth: 1 },
+  qaTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: scale(10) },
+  qaIconBox: { width: scale(36), height: scale(36), borderRadius: scale(10), alignItems: 'center', justifyContent: 'center' },
+  qaTitle: { fontSize: scale(14), fontWeight: '800', color: C.ink, marginBottom: scale(2) },
+  qaSub: { fontSize: scale(11), color: C.textSub, fontWeight: '500' },
+
+  // --- 4. YOUR SUMMARY (MEDIUM SIZE UI) ---
+  summaryContainer: { marginBottom: scale(20) },
+  summaryScroll: { paddingHorizontal: scale(20), gap: scale(10), paddingBottom: scale(4) },
+  summaryCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: C.cardBg,
+    borderRadius: scale(12), borderWidth: 1, borderColor: C.border, 
+    paddingVertical: scale(10), paddingHorizontal: scale(12), minWidth: scale(120),
+    shadowColor: C.ink, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+  },
+  summaryIconBox: { width: scale(34), height: scale(34), borderRadius: scale(9), alignItems: 'center', justifyContent: 'center', marginRight: scale(10) }, 
+  summaryInfo: { justifyContent: 'center' },
+  summaryValueRow: { flexDirection: 'row', alignItems: 'center' },
+  summaryValue: { fontSize: scale(15), fontWeight: '900', color: C.ink }, 
+  summaryLabel: { fontSize: scale(10), color: C.textSub, fontWeight: '600', marginTop: scale(1), lineHeight: scale(12) },
+
+  // --- 5. IMPORTANT UPDATES (LARGER UI) ---
+  updatesContainer: { marginBottom: scale(24) },
+  updateCard: {
+    flexDirection: 'row', alignItems: 'center', 
+    backgroundColor: '#fffbeb', 
+    borderWidth: 1, borderColor: '#fde68a', 
+    borderRadius: scale(16), padding: scale(16),
+  },
+  updateIconBox: { width: scale(48), height: scale(48), borderRadius: scale(12), backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center', marginRight: scale(14) },
+  updateInfo: { flex: 1, marginRight: scale(8) },
+  updateTitle: { fontSize: scale(14), fontWeight: '800', color: C.ink, marginBottom: scale(4), lineHeight: scale(20) },
+  updateSub: { fontSize: scale(12), color: C.textSub, fontWeight: '500' },
+
+  // --- 6. RECOMMENDED FOR YOU ---
+  horizontalJobScroll: { paddingHorizontal: scale(20), gap: scale(12), paddingBottom: scale(20), paddingTop: scale(6) },
+  hJobCard: {
+    backgroundColor: C.cardBg, borderRadius: scale(16), borderWidth: 1, borderColor: C.border,
+    width: scale(280), padding: scale(16),
+  },
+  hJobTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: scale(12) }, 
+  hJobInfo: { flex: 1, justifyContent: 'center' },
+  
+  // ✅ NEW MATCH RING STYLES
+  matchRing: {
+    width: scale(52),
+    height: scale(52),
+    borderRadius: scale(26),
+    borderWidth: 2.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: scale(14),
+    marginBottom: scale(4),
+    position: 'relative',
+  },
+  hJobIconBox: {
+    width: scale(42),
+    height: scale(42),
+    borderRadius: scale(21),
+    backgroundColor: C.inputBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  matchPercentPill: {
+    position: 'absolute',
+    bottom: scale(-8),
+    paddingHorizontal: scale(6),
+    paddingVertical: scale(2),
+    borderRadius: scale(8),
+    borderWidth: 1.5,
+    borderColor: C.white,
+  },
+  matchPercentText: {
+    fontSize: scale(9),
+    fontWeight: '800',
+    color: C.white,
+  },
+  
+  missingReqBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e0e8ea', padding: scale(6), borderRadius: scale(6), marginBottom: scale(12), gap: scale(4) },
+  missingReqText: { fontSize: scale(10), color: '#007b8e', fontWeight: '600' },
+
+  hJobTitle: { fontSize: scale(15), fontWeight: '800', color: C.ink, marginBottom: scale(2) },
+  hJobHospital: { fontSize: scale(13), color: C.textSub, marginBottom: scale(4), fontWeight: '500' },
+  hJobLocationRow: { flexDirection: 'row', alignItems: 'center', gap: scale(4) },
+  hJobLocation: { fontSize: scale(12), color: C.textMuted, fontWeight: '500' },
+  hJobBookmark: { padding: scale(4), marginLeft: scale(8) },
+  hJobBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  hJobDetails: { gap: scale(8) },
+  hJobDetailRow: { flexDirection: 'row', alignItems: 'center', gap: scale(6) },
+  hJobDetailText: { fontSize: scale(12), color: C.textSub, fontWeight: '600' },
+  hJobApplyBtn: { backgroundColor: C.primaryLight, paddingVertical: scale(10), paddingHorizontal: scale(20), borderRadius: scale(10) },
+  hJobApplyText: { color: C.primary, fontSize: scale(13), fontWeight: '700' },
+  hJobAppliedBadge: { backgroundColor: '#d1fae5', paddingVertical: scale(10), paddingHorizontal: scale(20), borderRadius: scale(10) },
+  hJobAppliedText: { color: C.success, fontSize: scale(13), fontWeight: '700' },
+
+  availabilityWrapper: { marginHorizontal: scale(20), marginBottom: scale(24), marginTop: scale(8) },
   availabilityHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: scale(12), paddingHorizontal: scale(4) },
   availabilityTitle: { fontSize: scale(16), fontWeight: '900', color: C.ink, letterSpacing: -0.5 },
-  
-  // --- JOB FEED & CARDS (Compact Layout) ---
-  feedDividerRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: scale(20), marginBottom: scale(14) },
-  feedDividerText: { fontSize: scale(10), color: C.primary, fontWeight: '800', letterSpacing: 1.2, marginRight: scale(12) },
-  feedDividerLine: { flex: 1, height: 1, backgroundColor: C.border },
-  
-  jobCard: {
-    backgroundColor: C.cardBg, 
-    borderRadius: scale(20), 
-    marginHorizontal: scale(20),
-    marginBottom: scale(12), 
-    borderWidth: 1, 
-    borderColor: C.border,
-    shadowColor: C.ink, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3, 
-    padding: scale(16), 
-  },
-  jobCardHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-  
-  companyLogo: {
-    width: scale(44), 
-    height: scale(44), 
-    backgroundColor: C.inputBg,
-    borderRadius: scale(12), 
-    borderWidth: 1, borderColor: C.border,
-    alignItems: 'center', justifyContent: 'center', 
-    marginRight: scale(12), 
-  },
-  jobCardMeta: { flex: 1, gap: scale(2) }, 
-  jobTitle: { fontSize: scale(15), fontWeight: '900', color: C.ink, letterSpacing: -0.3 }, 
-  companyName: { fontSize: scale(13), color: C.textSub, fontWeight: '600' }, 
-  jobLocation: { fontSize: scale(11), color: C.textMuted, marginBottom: scale(4), fontWeight: '500' }, 
-  
-  bookmarkBtn: { padding: scale(4) },
-  
-  jobDetailsList: { marginTop: scale(12), gap: scale(6) }, 
-  jobDetailItem: { flexDirection: 'row', alignItems: 'center', gap: scale(6) },
-  jobDetailText: { fontSize: scale(12), color: C.textSub, fontWeight: '600' }, 
-  
-  jobActions: { marginTop: scale(14), flexDirection: 'row' }, 
-  btnShadowWrapper: { shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4, borderRadius: scale(12) },
-  
-  applyBtnPrimary: { 
-    paddingVertical: scale(10), 
-    paddingHorizontal: scale(20), 
-    borderRadius: scale(12), 
-    alignItems: 'center' 
-  },
-  applyBtnText: { color: C.white, fontSize: scale(13), fontWeight: '800' }, 
-  
-  appliedBadge: { 
-    flexDirection: 'row', alignItems: 'center', gap: scale(6), 
-    backgroundColor: '#d1fae5', 
-    paddingHorizontal: scale(14), 
-    paddingVertical: scale(8), 
-    borderRadius: scale(10) 
-  },
-  appliedBadgeText: { color: C.success, fontSize: scale(12), fontWeight: '700' },
 
+  // --- BOTTOM SHEET ---
   backdrop: { flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.4)' },
   sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.background, borderTopLeftRadius: scale(28), borderTopRightRadius: scale(28), maxHeight: SH * 0.85, paddingBottom: scale(34) },
   handle: { width: scale(40), height: scale(5), borderRadius: scale(2.5), backgroundColor: C.border, alignSelf: 'center', marginTop: scale(12), marginBottom: scale(4) },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: scale(14), paddingHorizontal: scale(24), paddingVertical: scale(16), borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.cardBg },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: scale(14), paddingHorizontal: scale(24), paddingVertical: scale(16), borderBottomWidth: 1, borderBottomColor: C.cardBg },
   sheetIconBubble: { width: scale(40), height: scale(40), borderRadius: scale(14), backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center' },
   sheetTitle: { fontSize: scale(16), fontWeight: '900', color: C.ink, letterSpacing: -0.3 },
   sheetSub: { fontSize: scale(12), color: C.textSub, marginTop: scale(2), fontWeight: '500' },

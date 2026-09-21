@@ -26,6 +26,8 @@ import EarningsOverviewScreen from './src/screens/EarningsOverviewScreen';
 import EditDoctorProfileScreen from './src/screens/EditDoctorProfileScreen';
 import HospitalDetailsScreen from './src/screens/HospitalDetailsScreen';
 import DutiesScreen from './src/screens/DutiesScreen';
+import ViewAllJobsScreen from './src/screens/ViewAllJobs';
+import AvailabilitySection from './src/components/AvailabilitySection';
 
 const Stack = createNativeStackNavigator();
 
@@ -54,7 +56,9 @@ const AppNavigator = () => {
             <Stack.Screen name="EarningsHistory" component={EarningsHistoryScreen} />
             <Stack.Screen name="EarningsOverview" component={EarningsOverviewScreen} />
             <Stack.Screen name="HospitalDetailsScreen" component={HospitalDetailsScreen} />
+            <Stack.Screen name="ViewAllJobs" component={ViewAllJobsScreen} />
             <Stack.Screen name="ApplyJob" component={ApplyJobScreen} />
+            <Stack.Screen name="AvailabilitySection" component={AvailabilitySection} />
           </Stack.Group>
         ) : (
           // ── UNAUTHENTICATED STACK ───────────────────────────────────────

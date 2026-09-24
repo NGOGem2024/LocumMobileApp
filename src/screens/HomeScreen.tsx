@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAuth } from '../context/AuthContext';
-import { useJobs, Job } from '../context/JobContext';
+import { useJobs } from '../context/JobContext';
 import AvailabilitySection from '../components/AvailabilitySection';
 import api from '../services/axiosConfig';
 
@@ -68,11 +68,40 @@ const getPaymentConfig = (term?: PaymentTerm) => {
   return configs[term ?? ''] || { icon: 'cash-outline', color: C.textMuted, bg: '#F9FAFB', border: C.border, label: term ?? '' };
 };
 
-// Helper function for Circular Ring colors (Lighter, softer colors)
 const getMatchStyle = (match: number) => {
-  if (match >= 75) return { color: '#007b8e', bg: '#dcfce7' }; // Light Green
-  if (match >= 50) return { color: '#fb923c', bg: '#ffedd5' }; // Light Orange
-  return { color: '#f87171', bg: '#fee2e2' }; // Light Red (Coral)
+  if (match >= 75) return { color: '#007b8e', bg: '#dcfce7' };
+  if (match >= 50) return { color: '#fb923c', bg: '#ffedd5' };
+  return { color: '#f87171', bg: '#fee2e2' };
+};
+
+const getRelativeTime = (dateString: string) => {
+  if (!dateString) return 'New';
+  const date = new Date(dateString);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const past = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffInDays = Math.floor((today.getTime() - past.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffInDays === 0) return 'Today';
+  if (diffInDays === 1) return 'Yesterday';
+  if (diffInDays < 7) return `${diffInDays} days ago`;
+  if (diffInDays < 14) return '1 week ago';
+  if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+  const diffInMonths = Math.floor(diffInDays / 30);
+  return `${diffInMonths} month${diffInMonths > 1 ? 's' : ''} ago`;
+};
+
+// Date Formatters for the specific compact UI of HomeScreen
+const formatDate = (dateString: string) => {
+  if (!dateString) return 'TBD';
+  const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+  return new Date(dateString).toLocaleDateString('en-GB', options);
+};
+
+const formatShortDate = (dateString: string) => {
+  if (!dateString) return '';
+  const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
+  return new Date(dateString).toLocaleDateString('en-GB', options);
 };
 
 const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; rates: RateEntry[]; onClose: () => void; }) => {
@@ -137,7 +166,9 @@ const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; ra
                       <Text style={styles.rateTypeBadgeText}>{item.rate_type}</Text>
                     </View>
                   </View>
+                  
                   <View style={styles.divider} />
+                  
                   <View style={styles.rateRows}>
                     <View style={styles.rateRow}>
                       <View style={styles.rateRowLeft}>
@@ -151,8 +182,40 @@ const RateCardBottomSheet = ({ visible, rates, onClose }: { visible: boolean; ra
                         {item.day_shift_rate != null && <Text style={styles.rateUnit}>{unit}</Text>}
                       </View>
                     </View>
+
+                    {item.night_shift_rate != null && (
+                      <View style={styles.rateRow}>
+                        <View style={styles.rateRowLeft}>
+                          <View style={[styles.rateIconBox, { backgroundColor: '#f3e8ff' }]}>
+                            <Ionicons name="moon-outline" size={scale(13)} color="#7e22ce" />
+                          </View>
+                          <Text style={styles.rateRowLabel}>Night Shift</Text>
+                        </View>
+                        <View style={styles.rateRowRight}>
+                          <Text style={styles.rateAmt}>{formatRate(item.night_shift_rate)}</Text>
+                          <Text style={styles.rateUnit}>{unit}</Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {item.sunday_holiday_rate != null && (
+                      <View style={styles.rateRow}>
+                        <View style={styles.rateRowLeft}>
+                          <View style={[styles.rateIconBox, { backgroundColor: '#fee2e2' }]}>
+                            <Ionicons name="calendar-clear-outline" size={scale(13)} color="#b91c1c" />
+                          </View>
+                          <Text style={styles.rateRowLabel}>Sunday / Holiday</Text>
+                        </View>
+                        <View style={styles.rateRowRight}>
+                          <Text style={styles.rateAmt}>{formatRate(item.sunday_holiday_rate)}</Text>
+                          <Text style={styles.rateUnit}>{unit}</Text>
+                        </View>
+                      </View>
+                    )}
                   </View>
+
                   <View style={styles.divider} />
+                  
                   {item.payment_terms && (
                     <View style={styles.cardFooter}>
                       <View style={[styles.paymentChip, { backgroundColor: pc.bg, borderColor: pc.border }]}>
@@ -198,6 +261,7 @@ const HomeScreen = ({ navigation }: any) => {
   const { isJobSaved, saveJob, unsaveJob, applyJob, isJobApplied } = useJobs();
 
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
+  const [upcomingDuties, setUpcomingDuties] = useState<any[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [fetchedAvailability, setFetchedAvailability] = useState<any[]>([]);
   const [rateCard, setRateCard] = useState<RateEntry[]>([]);
@@ -209,7 +273,7 @@ const HomeScreen = ({ navigation }: any) => {
   
   const toastFadeAnim = useRef(new Animated.Value(0)).current;
 
-  // --- MOCK DATA FOR NEW SECTIONS (Replace with API data later) ---
+  // --- MOCK DATA FOR CURRENT DUTY SECTION ---
   const currentDuty = {
     title: 'Radiology',
     hospital: 'Smile Hospital Pandharpur',
@@ -217,33 +281,6 @@ const HomeScreen = ({ navigation }: any) => {
     date: 'Today\n09 Sep 2026',
     time: '09:00 AM - 05:00 PM\nEnds in 4h 32m',
   };
-
-  const upcomingDuties = [
-    {
-      id: '1',
-      title: 'General Medicine',
-      hospital: 'TestAMK_Hospital',
-      location: 'Rangareddy, Telangana',
-      date: '10 Sep 2026',
-      time: '09:00 AM - 05:00 PM',
-      pay: '₹4500 Flat',
-      badge: 'Tomorrow',
-      badgeColor: '#10b981',
-      badgeBg: '#d1fae5',
-    },
-    {
-      id: '2',
-      title: 'Cardiology',
-      hospital: 'City Care Hospital',
-      location: 'Hyderabad, Telangana',
-      date: '14 Sep 2026',
-      time: '10:00 AM - 06:00 PM',
-      pay: '₹5000 Flat',
-      badge: 'In 5 days',
-      badgeColor: '#d97706',
-      badgeBg: '#fef3c7',
-    }
-  ];
 
   const quickActions = [
     {
@@ -287,10 +324,11 @@ const HomeScreen = ({ navigation }: any) => {
   const loadAllData = useCallback(async () => {
     if (!doctor?._id) return;
     try {
-      const [jobsRes, availRes, rateRes] = await Promise.all([
+      const [jobsRes, availRes, rateRes, dutiesRes] = await Promise.all([
         api.get('/api/doctors/jobs').catch(() => ({ data: { success: false, jobs: [] } })),
         api.get(`/api/doctors/${doctor._id}/availability`).catch(() => ({ data: { availability: [] } })),
-        api.get(`/api/doctors/rate-card/${doctor._id}`).catch(() => ({ data: { data: [] } }))
+        api.get(`/api/doctors/rate-card/${doctor._id}`).catch(() => ({ data: { data: [] } })),
+        api.get('/api/doctors/assigned-jobs', { params: { status: 'Upcoming' } }).catch(() => ({ data: { success: false, jobs: [] } }))
       ]);
 
       if (jobsRes.data?.success) {
@@ -298,6 +336,7 @@ const HomeScreen = ({ navigation }: any) => {
           id: reqItem._id,
           hospital: reqItem.hospital_name,
           location: `${reqItem.city}, ${reqItem.state}`,
+          postedAt: getRelativeTime(reqItem.created_at || reqItem.createdAt),
           date: reqItem.shift_start_date ? new Date(reqItem.shift_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD',
           specialization: reqItem.speciality,
           department: reqItem.department || 'General',
@@ -310,6 +349,13 @@ const HomeScreen = ({ navigation }: any) => {
           rawDetails: reqItem,
         })));
       }
+
+      if (dutiesRes.data?.success) {
+        setUpcomingDuties(dutiesRes.data.jobs || dutiesRes.data.data || []);
+      } else {
+        setUpcomingDuties([]);
+      }
+
       setFetchedAvailability(availRes.data?.availability ?? []);
       setRateCard(rateRes.data?.data ?? []);
     } catch (error) {
@@ -463,51 +509,120 @@ const HomeScreen = ({ navigation }: any) => {
               </LinearGradient>
             </View>
 
-            {/* 2. UPCOMING DUTIES SECTION */}
+            {/* 2. REAL UPCOMING DUTIES SECTION */}
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Upcoming Duties</Text>
-                <TouchableOpacity style={styles.viewAllBtn}>
+          <TouchableOpacity style={styles.viewAllBtn} onPress={() => navigation.navigate('DutiesScreen', { defaultTab: 'Upcoming' })}>
                   <Text style={styles.viewAllText}>View All </Text>
                   <Ionicons name="arrow-forward" size={scale(14)} color={C.primary} />
                 </TouchableOpacity>
               </View>
 
-              {upcomingDuties.map((duty) => (
-                <TouchableOpacity key={duty.id} style={styles.upcomingCard} activeOpacity={0.9}>
-                  <View style={styles.ucTop}>
-                    <View style={styles.ucIconBox}>
-                      <Ionicons name="business-outline" size={scale(18)} color={C.primary} />
-                    </View>
-                    <View style={styles.ucInfo}>
-                      <Text style={styles.ucTitle}>{duty.title}</Text>
-                      <Text style={styles.ucHospital}>{duty.hospital}</Text>
-                    </View>
-                    <View style={[styles.ucBadge, { backgroundColor: duty.badgeBg }]}>
-                      <Text style={[styles.ucBadgeText, { color: duty.badgeColor }]}>{duty.badge}</Text>
-                    </View>
-                  </View>
+              {loadingJobs && !refreshing ? (
+                <ActivityIndicator size="small" color={C.primary} style={{ marginVertical: 10 }} />
+              ) : upcomingDuties.length === 0 ? (
+                <View style={styles.emptyUpcomingBox}>
+                  <Ionicons name="calendar-outline" size={scale(24)} color={C.textMuted} />
+                  <Text style={styles.emptyUpcomingText}>No upcoming duties scheduled.</Text>
+                </View>
+              ) : (
+                upcomingDuties.slice(0, 3).map((duty) => {
+                  const hospitalName = duty.hospital_details?.hospital_name || duty.hospital_name || 'Hospital';
+                  const city = duty.city || duty.hospital_details?.city || 'Location unavailable';
+                  const state = duty.state || duty.hospital_details?.state || '';
+                  
+                  // Date Processing
+                  const assignedDates = duty.assignment_info?.assigned_dates || [];
+                  const hasIndividualDates = assignedDates.length > 0;
+                  
+                  let displayDatesRange = '';
+                  if (!hasIndividualDates) {
+                    if (duty.assignment_info?.assigned_from) {
+                      const start = formatDate(duty.assignment_info.assigned_from);
+                      const end = duty.assignment_info.assigned_to ? formatDate(duty.assignment_info.assigned_to) : start;
+                      displayDatesRange = start === end ? start : `${start} to ${end}`;
+                    } else {
+                      const start = formatDate(duty.shift_start_date);
+                      const end = duty.shift_end_date ? formatDate(duty.shift_end_date) : start;
+                      displayDatesRange = start === end ? start : `${start} to ${end}`;
+                    }
+                  }
 
-                  <View style={styles.ucLocationRowMain}>
-                     <Ionicons name="location-outline" size={scale(12)} color={C.textMuted} />
-                     <Text style={styles.ucLocation}>{duty.location}</Text>
-                  </View>
+                  const displayRate = duty.assignment_info?.doctor_rate || duty.offered_rate || '0';
+                  
+                  // Limit chips to prevent layout overflow on home screen
+                  const MAX_CHIPS = 2;
+                  const visibleDates = assignedDates.slice(0, MAX_CHIPS);
+                  const hiddenDatesCount = assignedDates.length - MAX_CHIPS;
 
-                  <View style={styles.ucBottom}>
-                    <View style={styles.ucDetailRow}>
-                      <Ionicons name="calendar-outline" size={scale(13)} color={C.textSub} />
-                      <Text style={styles.ucDetailText}>{duty.date}</Text>
-                    </View>
-                    <View style={styles.ucDetailRow}>
-                      <Ionicons name="time-outline" size={scale(13)} color={C.textSub} />
-                      <Text style={styles.ucDetailText}>{duty.time}</Text>
-                    </View>
-                    <TouchableOpacity style={styles.ucBtn}>
-                      <Text style={styles.ucBtnText}>View Details</Text>
+                  return (
+                    <TouchableOpacity 
+                      key={duty._id} 
+                      style={styles.upcomingCard} 
+                      activeOpacity={0.9}
+                      // onPress={() => navigation.navigate('DutyDetailsScreen', { jobDetails: duty })}
+                    >
+                      <View style={styles.ucTop}>
+                        <View style={styles.ucIconBox}>
+                          <Ionicons name="business-outline" size={scale(18)} color={C.primary} />
+                        </View>
+                        <View style={styles.ucInfo}>
+                          <Text style={styles.ucTitle} numberOfLines={1}>{duty.speciality} - {duty.department}</Text>
+                          <Text style={styles.ucHospital} numberOfLines={1}>{hospitalName}</Text>
+                        </View>
+                        <View style={[styles.ucBadge, { backgroundColor: '#d1fae5' }]}>
+                          <Text style={[styles.ucBadgeText, { color: '#10b981' }]}>Confirmed</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.ucLocationRowMain}>
+                        <Ionicons name="location-outline" size={scale(12)} color={C.textMuted} />
+                        <Text style={styles.ucLocation} numberOfLines={1}>{city} {state ? `, ${state}` : ''}</Text>
+                      </View>
+
+                      <View style={styles.ucBottom}>
+                        <View style={{ gap: scale(8) }}>
+                          {/* DATE ROW */}
+                          <View style={styles.ucDateSection}>
+                            <Ionicons name="calendar-outline" size={scale(13)} color={C.textSub} />
+                            {hasIndividualDates ? (
+                              <View style={styles.ucDateChipsWrap}>
+                                {visibleDates.map((d: string) => (
+                                  <View key={d} style={styles.ucDateChip}>
+                                    <Text style={styles.ucDateChipText}>{formatShortDate(d)}</Text>
+                                  </View>
+                                ))}
+                                {hiddenDatesCount > 0 && (
+                                  <View style={styles.ucDateChipMore}>
+                                    <Text style={styles.ucDateChipMoreText}>+{hiddenDatesCount}</Text>
+                                  </View>
+                                )}
+                              </View>
+                            ) : (
+                              <Text style={styles.ucDetailText}>{displayDatesRange}</Text>
+                            )}
+                          </View>
+                          
+                          {/* TIME ROW */}
+                          <View style={styles.ucDetailRow}>
+                            <Ionicons name="time-outline" size={scale(13)} color={C.textSub} />
+                            <Text style={styles.ucDetailText}>
+                              {duty.duty_from_time || 'TBD'} - {duty.duty_to_time || 'TBD'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* PAY BADGE (Right aligned) */}
+                        <View style={styles.ucPayBadge}>
+                          <Text style={styles.ucPayAmt}>₹{displayRate}</Text>
+                          <Text style={styles.ucPayUnit}>{duty.billing_shift_type || 'Shift'}</Text>
+                        </View>
+                      </View>
                     </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  );
+                })
+              )}
             </View>
 
             {/* 3. QUICK ACTIONS SECTION */}
@@ -619,14 +734,12 @@ const HomeScreen = ({ navigation }: any) => {
                 snapToInterval={scale(280) + scale(12)} 
                 decelerationRate="fast"
               >
-                {activeJobs.map(req => {
+                {/* ✅ ONLY SHOW FIRST 5 JOBS (.slice(0,5)) */}
+                {activeJobs.slice(0, 5).map(req => {
                   const saved = isJobSaved(req.id);
                   const applied = isJobApplied(req.id);
-
-                  // ✅ CALCULATE CIRCULAR MATCH BADGE COLORS
                   const matchStyle = getMatchStyle(req.matchPercentage);
                   
-                  // Extract distance if available
                   const distanceStr = req.matchedCriteria?.location?.distance_km != null 
                       ? `${req.matchedCriteria.location.distance_km} km` 
                       : '';
@@ -635,7 +748,6 @@ const HomeScreen = ({ navigation }: any) => {
                     <TouchableOpacity key={req.id} style={styles.hJobCard} activeOpacity={0.9} onPress={() => navigation.navigate('JobDetails', { job: req })}>
                       <View style={styles.hJobTop}>
                         
-                        {/* ✅ CIRCULAR MATCH RING AROUND LOGO */}
                         <View style={[styles.matchRing, { borderColor: matchStyle.color }]}>
                           <View style={styles.hJobIconBox}>
                             <Ionicons name="business-outline" size={scale(20)} color={matchStyle.color} />
@@ -656,12 +768,14 @@ const HomeScreen = ({ navigation }: any) => {
                           </View>
                         </View>
                         
-                        <TouchableOpacity onPress={() => handleBookmarkToggle(req)} style={styles.hJobBookmark}>
-                          <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={scale(20)} color={saved ? C.primary : C.textMuted} />
-                        </TouchableOpacity>
+                        <View style={styles.rightCorner}>
+                          <Text style={styles.postedText}>{req.postedAt}</Text>
+                          <TouchableOpacity onPress={() => handleBookmarkToggle(req)} style={styles.hJobBookmark}>
+                            <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={scale(20)} color={saved ? C.primary : C.textMuted} />
+                          </TouchableOpacity>
+                        </View>
                       </View>
 
-                      {/* ✅ MISSING REQUIREMENTS WARNING (If degree doesn't match) */}
                       {req.matchedCriteria && req.matchedCriteria.degree && req.matchedCriteria.degree.matched === false && (
                          <View style={styles.missingReqBox}>
                             <Ionicons name="warning-outline" size={scale(12)} color={C.textSub} />
@@ -709,7 +823,7 @@ export default HomeScreen;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
-  scroll: { paddingBottom: scale(100) },
+  scroll: { paddingBottom: scale(30) },
   toastContainer: {
     position: 'absolute', top: scale(54), alignSelf: 'center', backgroundColor: C.ink,
     flexDirection: 'row', alignItems: 'center', gap: scale(8), paddingHorizontal: scale(16),
@@ -781,26 +895,36 @@ const styles = StyleSheet.create({
   cdBtnText: { color: C.white, fontSize: scale(12), fontWeight: '700' },
 
   // --- 2. UPCOMING DUTIES ---
+  emptyUpcomingBox: { alignItems: 'center', paddingVertical: scale(16), backgroundColor: C.cardBg, borderRadius: scale(12), borderWidth: 1, borderColor: C.border, borderStyle: 'dashed' },
+  emptyUpcomingText: { fontSize: scale(12), color: C.textMuted, fontWeight: '500', marginTop: scale(8) },
   upcomingCard: {
     backgroundColor: C.cardBg, borderRadius: scale(12), borderWidth: 1, borderColor: C.border,
     padding: scale(12), marginBottom: scale(10),
   },
-  ucTop: { flexDirection: 'row', alignItems: 'center', marginBottom: scale(6) },
+  ucTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: scale(6) },
   ucIconBox: { width: scale(36), height: scale(36), borderRadius: scale(8), backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center', marginRight: scale(10) },
-  ucInfo: { flex: 1 },
-  ucTitle: { fontSize: scale(14), fontWeight: '700', color: C.ink },
-  ucHospital: { fontSize: scale(12), color: C.textSub, fontWeight: '500', marginTop: scale(2) },
+  ucInfo: { flex: 1, paddingRight: scale(8) },
+  ucTitle: { fontSize: scale(14), fontWeight: '800', color: C.ink },
+  ucHospital: { fontSize: scale(12), color: C.textSub, fontWeight: '600', marginTop: scale(2) },
   ucBadge: { paddingHorizontal: scale(6), paddingVertical: scale(3), borderRadius: scale(6) },
   ucBadgeText: { fontSize: scale(10), fontWeight: '700' },
   
   ucLocationRowMain: { flexDirection: 'row', alignItems: 'center', gap: scale(4), marginLeft: scale(46), marginBottom: scale(12) },
   ucLocation: { fontSize: scale(11), color: C.textMuted, fontWeight: '500' },
 
-  ucBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: scale(10), borderTopWidth: 1, borderTopColor: C.border },
-  ucDetailRow: { flexDirection: 'row', alignItems: 'center', gap: scale(4) },
-  ucDetailText: { fontSize: scale(11), color: C.textSub, fontWeight: '600' },
-  ucBtn: { backgroundColor: C.primaryLight, paddingVertical: scale(6), paddingHorizontal: scale(12), borderRadius: scale(8) },
-  ucBtnText: { color: C.primary, fontSize: scale(11), fontWeight: '700' },
+  ucBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingTop: scale(10), borderTopWidth: 1, borderTopColor: C.border },
+  ucDateSection: { flexDirection: 'row', alignItems: 'center', gap: scale(6) },
+  ucDateChipsWrap: { flexDirection: 'row', gap: scale(4) },
+  ucDateChip: { backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.border, paddingHorizontal: scale(6), paddingVertical: scale(2), borderRadius: scale(4) },
+  ucDateChipText: { fontSize: scale(10), fontWeight: '600', color: C.ink },
+  ucDateChipMore: { backgroundColor: C.primaryLight, paddingHorizontal: scale(6), paddingVertical: scale(2), borderRadius: scale(4), justifyContent: 'center' },
+  ucDateChipMoreText: { fontSize: scale(10), fontWeight: '700', color: C.primary },
+  ucDetailRow: { flexDirection: 'row', alignItems: 'center', gap: scale(6) },
+  ucDetailText: { fontSize: scale(12), color: C.textSub, fontWeight: '700' },
+  
+  ucPayBadge: { backgroundColor: C.primaryLight, paddingHorizontal: scale(12), paddingVertical: scale(6), borderRadius: scale(8), alignItems: 'flex-end' },
+  ucPayAmt: { fontSize: scale(13), fontWeight: '800', color: C.primary },
+  ucPayUnit: { fontSize: scale(10), fontWeight: '600', color: C.primary, marginTop: scale(1) },
 
   // --- 3. QUICK ACTIONS ---
   quickActionsContainer: { marginBottom: scale(20) },
@@ -848,7 +972,6 @@ const styles = StyleSheet.create({
   hJobTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: scale(12) }, 
   hJobInfo: { flex: 1, justifyContent: 'center' },
   
-  // ✅ NEW MATCH RING STYLES
   matchRing: {
     width: scale(52),
     height: scale(52),
@@ -883,6 +1006,9 @@ const styles = StyleSheet.create({
     color: C.white,
   },
   
+  rightCorner: { alignItems: 'flex-end', justifyContent: 'flex-start' },
+  postedText: { fontSize: scale(10), color: C.textMuted, fontWeight: '500', marginBottom: scale(6) },
+  
   missingReqBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e0e8ea', padding: scale(6), borderRadius: scale(6), marginBottom: scale(12), gap: scale(4) },
   missingReqText: { fontSize: scale(10), color: '#007b8e', fontWeight: '600' },
 
@@ -890,7 +1016,7 @@ const styles = StyleSheet.create({
   hJobHospital: { fontSize: scale(13), color: C.textSub, marginBottom: scale(4), fontWeight: '500' },
   hJobLocationRow: { flexDirection: 'row', alignItems: 'center', gap: scale(4) },
   hJobLocation: { fontSize: scale(12), color: C.textMuted, fontWeight: '500' },
-  hJobBookmark: { padding: scale(4), marginLeft: scale(8) },
+  hJobBookmark: { padding: scale(4) },
   hJobBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   hJobDetails: { gap: scale(8) },
   hJobDetailRow: { flexDirection: 'row', alignItems: 'center', gap: scale(6) },
@@ -935,6 +1061,6 @@ const styles = StyleSheet.create({
   rateAmt: { fontSize: scale(15), fontWeight: '900', color: C.ink },
   rateUnit: { fontSize: scale(11), fontWeight: '600', color: C.textMuted },
   cardFooter: { paddingHorizontal: scale(16), paddingVertical: scale(14) },
-  paymentChip: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: scale(6), borderRadius: scale(8), borderWidth: 1, paddingHorizontal: scale(10), paddingVertical: scale(6) },
+ paymentChip: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: scale(6), borderRadius: scale(8), borderWidth: 1, paddingHorizontal: scale(10), paddingVertical: scale(6) },
   paymentChipText: { fontSize: scale(12), fontWeight: '700' }
-});
+  });

@@ -558,11 +558,15 @@ const HomeScreen = ({ navigation }: any) => {
 
                   return (
                     <TouchableOpacity 
-                      key={duty._id} 
-                      style={styles.upcomingCard} 
-                      activeOpacity={0.9}
-                      // onPress={() => navigation.navigate('DutyDetailsScreen', { jobDetails: duty })}
-                    >
+  key={duty._id} 
+  style={styles.upcomingCard} 
+  activeOpacity={0.9}
+  onPress={() => navigation.navigate('JobDetails', { 
+    jobDetails: duty, 
+    isAssigned: true, 
+    jobStatus: 'Upcoming' 
+  })}
+>
                       <View style={styles.ucTop}>
                         <View style={styles.ucIconBox}>
                           <Ionicons name="business-outline" size={scale(18)} color={C.primary} />

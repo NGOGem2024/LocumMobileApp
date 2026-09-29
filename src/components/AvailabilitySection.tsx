@@ -8,12 +8,12 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
-  Alert,
   PanResponder,
   TextInput,
   KeyboardAvoidingView,
   ScrollView,
   StatusBar,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -48,7 +48,6 @@ interface ShiftConfig {
   shift_type: ShiftType;
   start_time: string;
   end_time: string;
-  slot_duration: number;
 }
 
 interface AvailabilityEntry extends ShiftConfig {
@@ -79,8 +78,6 @@ const PRESETS: Record<
   unavailable: { label: 'Unavailable', icon: '🚫', start: '00:00', end: '00:00' },
   full: { label: 'Full Day', icon: '📅', start: '08:00', end: '20:00' },
 };
-
-const SLOT_DURATIONS = [1, 2, 3, 4, 6, 8];
 
 // ── Calendar helpers ───────────────────────────────────────────────────────────
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -312,7 +309,6 @@ const ShiftModal: React.FC<{ visible: boolean; date: string; existing?: ShiftCon
   const [type, setType] = useState<ShiftType>(existing?.shift_type ?? 'am');
   const [start, setStart] = useState(existing?.start_time ?? PRESETS.am.start);
   const [end, setEnd] = useState(existing?.end_time ?? PRESETS.am.end);
-  const [slot, setSlot] = useState(existing?.slot_duration ?? 4);
   const [pickerFor, setPickerFor] = useState<'start' | 'end' | null>(null);
 
   useEffect(() => {
@@ -321,7 +317,6 @@ const ShiftModal: React.FC<{ visible: boolean; date: string; existing?: ShiftCon
       setType(t);
       setStart(existing?.start_time ?? PRESETS[t].start);
       setEnd(existing?.end_time ?? PRESETS[t].end);
-      setSlot(existing?.slot_duration ?? 4);
       setPickerFor(null);
     }
   }, [visible, existing]);
@@ -394,24 +389,28 @@ const ShiftModal: React.FC<{ visible: boolean; date: string; existing?: ShiftCon
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.sh_lbl}>Slot Duration (hours)</Text>
-            <View style={styles.sh_slotRow}>
-              {SLOT_DURATIONS.map(n => (
-                <TouchableOpacity key={n} style={[styles.sh_slotChip, slot === n ? styles.sh_slotChipOn : null]} onPress={() => setSlot(n)} activeOpacity={0.8}>
-                  <Text style={[styles.sh_slotTxt, slot === n ? styles.sh_slotTxtOn : styles.sh_slotTxtOff]}>{n}h</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.sh_actions}>
+           <View style={styles.sh_actions}>
               {existing && (
                 <TouchableOpacity style={styles.sh_del} onPress={onDelete} activeOpacity={0.85}>
                   <Ionicons name="trash-outline" size={scale(12)} color={C.danger} />
                   <Text style={styles.sh_delTxt}>Remove</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={[styles.sh_save, saving ? styles.opacity70 : null, !existing ? styles.flex1 : null]} onPress={() => onSave({ shift_type: type, start_time: start, end_time: end, slot_duration: slot })} disabled={saving} activeOpacity={0.85}>
-                {saving ? <ActivityIndicator size="small" color={C.white} /> : <><Ionicons name="checkmark" size={scale(13)} color={C.white} /><Text style={styles.sh_saveTxt}>{existing ? 'Update' : 'Save'}</Text></>}
+              {/* 👇 Fix: Always apply styles.flex1 here 👇 */}
+              <TouchableOpacity 
+                style={[styles.sh_save, saving ? styles.opacity70 : null, styles.flex1]} 
+                onPress={() => onSave({ shift_type: type, start_time: start, end_time: end })} 
+                disabled={saving} 
+                activeOpacity={0.85}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={C.white} />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark" size={scale(13)} color={C.white} />
+                    <Text style={styles.sh_saveTxt}>{existing ? 'Update' : 'Save'}</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -428,8 +427,8 @@ const ShiftModal: React.FC<{ visible: boolean; date: string; existing?: ShiftCon
 // ── AvailabilitySection (Now works as a Screen) ───────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 const AvailabilitySection: React.FC<Props> = ({
- doctorId: propDoctorId,
-  initialAvailability = [],
+  doctorId: propDoctorId,
+  initialAvailability,
   navigation,
 }) => {
   const { doctor } = useAuth();
@@ -439,89 +438,95 @@ const AvailabilitySection: React.FC<Props> = ({
 
   const [viewY, setViewY] = useState(today.getFullYear());
   const [viewM, setViewM] = useState(today.getMonth());
-  const [avail, setAvail] = useState<AvailabilityEntry[]>(initialAvailability);
+  const [avail, setAvail] = useState<AvailabilityEntry[]>(initialAvailability || []);
   const [selDate, setSelDate] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  
+  // Track if we have already fetched from the API to prevent loops
+  const hasFetched = useRef(false);
 
   useEffect(() => {
-    if (initialAvailability.length > 0) setAvail(initialAvailability);
+    if (initialAvailability && initialAvailability.length > 0) {
+      setAvail(initialAvailability);
+      hasFetched.current = true; // Skip fetching if we already have initial props
+    }
   }, [initialAvailability]);
 
   // 1. Fetch Availability - Silent fail if API is not ready
   useEffect(() => {
     const fetchAvail = async () => {
-      if (doctorId && initialAvailability.length === 0) {
+      // Only fetch if we have an ID, haven't fetched yet, and didn't get populated initial data
+      if (doctorId && !hasFetched.current && (!initialAvailability || initialAvailability.length === 0)) {
         try {
           const res = await instance.get(`/api/doctors/${doctorId}/availability`);
           if (res.data?.availability) {
             setAvail(res.data.availability);
           }
         } catch (error) {
-          // Backend ready naslyamule error ignore karat ahot
           console.log("Backend API not ready yet, loading empty calendar.");
+        } finally {
+          hasFetched.current = true; // Lock it so it never loops again
         }
       }
     };
+    
     fetchAvail();
-  }, [doctorId, initialAvailability]);
+  }, [doctorId]);
 
   const getEntry = (dateStr: string) => avail.find(a => normDate(a.date) === dateStr);
 
   const prevM = () => viewM === 0 ? (setViewM(11), setViewY(y => y - 1)) : setViewM(m => m - 1);
   const nextM = () => viewM === 11 ? (setViewM(0), setViewY(y => y + 1)) : setViewM(m => m + 1);
 
-  const patchAvailability = async (entries: AvailabilityEntry[]) => {
-    if (!doctorId) throw new Error('Doctor ID is missing');
-    const payload = {
-      availability: entries.map(a => ({
-        date: normDate(a.date),
-        shift_type: a.shift_type,
-        start_time: a.start_time,
-        end_time: a.end_time,
-        slot_duration: Number(a.slot_duration),
-      })),
-    };
-    const res = await instance.patch(`/api/doctors/${doctorId}/availability`, payload);
-    return res.data;
-  };
-
-  // 2. Save Availability - Update UI directly without waiting for backend
+  // 2. Save Availability
   const handleSave = async (cfg: ShiftConfig) => {
     if (!selDate) return;
     setSaving(true);
+    
     const newEntry: AvailabilityEntry = { date: selDate, ...cfg };
-    const updated = [...avail.filter(a => normDate(a.date) !== selDate), newEntry];
+    const updatedArray = [...avail.filter(a => normDate(a.date) !== selDate), newEntry];
     
     try {
-      // Temporary API call handle, backend zalyavar uncomment kar
-      // await patchAvailability(updated);
-      
-      setAvail(updated); // Update UI locally
+      if (doctorId) {
+        await instance.patch(`/api/doctors/${doctorId}/availability`, {
+          availability: [
+            {
+              date: normDate(newEntry.date),
+              shift_type: newEntry.shift_type,
+              start_time: newEntry.start_time,
+              end_time: newEntry.end_time
+            }
+          ]
+        });
+      }
+      setAvail(updatedArray);
       setSelDate(null);
     } catch (e: any) {
-      console.log("Save API not ready, updated UI locally.");
-      setAvail(updated); 
+      console.log("Save API failed, updating UI locally.");
+      setAvail(updatedArray); 
       setSelDate(null);
     } finally {
       setSaving(false);
     }
   };
 
-  // 3. Delete Availability - Update UI directly without waiting for backend
+  // 3. Delete Availability
   const handleDelete = async () => {
-    if (!selDate) return;
+    if (!selDate) return; 
     setSaving(true);
-    const updated = avail.filter(a => normDate(a.date) !== selDate);
+    
+    const updatedArray = avail.filter(a => normDate(a.date) !== selDate);
     
     try {
-      // Temporary API call handle, backend zalyavar uncomment kar
-      // await patchAvailability(updated);
+      if (doctorId) {
+        await instance.delete(`/api/doctors/${doctorId}/availability/${selDate}`);
+      }
       
-      setAvail(updated); // Update UI locally
+      setAvail(updatedArray); 
       setSelDate(null);
     } catch (e: any) {
-      console.log("Delete API not ready, updated UI locally.");
-      setAvail(updated); 
+      console.log("Delete API failed, removing from UI locally.");
+      setAvail(updatedArray); 
       setSelDate(null);
     } finally {
       setSaving(false);
@@ -543,8 +548,7 @@ const AvailabilitySection: React.FC<Props> = ({
   const cells: (number | null)[] = [ ...Array(fd).fill(null), ...Array.from({ length: dim }, (_, i) => i + 1) ];
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const upcoming = [...avail].filter(a => normDate(a.date) >= todayStr).sort((a, b) => normDate(a.date).localeCompare(normDate(b.date)));
-
+const upcoming = [...avail].sort((a, b) => normDate(a.date).localeCompare(normDate(b.date)));
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
@@ -631,13 +635,19 @@ const AvailabilitySection: React.FC<Props> = ({
 
         {upcoming.length > 0 && (
           <View style={styles.av_upWrap}>
-            <Text style={styles.av_upTitle}>Upcoming Availability</Text>
-            {upcoming.map(entry => {
+            <Text style={styles.av_upTitle}>Availability</Text>
+            {upcoming.map((entry, index) => {
               const pStyles = getPresetStyles(entry.shift_type);
               const ds = normDate(entry.date);
               const [, em, ed] = ds.split('-').map(Number);
+              
               return (
-                <TouchableOpacity key={entry.date} style={styles.av_upCard} onPress={() => setSelDate(ds)} activeOpacity={0.8}>
+                <TouchableOpacity 
+                  key={`${entry.date}-${index}`} 
+                  style={styles.av_upCard} 
+                  onPress={() => setSelDate(ds)} 
+                  activeOpacity={0.8}
+                >
                   <View style={[styles.av_upIcon, pStyles.bg]}>
                     <Text style={styles.fs14}>{PRESETS[entry.shift_type].icon}</Text>
                   </View>
@@ -645,16 +655,12 @@ const AvailabilitySection: React.FC<Props> = ({
                     <Text style={styles.av_upDate}>{ed} {MONTHS[em - 1]}</Text>
                     <Text style={styles.av_upShift}>{PRESETS[entry.shift_type].label} · {entry.start_time} – {entry.end_time}</Text>
                   </View>
-                  <View style={[styles.av_upBadge, pStyles.bg]}>
-                    <Text style={[styles.av_upBadgeTxt, pStyles.text]}>{entry.slot_duration}h slots</Text>
-                  </View>
                   <Ionicons name="pencil-outline" size={scale(12)} color={C.textMuted} style={styles.ml6} />
                 </TouchableOpacity>
               );
             })}
           </View>
         )}
-
         {selDate && (
           <ShiftModal
             visible={!!selDate}
@@ -769,12 +775,6 @@ const styles = StyleSheet.create({
   sh_timeLabel: { fontSize: scale(10), fontWeight: '700', color: C.textSub },
   sh_timePill: { flexDirection: 'row', alignItems: 'center', gap: scale(4), backgroundColor: C.primaryLight, borderRadius: scale(8), paddingHorizontal: scale(8), paddingVertical: scale(8), borderWidth: 1, borderColor: C.border },
   sh_timeVal: { fontSize: scale(13), fontWeight: '800', color: C.primary },
-  sh_slotRow: { flexDirection: 'row', gap: scale(6), marginBottom: scale(16), flexWrap: 'wrap' },
-  sh_slotChip: { paddingHorizontal: scale(12), paddingVertical: scale(6), borderRadius: scale(8), borderWidth: 1.5, borderColor: C.border, backgroundColor: C.white, minWidth: scale(38), alignItems: 'center' },
-  sh_slotChipOn: { backgroundColor: C.primaryLight, borderColor: C.primary },
-  sh_slotTxt: { fontSize: scale(11), fontWeight: '700' },
-  sh_slotTxtOn: { color: C.primary },
-  sh_slotTxtOff: { color: C.textSub },
   sh_actions: { flexDirection: 'row', gap: scale(8) },
   sh_del: { flexDirection: 'row', alignItems: 'center', gap: scale(4), borderWidth: 1.5, borderColor: C.danger, borderRadius: scale(10), paddingHorizontal: scale(12), paddingVertical: scale(10) },
   sh_delTxt: { fontSize: scale(12), fontWeight: '700', color: C.danger },
@@ -809,6 +809,4 @@ const styles = StyleSheet.create({
   av_upIcon: { width: scale(36), height: scale(36), borderRadius: scale(10), alignItems: 'center', justifyContent: 'center' },
   av_upDate: { fontSize: scale(13), fontWeight: '900', color: C.text, marginBottom: scale(2) },
   av_upShift: { fontSize: scale(11), color: C.textSub, fontWeight: '600' },
-  av_upBadge: { borderRadius: scale(6), paddingHorizontal: scale(8), paddingVertical: scale(4) },
-  av_upBadgeTxt: { fontSize: scale(10), fontWeight: '800' },
 });

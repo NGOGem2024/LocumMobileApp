@@ -262,6 +262,9 @@ const HomeScreen = ({ navigation }: any) => {
 
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
   const [upcomingDuties, setUpcomingDuties] = useState<any[]>([]);
+  const [completedCount, setCompletedCount] = useState<number>(0);
+  const [cancelledCount, setCancelledCount] = useState<number>(0);
+
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [fetchedAvailability, setFetchedAvailability] = useState<any[]>([]);
   const [rateCard, setRateCard] = useState<RateEntry[]>([]);
@@ -289,11 +292,6 @@ const HomeScreen = ({ navigation }: any) => {
       onPress: () => navigation.navigate('ViewAllJobs'), 
     },
     {
-      id: 'duties', title: 'My Duties', sub: 'View all duties', icon: 'calendar-outline',
-      color: '#2DCC70', lightBg: '#F0FCF5', borderColor: '#E2F7EB',
-      onPress: () => navigation.navigate('DutiesScreen'),
-    },
-    {
       id: 'availability', title: 'Availability', sub: 'Set preferences', icon: 'time-outline',
       color: '#F39C12', lightBg: '#FFF7F0', borderColor: '#FCEADA',
       onPress: () => navigation.navigate('AvailabilitySection'),
@@ -306,9 +304,9 @@ const HomeScreen = ({ navigation }: any) => {
   ];
 
   const summaryStats = [
-    { id: '1', icon: 'calendar-outline', value: '3', label: 'Upcoming\nDuties', color: '#10b981', bg: '#ecfdf5' },
-    { id: '2', icon: 'checkmark-circle', value: '8', label: 'Completed\nDuties', color: '#3b82f6', bg: '#eff6ff' },
-    { id: '3', icon: 'close-circle', value: '1', label: 'Cancelled\nDuties', color: '#ef4444', bg: '#fef2f2' },
+    { id: '1', icon: 'calendar-outline', value: upcomingDuties.length.toString(), label: 'Upcoming\nDuties', color: '#10b981', bg: '#ecfdf5' },
+    { id: '2', icon: 'checkmark-circle', value: completedCount.toString(), label: 'Completed\nDuties', color: '#3b82f6', bg: '#eff6ff' },
+    { id: '3', icon: 'close-circle', value: cancelledCount.toString(), label: 'Cancelled\nDuties', color: '#ef4444', bg: '#fef2f2' },
     { id: '4', icon: 'wallet-outline', value: '₹24,500', label: 'Total Earnings', color: '#8b5cf6', bg: '#f5f3ff', hasChevron: true },
   ];
 
@@ -324,11 +322,13 @@ const HomeScreen = ({ navigation }: any) => {
   const loadAllData = useCallback(async () => {
     if (!doctor?._id) return;
     try {
-      const [jobsRes, availRes, rateRes, dutiesRes] = await Promise.all([
+      const [jobsRes, availRes, rateRes, dutiesRes, pastRes, cancelledRes] = await Promise.all([
         api.get('/api/doctors/jobs').catch(() => ({ data: { success: false, jobs: [] } })),
         api.get(`/api/doctors/${doctor._id}/availability`).catch(() => ({ data: { availability: [] } })),
         api.get(`/api/doctors/rate-card/${doctor._id}`).catch(() => ({ data: { data: [] } })),
-        api.get('/api/doctors/assigned-jobs', { params: { status: 'Upcoming' } }).catch(() => ({ data: { success: false, jobs: [] } }))
+        api.get('/api/doctors/assigned-jobs', { params: { status: 'Upcoming' } }).catch(() => ({ data: { success: false, jobs: [] } })),
+        api.get('/api/doctors/assigned-jobs', { params: { status: 'Past' } }).catch(() => ({ data: { success: false, jobs: [] } })),
+        api.get('/api/doctors/assigned-jobs', { params: { status: 'Cancelled' } }).catch(() => ({ data: { success: false, jobs: [] } }))
       ]);
 
       if (jobsRes.data?.success) {
@@ -354,6 +354,20 @@ const HomeScreen = ({ navigation }: any) => {
         setUpcomingDuties(dutiesRes.data.jobs || dutiesRes.data.data || []);
       } else {
         setUpcomingDuties([]);
+      }
+
+      if (pastRes.data?.success) {
+        const pastJobs = pastRes.data.jobs || pastRes.data.data || [];
+        setCompletedCount(pastJobs.length);
+      } else {
+        setCompletedCount(0);
+      }
+
+      if (cancelledRes.data?.success) {
+        const cancelledJobs = cancelledRes.data.jobs || cancelledRes.data.data || [];
+        setCancelledCount(cancelledJobs.length);
+      } else {
+        setCancelledCount(0);
       }
 
       setFetchedAvailability(availRes.data?.availability ?? []);
@@ -558,15 +572,15 @@ const HomeScreen = ({ navigation }: any) => {
 
                   return (
                     <TouchableOpacity 
-  key={duty._id} 
-  style={styles.upcomingCard} 
-  activeOpacity={0.9}
-  onPress={() => navigation.navigate('JobDetails', { 
-    jobDetails: duty, 
-    isAssigned: true, 
-    jobStatus: 'Upcoming' 
-  })}
->
+                      key={duty._id} 
+                      style={styles.upcomingCard} 
+                      activeOpacity={0.9}
+                      onPress={() => navigation.navigate('JobDetails', { 
+                        jobDetails: duty, 
+                        isAssigned: true, 
+                        jobStatus: 'Upcoming' 
+                      })}
+                    >
                       <View style={styles.ucTop}>
                         <View style={styles.ucIconBox}>
                           <Ionicons name="business-outline" size={scale(18)} color={C.primary} />

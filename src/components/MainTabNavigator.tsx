@@ -8,8 +8,7 @@ import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SavedJobsScreen from '../screens/SavedJobsScreen';
 import EarningsOverviewScreen from '../screens/EarningsOverviewScreen';
-
-const EarningsPlaceholder = () => null;
+import DutiesScreen from '../screens/DutiesScreen';
 
 const Tab = createBottomTabNavigator();
 const { width: SW } = Dimensions.get('window');
@@ -60,6 +59,8 @@ const MainTabNavigator = () => {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Saved Jobs') {
             iconName = focused ? 'bookmark' : 'bookmark-outline';
+          } else if (route.name === 'My Duties') {
+            iconName = focused ? 'briefcase' : 'briefcase-outline';
           } else if (route.name === 'Earnings') {
             iconName = focused ? 'wallet' : 'wallet-outline';
           } else if (route.name === 'Profile') {
@@ -72,6 +73,7 @@ const MainTabNavigator = () => {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Saved Jobs" component={SavedJobsScreen} />
+      <Tab.Screen name="My Duties" component={DutiesScreen} />
       <Tab.Screen name="Earnings" component={EarningsOverviewScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>

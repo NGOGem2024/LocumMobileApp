@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,18 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  Animated,
+  LayoutAnimation,
+  Platform,
+  UIManager
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import api from '../services/axiosConfig';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const { width: SW } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
@@ -32,35 +40,65 @@ const C = {
   textMuted: '#9CA3AF',
   warning: '#F59E0B',
   warningLight: '#FEF3C7',
+  success: '#10b981',
+  successLight: '#d1fae5',
+  dangerLight: '#fee2e2',
+  danger: '#ef4444',
   white: '#ffffff',
 };
 
-const DutiesScreen = ({ route, navigation }: any) => {
-  const initialTab = route?.params?.defaultTab || 'Assigned';
+// Removed 'Responded' from types
+type TabType = 'Invited' | 'Assigned' | 'Upcoming' | 'Past' | 'Cancelled';
 
-  const [activeTab, setActiveTab] = useState<
-    'Assigned' | 'Upcoming' | 'Past' | 'Cancelled'
-  >(initialTab);
-  const tabs = ['Assigned', 'Upcoming', 'Past', 'Cancelled'] as const;
+const DutiesScreen = ({ route, navigation }: any) => {
+  const initialTab = route?.params?.defaultTab || 'Invited';
+
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const tabs: TabType[] = ['Invited', 'Assigned', 'Upcoming', 'Past', 'Cancelled'];
+  
+  // Assigned Duties Modals
   const [declineModalVisible, setDeclineModalVisible] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [declineReason, setDeclineReason] = useState('');
 
+  // Data States
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch Assigned Duties from API
+  // Toast States
+  const [toastMessage, setToastMessage] = useState('');
+  const toastFadeAnim = useRef(new Animated.Value(0)).current;
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    Animated.sequence([
+      Animated.timing(toastFadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.delay(1800),
+      Animated.timing(toastFadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start();
+  };
+
+  // Fetch Logic combining both APIs
   const fetchDuties = useCallback(async () => {
     try {
-      const response = await api.get('/api/doctors/assigned-jobs', {
-        params: { status: activeTab },
-      });
-
-      if (response.data?.success) {
-        setJobs(response.data.jobs || response.data.data || []);
+      if (activeTab === 'Invited') {
+        const response = await api.get('/api/doctors/invited-jobs?limit=50');
+        if (response.data?.success) {
+          // Set all invitations (pending and responded) in the same tab
+          setJobs(response.data.jobs || []);
+        } else {
+          setJobs([]);
+        }
       } else {
-        setJobs([]);
+        const response = await api.get('/api/doctors/assigned-jobs', {
+          params: { status: activeTab },
+        });
+        if (response.data?.success) {
+          setJobs(response.data.jobs || response.data.data || []);
+        } else {
+          setJobs([]);
+        }
       }
     } catch (error) {
       console.error('Error fetching duties:', error);
@@ -82,37 +120,32 @@ const DutiesScreen = ({ route, navigation }: any) => {
     fetchDuties();
   };
 
+  const handleTabChange = (tab: TabType) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setActiveTab(tab);
+  };
+
+  // Formatting Helpers
   const formatDate = (dateString: string) => {
     if (!dateString) return 'TBD';
-    const options: Intl.DateTimeFormatOptions = {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    };
+    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
     return new Date(dateString).toLocaleDateString('en-GB', options);
   };
 
-  // Helper for small date chips (e.g., "04 Sep")
   const formatShortDate = (dateString: string) => {
     if (!dateString) return '';
-    const options: Intl.DateTimeFormatOptions = {
-      day: '2-digit',
-      month: 'short',
-    };
+    const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
     return new Date(dateString).toLocaleDateString('en-GB', options);
   };
 
-  const handleUpdateDutyStatus = async (
-    requirementId: string,
-    action: 'Confirmed' | 'Declined',
-    reason?: string,
-  ) => {
+  // Action: Assigned Job Update Status
+  const handleUpdateDutyStatus = async (requirementId: string, action: 'Confirmed' | 'Declined', reason?: string) => {
     try {
       setLoading(true);
       const response = await api.post('/api/doctors/duty-status', {
         requirement_id: requirementId,
         action: action,
-        decline_reason: reason || '', // Pass the reason to the backend
+        decline_reason: reason || '', 
       });
 
       if (response.data?.success) {
@@ -127,38 +160,55 @@ const DutiesScreen = ({ route, navigation }: any) => {
     }
   };
 
+  // Action: Invited Job Respond
+  const handleRespondToInvitation = async (invitationId: string, responseStatus: 'Interested' | 'Not Interested') => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    
+    // Optimistic UI Update: Change status instantly instead of removing it
+    setJobs(prev => prev.map(job => 
+      job.invitation_id === invitationId 
+        ? { ...job, pipeline_status: responseStatus, doctor_response: responseStatus } 
+        : job
+    ));
+
+    try {
+      const response = await api.post('/api/doctors/invited-jobs/respond', {
+        invitation_id: invitationId,
+        response: responseStatus
+      });
+      if (response.data.success) {
+        showToast(`Marked as ${responseStatus}`);
+      }
+    } catch (error) {
+      showToast('Failed to record response');
+      fetchDuties(); // Revert on failure
+    }
+  };
+
   const renderItem = ({ item }: { item: any }) => {
-    const hospitalName =
-      item.hospital_details?.hospital_name || item.hospital_name || 'Hospital';
-    const city =
-      item.city || item.hospital_details?.city || 'Location unavailable';
+    const hospitalName = item.hospital_details?.hospital_name || item.hospital_name || 'Hospital';
+    const city = item.city || item.hospital_details?.city || 'Location unavailable';
     const state = item.state || item.hospital_details?.state || '';
 
-    // 👇 Date Logic Processing
+    // Date Logic Processing
     const assignedDates = item.assignment_info?.assigned_dates || [];
     const hasIndividualDates = assignedDates.length > 0;
 
     let displayDatesRange = '';
 
-    // Fallback if no individual dates are available
     if (!hasIndividualDates) {
       if (item.assignment_info?.assigned_from) {
         const start = formatDate(item.assignment_info.assigned_from);
-        const end = item.assignment_info.assigned_to
-          ? formatDate(item.assignment_info.assigned_to)
-          : start;
+        const end = item.assignment_info.assigned_to ? formatDate(item.assignment_info.assigned_to) : start;
         displayDatesRange = start === end ? start : `${start} to ${end}`;
       } else {
         const start = formatDate(item.shift_start_date);
-        const end = item.shift_end_date
-          ? formatDate(item.shift_end_date)
-          : start;
+        const end = item.shift_end_date ? formatDate(item.shift_end_date) : start;
         displayDatesRange = start === end ? start : `${start} to ${end}`;
       }
     }
 
-    const displayRate =
-      item.assignment_info?.doctor_rate || item.offered_rate || '0';
+    const displayRate = item.assignment_info?.doctor_rate || item.offered_rate || '0';
 
     return (
       <TouchableOpacity
@@ -167,10 +217,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
         onPress={() =>
           navigation.navigate('JobDetails', {
             jobDetails: item,
-            isAssigned:
-              activeTab === 'Assigned' ||
-              activeTab === 'Upcoming' ||
-              activeTab === 'Past',
+            isAssigned: ['Assigned', 'Upcoming', 'Past'].includes(activeTab),
             jobStatus: activeTab,
           })
         }
@@ -178,7 +225,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
         <View style={styles.cardHeader}>
           <View style={styles.titleRow}>
             <Text style={styles.jobTitle} numberOfLines={1}>
-              {item.speciality} - {item.department}
+              {item.speciality} {item.department ? `- ${item.department}` : ''}
             </Text>
             {item.vacancy_status === 'Urgent' && (
               <View style={styles.badge}>
@@ -188,23 +235,13 @@ const DutiesScreen = ({ route, navigation }: any) => {
           </View>
           <Text style={styles.hospitalName}>{hospitalName}</Text>
           <Text style={styles.locationText}>
-            <Ionicons
-              name="location-outline"
-              size={scale(12)}
-              color={C.textMuted}
-            />{' '}
+            <Ionicons name="location-outline" size={scale(12)} color={C.textMuted} />{' '}
             {city} {state ? `, ${state}` : ''}
           </Text>
         </View>
 
         <View style={styles.cardDetails}>
-          {/* 👇 VISUAL DATE CHIPS SECTION (Showing ALL dates) */}
-          <View
-            style={[
-              styles.detailRow,
-              hasIndividualDates && { alignItems: 'flex-start' },
-            ]}
-          >
+          <View style={[styles.detailRow, hasIndividualDates && { alignItems: 'flex-start' }]}>
             <Ionicons
               name="calendar-outline"
               size={scale(16)}
@@ -217,15 +254,11 @@ const DutiesScreen = ({ route, navigation }: any) => {
                   <View style={styles.dateChipContainer}>
                     {assignedDates.map((d: string) => (
                       <View key={d} style={styles.dateChip}>
-                        <Text style={styles.dateChipText}>
-                          {formatShortDate(d)}
-                        </Text>
+                        <Text style={styles.dateChipText}>{formatShortDate(d)}</Text>
                       </View>
                     ))}
                   </View>
-                  <Text style={styles.subDetailText}>
-                    Total {assignedDates.length} days assigned
-                  </Text>
+                  <Text style={styles.subDetailText}>Total {assignedDates.length} days assigned</Text>
                 </>
               ) : (
                 <Text style={styles.detailText}>{displayDatesRange}</Text>
@@ -245,15 +278,17 @@ const DutiesScreen = ({ route, navigation }: any) => {
 
         <View style={styles.cardFooter}>
           <View>
-            <Text style={styles.statusText}>{activeTab} Duty</Text>
+            <Text style={styles.statusText}>
+              {activeTab === 'Invited' ? 'Invitation' : `${activeTab} Duty`}
+            </Text>
             <Text style={styles.payText}>
-              ₹{displayRate}{' '}
-              <Text style={styles.paySubText}>
-                / {item.billing_shift_type || 'Shift'}
-              </Text>
+              ₹{displayRate} <Text style={styles.paySubText}>/ {item.billing_shift_type || 'Shift'}</Text>
             </Text>
           </View>
 
+          {/* ACTION BUTTONS DEPENDING ON TAB */}
+          
+          {/* 1. Assigned Actions */}
           {activeTab === 'Assigned' && (
             <View style={styles.actionButtons}>
               <TouchableOpacity
@@ -265,7 +300,6 @@ const DutiesScreen = ({ route, navigation }: any) => {
               >
                 <Text style={styles.declineText}>Decline</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={[styles.actionBtn, styles.confirmBtn]}
                 onPress={() => handleUpdateDutyStatus(item._id, 'Confirmed')}
@@ -274,6 +308,32 @@ const DutiesScreen = ({ route, navigation }: any) => {
               </TouchableOpacity>
             </View>
           )}
+
+          {/* 2. Invited Actions (Shows buttons if pending, badge if responded) */}
+          {activeTab === 'Invited' && (
+            item.pipeline_status === 'Invited' ? (
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.declineBtn]}
+                  onPress={() => handleRespondToInvitation(item.invitation_id, 'Not Interested')}
+                >
+                  <Text style={styles.declineText}>Decline</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.confirmBtn]}
+                  onPress={() => handleRespondToInvitation(item.invitation_id, 'Interested')}
+                >
+                  <Text style={styles.confirmText}>Interested</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={[styles.appliedBadge, item.doctor_response === 'Not Interested' && styles.declinedBadge]}>
+                <Text style={[styles.appliedBadgeText, item.doctor_response === 'Not Interested' && styles.declinedBadgeText]}>
+                  {item.doctor_response || item.pipeline_status}
+                </Text>
+              </View>
+            )
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -281,10 +341,10 @@ const DutiesScreen = ({ route, navigation }: any) => {
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="briefcase-outline" size={scale(48)} color={C.border} />
-      <Text style={styles.emptyTitle}>No {activeTab} Duties</Text>
+      <Ionicons name={activeTab === 'Invited' ? "mail-open-outline" : "briefcase-outline"} size={scale(48)} color={C.border} />
+      <Text style={styles.emptyTitle}>No {activeTab} Data</Text>
       <Text style={styles.emptySubText}>
-        You do not have any {activeTab.toLowerCase()} duties right now.
+        You do not have any {activeTab.toLowerCase()} items right now.
       </Text>
     </View>
   );
@@ -293,11 +353,13 @@ const DutiesScreen = ({ route, navigation }: any) => {
     <SafeAreaView style={styles.root} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={C.cardBg} />
 
+      <Animated.View pointerEvents="none" style={[styles.toastContainer, { opacity: toastFadeAnim }]}>
+        <Ionicons name="checkmark-circle" size={18} color={C.white} />
+        <Text style={styles.toastText}>{toastMessage}</Text>
+      </Animated.View>
+
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation?.goBack()}
-          style={styles.backBtn}
-        >
+        <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={scale(24)} color={C.ink} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Duties</Text>
@@ -316,12 +378,10 @@ const DutiesScreen = ({ route, navigation }: any) => {
               <TouchableOpacity
                 key={tab}
                 style={[styles.tabBtn, isActive && styles.tabBtnActive]}
-                onPress={() => setActiveTab(tab)}
+                onPress={() => handleTabChange(tab)}
                 activeOpacity={0.7}
               >
-                <Text
-                  style={[styles.tabText, isActive && styles.tabTextActive]}
-                >
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
                   {tab}
                 </Text>
               </TouchableOpacity>
@@ -337,7 +397,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
       ) : (
         <FlatList
           data={jobs}
-          keyExtractor={(item, index) => item._id || index.toString()}
+          keyExtractor={(item, index) => item.invitation_id || item._id || index.toString()}
           renderItem={renderItem}
           contentContainerStyle={[
             styles.listContent,
@@ -346,16 +406,12 @@ const DutiesScreen = ({ route, navigation }: any) => {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptyState}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[C.primary]}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.primary]} />
           }
         />
       )}
 
-      {/* Decline Reason Modal */}
+      {/* Decline Reason Modal (For Assigned Jobs Only) */}
       <Modal visible={declineModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -387,12 +443,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
               <TouchableOpacity
                 style={styles.submitModalBtn}
                 onPress={() =>
-                  selectedJobId &&
-                  handleUpdateDutyStatus(
-                    selectedJobId,
-                    'Declined',
-                    declineReason,
-                  )
+                  selectedJobId && handleUpdateDutyStatus(selectedJobId, 'Declined', declineReason)
                 }
               >
                 <Text style={styles.submitModalText}>Submit</Text>
@@ -408,52 +459,10 @@ const DutiesScreen = ({ route, navigation }: any) => {
 export default DutiesScreen;
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: scale(20),
-  },
-  modalContent: {
-    backgroundColor: C.cardBg,
-    borderRadius: scale(16),
-    padding: scale(20),
-    width: '100%',
-  },
-  modalTitle: {
-    fontSize: scale(16),
-    fontWeight: '800',
-    color: C.ink,
-    marginBottom: scale(8),
-  },
-  modalSub: { fontSize: scale(13), color: C.textSub, marginBottom: scale(16) },
-  reasonInput: {
-    backgroundColor: C.inputBg,
-    borderRadius: scale(12),
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: scale(12),
-    minHeight: scale(100),
-    textAlignVertical: 'top',
-    color: C.ink,
-    marginBottom: scale(20),
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: scale(12),
-  },
-  cancelModalBtn: { paddingVertical: scale(10), paddingHorizontal: scale(16) },
-  cancelModalText: { color: C.textSub, fontWeight: '700', fontSize: scale(14) },
-  submitModalBtn: {
-    backgroundColor: '#EF4444',
-    paddingVertical: scale(10),
-    paddingHorizontal: scale(20),
-    borderRadius: scale(8),
-  },
-  submitModalText: { color: C.white, fontWeight: '700', fontSize: scale(14) },
   root: { flex: 1, backgroundColor: C.background },
+  toastContainer: { position: 'absolute', top: scale(54), alignSelf: 'center', backgroundColor: C.ink, flexDirection: 'row', alignItems: 'center', gap: scale(8), paddingHorizontal: scale(16), paddingVertical: scale(10), borderRadius: scale(20), zIndex: 9999, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 8 },
+  toastText: { color: C.white, fontSize: scale(13), fontWeight: '700' },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -471,6 +480,7 @@ const styles = StyleSheet.create({
     color: C.ink,
     letterSpacing: -0.3,
   },
+  
   tabWrapper: { backgroundColor: C.background },
   tabContainer: {
     paddingHorizontal: scale(20),
@@ -491,6 +501,7 @@ const styles = StyleSheet.create({
   tabBtnActive: { backgroundColor: C.primaryLight, borderColor: C.primary },
   tabText: { fontSize: scale(13), fontWeight: '700', color: C.textSub },
   tabTextActive: { color: C.primary },
+  
   centerWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: {
     paddingHorizontal: scale(20),
@@ -498,6 +509,7 @@ const styles = StyleSheet.create({
     paddingTop: scale(8),
   },
   listContentEmpty: { flex: 1, justifyContent: 'center' },
+  
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -517,6 +529,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: scale(18),
   },
+  
   jobCard: {
     backgroundColor: C.cardBg,
     borderRadius: scale(16),
@@ -564,6 +577,7 @@ const styles = StyleSheet.create({
     marginBottom: scale(4),
   },
   locationText: { fontSize: scale(12), color: C.textMuted, fontWeight: '500' },
+  
   cardDetails: {
     backgroundColor: C.inputBg,
     borderRadius: scale(12),
@@ -580,7 +594,6 @@ const styles = StyleSheet.create({
     marginTop: scale(4),
   },
 
-  // 👇 Date Chip Styles
   dateChipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -612,6 +625,7 @@ const styles = StyleSheet.create({
   },
   payText: { fontSize: scale(15), fontWeight: '800', color: C.ink },
   paySubText: { fontSize: scale(12), fontWeight: '600', color: C.textSub },
+  
   actionButtons: { flexDirection: 'row', gap: scale(8) },
   actionBtn: {
     paddingVertical: scale(8),
@@ -625,4 +639,56 @@ const styles = StyleSheet.create({
   confirmBtn: { borderColor: C.primary, backgroundColor: C.primary },
   declineText: { color: '#EF4444', fontWeight: '700', fontSize: scale(12) },
   confirmText: { color: C.white, fontWeight: '700', fontSize: scale(12) },
+  
+  appliedBadge: { backgroundColor: C.successLight, paddingVertical: scale(6), paddingHorizontal: scale(12), borderRadius: scale(8) },
+  appliedBadgeText: { color: C.success, fontSize: scale(11), fontWeight: '700' },
+  declinedBadge: { backgroundColor: C.dangerLight },
+  declinedBadgeText: { color: C.danger },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: scale(20),
+  },
+  modalContent: {
+    backgroundColor: C.cardBg,
+    borderRadius: scale(16),
+    padding: scale(20),
+    width: '100%',
+  },
+  modalTitle: {
+    fontSize: scale(16),
+    fontWeight: '800',
+    color: C.ink,
+    marginBottom: scale(8),
+  },
+  modalSub: { fontSize: scale(13), color: C.textSub, marginBottom: scale(16) },
+  reasonInput: {
+    backgroundColor: C.inputBg,
+    borderRadius: scale(12),
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: scale(12),
+    minHeight: scale(100),
+    textAlignVertical: 'top',
+    color: C.ink,
+    marginBottom: scale(20),
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: scale(12),
+  },
+  cancelModalBtn: { paddingVertical: scale(10), paddingHorizontal: scale(16) },
+  cancelModalText: { color: C.textSub, fontWeight: '700', fontSize: scale(14) },
+  submitModalBtn: {
+    backgroundColor: '#EF4444',
+    paddingVertical: scale(10),
+    paddingHorizontal: scale(20),
+    borderRadius: scale(8),
+  },
+  submitModalText: { color: C.white, fontWeight: '700', fontSize: scale(14) },
 });

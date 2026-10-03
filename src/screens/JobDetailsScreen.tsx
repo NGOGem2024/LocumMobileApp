@@ -17,7 +17,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import Geolocation from '@react-native-community/geolocation';
 import { WebView } from 'react-native-webview';
-import { useJobs, Job } from '../context/JobContext';
+import { useJobs } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/axiosConfig';
 
@@ -73,20 +73,36 @@ const getDistance = (
 };
 
 const JobDetailsScreen = ({ route, navigation }: any) => {
-  // Determine if it's an unassigned job (from Home) or an assigned job (from Duties)
   const jobParam = route.params?.job;
   const jobDetailsParam = route.params?.jobDetails;
+  
+  // States to determine context
   const isAssigned = route.params?.isAssigned || false;
-  const jobStatus = route.params?.jobStatus;
+  const jobStatus = route.params?.jobStatus; // e.g. "Assigned", "Invited", "Upcoming", "Past", "Cancelled"
+  
   const isCancelled = jobStatus === 'Cancelled';
+  const isInvited = jobStatus === 'Invited';
+  
   const details = jobParam?.rawDetails || jobDetailsParam || {};
+  const pipelineStatus = details.pipeline_status;
+  const doctorResponse = details.doctor_response;
 
-  const jobId = jobParam?.id || details._id;
-  const declineReasonText = details.assignment_info?.decline_reason || '';
+  // Derive explicit statuses based on doctor's action or pipeline
+  const isNotInterested = doctorResponse === 'Not Interested' || pipelineStatus === 'Drop';
+  const isInterested = doctorResponse === 'Interested' || pipelineStatus === 'Interested';
+  const isInvitationExpired = pipelineStatus === 'Expired' || details.vacancy_status === 'Closed';
+
+  const jobId = jobParam?.id || details._id || details.requirement_id;
+  const invitationId = details.invitation_id;
+  
+  const declineReasonText = details.assignment_info?.decline_reason || details.decline_reason || '';
   const { doctor } = useAuth();
   const { applyJob, isJobApplied } = useJobs();
 
   const isApplied = isJobApplied(jobId);
+
+  // Can the user interact with the Apply functionality?
+  const canApply = !isCancelled && !isNotInterested && !isInvitationExpired && !isAssigned && !isApplied && !isInterested;
 
   const [note, setNote] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -98,7 +114,7 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  // For assigned jobs, we default to 100% match if match data isn't directly passed
+  // For assigned/invited jobs, we default to 100% match if match data isn't directly passed
   const matchPercentage =
     jobParam?.matchPercentage || details.matchPercentage || 100;
   const criteria = jobParam?.matchedCriteria || details.matchedCriteria || {};
@@ -125,13 +141,14 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
       },
       error => console.log('Location Error:', error.message),
       { 
-        enableHighAccuracy: false, // 👈 Uses fast Wi-Fi/Cellular triangulation instead of slow GPS
+        enableHighAccuracy: false, 
         timeout: 10000, 
-        maximumAge: 60000 // 👈 Caches the location for 1 minute for instant subsequent loads
+        maximumAge: 60000 
       },
     );
   }, []);
 
+  // Standard Application Action - Doubles as "Interested" for Invitations
   const handleConfirmApplication = async () => {
     try {
       const response = await api.post(`/api/doctors/jobs/${jobId}/apply`, {
@@ -158,6 +175,22 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
       }
     } catch (error) {
       console.error('Error confirming application:', error);
+    }
+  };
+
+  // Reject Invitation Action
+  const handleRespondToInvitation = async (responseStatus: 'Interested' | 'Not Interested') => {
+    if (!invitationId) return;
+    try {
+      const response = await api.post('/api/doctors/invited-jobs/respond', {
+        invitation_id: invitationId,
+        response: responseStatus
+      });
+      if (response.data.success) {
+         navigation.goBack();
+      }
+    } catch (error) {
+      console.error('Error responding to invitation:', error);
     }
   };
 
@@ -254,7 +287,6 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
     `;
   }, [userLocation, jobCoords]);
 
-  // Helper for rendering match rows
   const renderMatchRow = (title: string, matched: boolean, text: string) => (
     <View style={styles.matchRow}>
       <View
@@ -348,7 +380,8 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
     );
   }
 
-  const assignedDates = details.assignment_info?.assigned_dates || [];
+  // Extract dates handling both Assigned and Invited job structures
+  const assignedDates = details.assignment_info?.assigned_dates || details.assigned_dates || [];
   const hasIndividualDates = assignedDates.length > 0;
 
   return (
@@ -363,7 +396,7 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
           <Ionicons name="arrow-back" size={scale(24)} color={C.ink} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isAssigned ? 'Assigned Duty Details' : 'Shift Details'}
+          {isAssigned || isInvited ? 'Duty Details' : 'Shift Details'}
         </Text>
         <View style={{ width: scale(32) }} />
       </View>
@@ -377,7 +410,6 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.jobCard}>
-            {/* ✅ CIRCULAR MATCH RING */}
             <View style={[styles.matchRing, { borderColor: matchStyle.color }]}>
               <View style={styles.jobIconBox}>
                 <Ionicons
@@ -404,9 +436,9 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => {
-                  if (details.hospital_details?.hospital_id) {
+                  if (details.hospital_details?.hospital_id || details.hospital_id) {
                     navigation.navigate('HospitalDetailsScreen', {
-                      hospitalId: details.hospital_details.hospital_id,
+                      hospitalId: details.hospital_details?.hospital_id || details.hospital_id,
                     });
                   }
                 }}
@@ -462,7 +494,6 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
             </View>
           </View>
 
-          {/* ✅ MATCH ANALYSIS SECTION */}
           <Text style={styles.sectionTitle}>Profile Match Analysis</Text>
           <View style={styles.infoCard}>
             {unmatchedCount > 0 ? (
@@ -470,7 +501,7 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
                 <Ionicons name="warning" size={scale(16)} color={C.warning} />
                 <Text style={styles.matchWarningText}>
                   {unmatchedCount} requirement(s){' '}
-                  {isAssigned ? 'originally missing' : 'missing'}
+                  {isAssigned || isInvited ? 'originally missing' : 'missing'}
                 </Text>
               </View>
             ) : (
@@ -526,13 +557,13 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
           </View>
 
           <Text style={styles.sectionTitle}>
-            {isAssigned ? 'Confirmed Schedule' : 'Schedule & Timings'}
+            {isAssigned ? 'Confirmed Schedule' : isInvited ? 'Proposed Schedule' : 'Schedule & Timings'}
           </Text>
           <View style={styles.infoCard}>
             <View
               style={[
                 styles.infoRow,
-                isAssigned &&
+                (isAssigned || isInvited) &&
                   hasIndividualDates && { alignItems: 'flex-start' },
               ]}
             >
@@ -544,11 +575,10 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
               />
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoLabel}>
-                  {isAssigned ? 'Assigned Dates' : 'Dates'}
+                  {isAssigned || isInvited ? 'Dates' : 'Dates'}
                 </Text>
 
-                {/* 👇 Show Date Chips if Assigned, else Show Normal Range */}
-                {isAssigned && hasIndividualDates ? (
+                {(isAssigned || isInvited) && hasIndividualDates ? (
                   <View style={styles.dateChipContainer}>
                     {assignedDates.map((d: string) => (
                       <View key={d} style={styles.dateChip}>
@@ -560,12 +590,12 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
                   </View>
                 ) : (
                   <Text style={styles.infoValue}>
-                    {isAssigned
+                    {isAssigned || isInvited
                       ? `${formatDateString(
-                          details.assignment_info?.assigned_from ||
+                          details.assignment_info?.assigned_from || details.assigned_from ||
                             details.shift_start_date,
                         )} - ${formatDateString(
-                          details.assignment_info?.assigned_to ||
+                          details.assignment_info?.assigned_to || details.assigned_to ||
                             details.shift_end_date,
                         )}`
                       : `${formatDateString(
@@ -596,7 +626,7 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
             </View>
           </View>
 
-          {!isAssigned && (
+          {(!isAssigned && !isInvited) && (
             <>
               <Text style={styles.sectionTitle}>Requirements & Pay</Text>
               <View style={styles.infoCard}>
@@ -682,7 +712,8 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
             )}
           </View>
 
-          {!isApplied && !isAssigned && (
+          {/* DYNAMIC APPLICATION INPUT - Hidden if not permitted to apply */}
+          {canApply && (
             <>
               <Text style={styles.sectionTitle}>Apply</Text>
               <View style={styles.multiInputContainer}>
@@ -703,19 +734,33 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
       </KeyboardAvoidingView>
 
       <View style={styles.footer}>
+        {/* --- DYNAMIC FOOTER ACTIONS --- */}
+        
         {isCancelled ? (
           <View style={{ gap: scale(8) }}>
-            <View style={[styles.primaryBtn, { backgroundColor: '#fee2e2', flexDirection: 'row', justifyContent: 'center' }]}>
+            <View style={[styles.primaryBtn, { backgroundColor: C.errorLight, flexDirection: 'row', justifyContent: 'center' }]}>
               <Ionicons name="close-circle" size={scale(18)} color={C.error} style={{ marginRight: scale(8) }} />
               <Text style={[styles.primaryBtnText, { color: C.error }]}>Duty Cancelled</Text>
             </View>
-            {/* 👇 Display the decline reason if it exists */}
             {!!declineReasonText && (
               <Text style={{ textAlign: 'center', color: '#b91c1c', fontSize: scale(13), fontWeight: '600' }}>
                 Reason: {declineReasonText}
               </Text>
             )}
           </View>
+
+        ) : isNotInterested ? (
+          <View style={[styles.primaryBtn, { backgroundColor: C.errorLight, flexDirection: 'row', justifyContent: 'center' }]}>
+            <Ionicons name="close-circle" size={scale(18)} color={C.error} style={{ marginRight: scale(8) }} />
+            <Text style={[styles.primaryBtnText, { color: C.error }]}>Not Interested</Text>
+          </View>
+
+        ) : isInvitationExpired ? (
+          <View style={[styles.primaryBtn, { backgroundColor: C.inputBg, flexDirection: 'row', justifyContent: 'center' }]}>
+            <Ionicons name="time-outline" size={scale(18)} color={C.textMuted} style={{ marginRight: scale(8) }} />
+            <Text style={[styles.primaryBtnText, { color: C.textSub }]}>Invitation Expired</Text>
+          </View>
+
         ) : isAssigned ? (
           <View
             style={[
@@ -737,7 +782,8 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
               {jobStatus === 'Past' ? 'Duty Completed' : 'Duty Assigned'}
             </Text>
           </View>
-        ) : isApplied ? (
+
+        ) : (isApplied || isInterested) ? (
           <View
             style={[
               styles.primaryBtn,
@@ -758,6 +804,27 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
               Applied
             </Text>
           </View>
+          
+        ) : isInvited ? (
+          <View style={{ flexDirection: 'row', gap: scale(12) }}>
+            <TouchableOpacity
+              style={[styles.primaryBtn, { flex: 1, backgroundColor: C.inputBg }]}
+              activeOpacity={0.8}
+              onPress={() => handleRespondToInvitation('Not Interested')}
+            >
+              <Text style={[styles.primaryBtnText, { color: C.textSub }]}>Not Interested</Text>
+            </TouchableOpacity>
+            
+            {/* The "Interested" button actually performs the exact standard Apply function */}
+            <TouchableOpacity
+              style={[styles.primaryBtn, { flex: 1, backgroundColor: C.primary }]}
+              activeOpacity={0.8}
+              onPress={handleConfirmApplication}
+            >
+              <Text style={styles.primaryBtnText}>Interested</Text>
+            </TouchableOpacity>
+          </View>
+
         ) : (
           <TouchableOpacity
             style={styles.btnWrapper}
@@ -808,7 +875,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // Match Ring Styles
   matchRing: {
     width: scale(64),
     height: scale(64),
@@ -889,7 +955,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  // Match Analysis Styles
   matchWarningHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -957,7 +1022,6 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: scale(14), color: C.ink, fontWeight: '700' },
   divider: { height: 1, backgroundColor: C.border, marginLeft: scale(56) },
 
-  // Date Chip Styles
   dateChipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -974,7 +1038,6 @@ const styles = StyleSheet.create({
   },
   dateChipText: { fontSize: scale(12), fontWeight: '600', color: C.ink },
 
-  // Map Styles
   mapCard: {
     height: scale(220),
     borderRadius: scale(16),

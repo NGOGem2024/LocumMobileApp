@@ -47,14 +47,13 @@ const C = {
   white: '#ffffff',
 };
 
-// Removed 'Responded' from types
-type TabType = 'Invited' | 'Assigned' | 'Upcoming' | 'Past' | 'Cancelled';
+type TabType = 'Invited' | 'Interested' | 'Assigned' | 'Upcoming' | 'Past' | 'Cancelled';
 
 const DutiesScreen = ({ route, navigation }: any) => {
   const initialTab = route?.params?.defaultTab || 'Invited';
 
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
-  const tabs: TabType[] = ['Invited', 'Assigned', 'Upcoming', 'Past', 'Cancelled'];
+  const tabs: TabType[] = ['Invited', 'Interested', 'Assigned', 'Upcoming', 'Past', 'Cancelled'];
   
   // Assigned Duties Modals
   const [declineModalVisible, setDeclineModalVisible] = useState(false);
@@ -79,14 +78,18 @@ const DutiesScreen = ({ route, navigation }: any) => {
     ]).start();
   };
 
-  // Fetch Logic combining both APIs
+  // Fetch Logic
   const fetchDuties = useCallback(async () => {
     try {
-      if (activeTab === 'Invited') {
+      if (activeTab === 'Invited' || activeTab === 'Interested') {
         const response = await api.get('/api/doctors/invited-jobs?limit=50');
         if (response.data?.success) {
-          // Set all invitations (pending and responded) in the same tab
-          setJobs(response.data.jobs || []);
+          const allInvites = response.data.jobs || [];
+          if (activeTab === 'Invited') {
+            setJobs(allInvites.filter((j: any) => j.pipeline_status === 'Invited' && j.doctor_response !== 'Interested' && j.doctor_response !== 'Not Interested'));
+          } else {
+            setJobs(allInvites.filter((j: any) => j.pipeline_status === 'Interested' || j.doctor_response === 'Interested'));
+          }
         } else {
           setJobs([]);
         }
@@ -109,7 +112,6 @@ const DutiesScreen = ({ route, navigation }: any) => {
     }
   }, [activeTab]);
 
-  // Refetch when the tab changes
   useEffect(() => {
     setLoading(true);
     fetchDuties();
@@ -164,12 +166,8 @@ const DutiesScreen = ({ route, navigation }: any) => {
   const handleRespondToInvitation = async (invitationId: string, responseStatus: 'Interested' | 'Not Interested') => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     
-    // Optimistic UI Update: Change status instantly instead of removing it
-    setJobs(prev => prev.map(job => 
-      job.invitation_id === invitationId 
-        ? { ...job, pipeline_status: responseStatus, doctor_response: responseStatus } 
-        : job
-    ));
+    // Optimistic UI Update: Remove from current tab instantly
+    setJobs(prev => prev.filter(job => job.invitation_id !== invitationId));
 
     try {
       const response = await api.post('/api/doctors/invited-jobs/respond', {
@@ -190,7 +188,6 @@ const DutiesScreen = ({ route, navigation }: any) => {
     const city = item.city || item.hospital_details?.city || 'Location unavailable';
     const state = item.state || item.hospital_details?.state || '';
 
-    // Date Logic Processing
     const assignedDates = item.assignment_info?.assigned_dates || [];
     const hasIndividualDates = assignedDates.length > 0;
 
@@ -209,18 +206,26 @@ const DutiesScreen = ({ route, navigation }: any) => {
     }
 
     const displayRate = item.assignment_info?.doctor_rate || item.offered_rate || '0';
+    
+    const shiftStartDate = item.assignment_info?.assigned_from || item.shift_start_date;
+    const shiftEndDate = item.assignment_info?.assigned_to || item.shift_end_date || item.assignment_info?.assigned_from || item.shift_start_date;
+    const isExpired = shiftEndDate ? (new Date(shiftEndDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)) : false;
 
     return (
       <TouchableOpacity
         style={styles.jobCard}
-        activeOpacity={0.85}
-        onPress={() =>
+        activeOpacity={activeTab === 'Invited' ? 1 : 0.85}
+        onPress={() => {
+          if (activeTab === 'Invited') {
+            return;
+          }
+          
           navigation.navigate('JobDetails', {
             jobDetails: item,
-            isAssigned: ['Assigned', 'Upcoming', 'Past'].includes(activeTab),
-            jobStatus: activeTab,
-          })
-        }
+            isAssigned: ['Assigned', 'Upcoming', 'Past'].includes(activeTab as string), 
+            jobStatus: activeTab === 'Interested' ? 'Invited' : activeTab,
+          });
+        }}
       >
         <View style={styles.cardHeader}>
           <View style={styles.titleRow}>
@@ -233,7 +238,11 @@ const DutiesScreen = ({ route, navigation }: any) => {
               </View>
             )}
           </View>
-          <Text style={styles.hospitalName}>{hospitalName}</Text>
+
+          {(activeTab !== 'Invited' && activeTab !== 'Interested') && (
+             <Text style={styles.hospitalName}>{hospitalName}</Text>
+          )}
+
           <Text style={styles.locationText}>
             <Ionicons name="location-outline" size={scale(12)} color={C.textMuted} />{' '}
             {city} {state ? `, ${state}` : ''}
@@ -279,16 +288,13 @@ const DutiesScreen = ({ route, navigation }: any) => {
         <View style={styles.cardFooter}>
           <View>
             <Text style={styles.statusText}>
-              {activeTab === 'Invited' ? 'Invitation' : `${activeTab} Duty`}
+              {activeTab === 'Invited' || activeTab === 'Interested' ? 'Invitation' : `${activeTab} Duty`}
             </Text>
             <Text style={styles.payText}>
               ₹{displayRate} <Text style={styles.paySubText}>/ {item.billing_shift_type || 'Shift'}</Text>
             </Text>
           </View>
 
-          {/* ACTION BUTTONS DEPENDING ON TAB */}
-          
-          {/* 1. Assigned Actions */}
           {activeTab === 'Assigned' && (
             <View style={styles.actionButtons}>
               <TouchableOpacity
@@ -309,9 +315,12 @@ const DutiesScreen = ({ route, navigation }: any) => {
             </View>
           )}
 
-          {/* 2. Invited Actions (Shows buttons if pending, badge if responded) */}
           {activeTab === 'Invited' && (
-            item.pipeline_status === 'Invited' ? (
+            isExpired ? (
+              <View style={[styles.appliedBadge, { backgroundColor: C.border }]}>
+                <Text style={[styles.appliedBadgeText, { color: C.textSub }]}>Expired</Text>
+              </View>
+            ) : item.pipeline_status === 'Invited' ? (
               <View style={styles.actionButtons}>
                 <TouchableOpacity
                   style={[styles.actionBtn, styles.declineBtn]}
@@ -326,13 +335,13 @@ const DutiesScreen = ({ route, navigation }: any) => {
                   <Text style={styles.confirmText}>Interested</Text>
                 </TouchableOpacity>
               </View>
-            ) : (
-              <View style={[styles.appliedBadge, item.doctor_response === 'Not Interested' && styles.declinedBadge]}>
-                <Text style={[styles.appliedBadgeText, item.doctor_response === 'Not Interested' && styles.declinedBadgeText]}>
-                  {item.doctor_response || item.pipeline_status}
-                </Text>
-              </View>
-            )
+            ) : null
+          )}
+          
+          {activeTab === 'Interested' && (
+            <View style={[styles.appliedBadge, { backgroundColor: C.primaryLight }]}>
+              <Text style={[styles.appliedBadgeText, { color: C.primary }]}>Interested</Text>
+            </View>
           )}
         </View>
       </TouchableOpacity>

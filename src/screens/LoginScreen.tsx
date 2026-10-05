@@ -218,7 +218,7 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
         loginMethod === 'email'
           ? { email: email.trim().toLowerCase(), password }
           : {
-              mobile: `+${selectedCountry.callingCode}${cleanMobile}`,
+              phone_number: `+${selectedCountry.callingCode}${cleanMobile}`,
               password,
             };
 
@@ -257,7 +257,7 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
       const payload =
         loginMethod === 'email'
           ? { email: email.trim().toLowerCase() }
-          : { mobile: `+${selectedCountry.callingCode}${cleanMobile}` };
+          : { phone_number: `+${selectedCountry.callingCode}${cleanMobile}` };
 
       const res = await api.post('/api/doctors/send-login-otp', payload);
       if (res.data && res.data.success === false) {
@@ -287,7 +287,7 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
         loginMethod === 'email'
           ? { email: email.trim().toLowerCase(), otp: otp.trim() }
           : {
-              mobile: `+${selectedCountry.callingCode}${cleanMobile}`,
+              phone_number: `+${selectedCountry.callingCode}${cleanMobile}`,
               otp: otp.trim(),
             };
 

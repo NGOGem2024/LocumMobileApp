@@ -43,11 +43,10 @@ const C = {
   error: '#f87171',
 };
 
-// Helper function for Circular Ring colors (Lighter, softer colors)
 const getMatchStyle = (match: number) => {
-  if (match >= 75) return { color: '#007b8e', bg: '#dcfce7' }; // Light Green
-  if (match >= 50) return { color: '#fb923c', bg: '#ffedd5' }; // Light Orange
-  return { color: '#f87171', bg: '#fee2e2' }; // Light Red (Coral)
+  if (match >= 75) return { color: '#007b8e', bg: '#dcfce7' };
+  if (match >= 50) return { color: '#fb923c', bg: '#ffedd5' };
+  return { color: '#f87171', bg: '#fee2e2' };
 };
 
 const getDistance = (
@@ -76,9 +75,8 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
   const jobParam = route.params?.job;
   const jobDetailsParam = route.params?.jobDetails;
   
-  // States to determine context
   const isAssigned = route.params?.isAssigned || false;
-  const jobStatus = route.params?.jobStatus; // e.g. "Assigned", "Invited", "Upcoming", "Past", "Cancelled"
+  const jobStatus = route.params?.jobStatus; 
   
   const isCancelled = jobStatus === 'Cancelled';
   const isInvited = jobStatus === 'Invited';
@@ -87,10 +85,15 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
   const pipelineStatus = details.pipeline_status;
   const doctorResponse = details.doctor_response;
 
-  // Derive explicit statuses based on doctor's action or pipeline
   const isNotInterested = doctorResponse === 'Not Interested' || pipelineStatus === 'Drop';
-  const isInterested = doctorResponse === 'Interested' || pipelineStatus === 'Interested';
-  const isInvitationExpired = pipelineStatus === 'Expired' || details.vacancy_status === 'Closed';
+  const isInterested = doctorResponse === 'Interested' || pipelineStatus === 'Interested' || jobStatus === 'Interested';
+  
+  const shiftStartDate = details.assignment_info?.assigned_from || details.shift_start_date;
+  const shiftEndDate = details.assignment_info?.assigned_to || details.shift_end_date || details.assignment_info?.assigned_from || details.shift_start_date;
+  
+  const isDateExpired = shiftEndDate ? (new Date(shiftEndDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)) : false;
+
+  const isInvitationExpired = pipelineStatus === 'Expired' || details.vacancy_status === 'Closed' || isDateExpired;
 
   const jobId = jobParam?.id || details._id || details.requirement_id;
   const invitationId = details.invitation_id;
@@ -101,7 +104,6 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
 
   const isApplied = isJobApplied(jobId);
 
-  // Can the user interact with the Apply functionality?
   const canApply = !isCancelled && !isNotInterested && !isInvitationExpired && !isAssigned && !isApplied && !isInterested;
 
   const [note, setNote] = useState('');
@@ -114,21 +116,10 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  // For assigned/invited jobs, we default to 100% match if match data isn't directly passed
   const matchPercentage =
     jobParam?.matchPercentage || details.matchPercentage || 100;
   const criteria = jobParam?.matchedCriteria || details.matchedCriteria || {};
 
-  // Calculate Matches
-  const degMatch = criteria.degree?.matched ?? true;
-  const specMatch = criteria.speciality?.matched ?? true;
-  const rateMatch = criteria.rate?.matched ?? true;
-  const locMatch = criteria.location?.matched ?? true;
-
-  const matchedCount = [degMatch, specMatch, rateMatch, locMatch].filter(
-    Boolean,
-  ).length;
-  const unmatchedCount = 4 - matchedCount;
   const matchStyle = getMatchStyle(matchPercentage);
 
   useEffect(() => {
@@ -148,7 +139,6 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
     );
   }, []);
 
-  // Standard Application Action - Doubles as "Interested" for Invitations
   const handleConfirmApplication = async () => {
     try {
       const response = await api.post(`/api/doctors/jobs/${jobId}/apply`, {
@@ -178,7 +168,6 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
     }
   };
 
-  // Reject Invitation Action
   const handleRespondToInvitation = async (responseStatus: 'Interested' | 'Not Interested') => {
     if (!invitationId) return;
     try {
@@ -229,10 +218,8 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
     );
   }
 
-  // --- Generate Leaflet HTML with Routing Machine ---
   const leafletHtml = useMemo(() => {
     if (!userLocation || !jobCoords || jobCoords.length !== 2) return '';
-
     const jobLat = jobCoords[1];
     const jobLng = jobCoords[0];
 
@@ -286,34 +273,6 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
       </html>
     `;
   }, [userLocation, jobCoords]);
-
-  const renderMatchRow = (title: string, matched: boolean, text: string) => (
-    <View style={styles.matchRow}>
-      <View
-        style={[
-          styles.matchIconWrap,
-          { backgroundColor: matched ? C.successLight : C.warningLight },
-        ]}
-      >
-        <Ionicons
-          name={matched ? 'checkmark' : 'close'}
-          size={scale(14)}
-          color={matched ? C.success : C.warning}
-        />
-      </View>
-      <View style={styles.matchRowContent}>
-        <Text style={styles.matchRowTitle}>{title}</Text>
-        <Text
-          style={[
-            styles.matchRowDesc,
-            { color: matched ? C.textSub : C.warning },
-          ]}
-        >
-          {text}
-        </Text>
-      </View>
-    </View>
-  );
 
   if (isSubmitted) {
     return (
@@ -380,7 +339,6 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
     );
   }
 
-  // Extract dates handling both Assigned and Invited job structures
   const assignedDates = details.assignment_info?.assigned_dates || details.assigned_dates || [];
   const hasIndividualDates = assignedDates.length > 0;
 
@@ -410,61 +368,26 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.jobCard}>
-            <View style={[styles.matchRing, { borderColor: matchStyle.color }]}>
-              <View style={styles.jobIconBox}>
+            
+              <View style={[styles.jobIconBox, { marginRight: scale(16) }]}>
                 <Ionicons
                   name="business-outline"
                   size={scale(24)}
                   color={matchStyle.color}
                 />
               </View>
-              <View
-                style={[
-                  styles.matchPercentPill,
-                  { backgroundColor: matchStyle.color },
-                ]}
-              >
-                <Text style={styles.matchPercentText}>{matchPercentage}%</Text>
-              </View>
-            </View>
+             
 
             <View style={styles.jobMeta}>
               <Text style={styles.jobTitle}>
                 {details.speciality || jobParam?.specialization}
               </Text>
 
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (details.hospital_details?.hospital_id || details.hospital_id) {
-                    navigation.navigate('HospitalDetailsScreen', {
-                      hospitalId: details.hospital_details?.hospital_id || details.hospital_id,
-                    });
-                  }
-                }}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingVertical: scale(2),
-                }}
-              >
-                <Text
-                  style={[
-                    styles.jobHospital,
-                    { color: C.primary, textDecorationLine: 'underline' },
-                  ]}
-                >
-                  {details.hospital_name ||
-                    jobParam?.hospital ||
-                    details.hospital_details?.hospital_name}
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={14}
-                  color={C.primary}
-                  style={{ marginLeft: 2 }}
-                />
-              </TouchableOpacity>
+              <Text style={[styles.jobHospital, { paddingVertical: scale(2) }]}>
+                {details.hospital_name ||
+                  jobParam?.hospital ||
+                  details.hospital_details?.hospital_name}
+              </Text>
 
               <Text style={styles.jobDetailText}>
                 {details.location?.city || details.city}, {details.state}
@@ -491,68 +414,6 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
                   </View>
                 )}
               </View>
-            </View>
-          </View>
-
-          <Text style={styles.sectionTitle}>Profile Match Analysis</Text>
-          <View style={styles.infoCard}>
-            {unmatchedCount > 0 ? (
-              <View style={styles.matchWarningHeader}>
-                <Ionicons name="warning" size={scale(16)} color={C.warning} />
-                <Text style={styles.matchWarningText}>
-                  {unmatchedCount} requirement(s){' '}
-                  {isAssigned || isInvited ? 'originally missing' : 'missing'}
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.matchSuccessHeader}>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={scale(16)}
-                  color={C.success}
-                />
-                <Text style={styles.matchSuccessText}>Perfect match!</Text>
-              </View>
-            )}
-
-            <View style={styles.matchRowsContainer}>
-              {renderMatchRow(
-                'Degree',
-                degMatch,
-                degMatch
-                  ? `Your degree matches the required ${
-                      criteria.degree?.required_degree || 'Any'
-                    }`
-                  : `Requires: ${
-                      criteria.degree?.required_degree || 'Specific degree'
-                    }`,
-              )}
-              {renderMatchRow(
-                'Speciality',
-                specMatch,
-                specMatch
-                  ? `Your speciality matches the requirement`
-                  : `Requires experience in ${
-                      criteria.speciality?.required_speciality ||
-                      'Specific department'
-                    }`,
-              )}
-              {renderMatchRow(
-                'Compensation',
-                rateMatch,
-                rateMatch
-                  ? `Offered rate meets or exceeds your rate card`
-                  : `Offered rate is below your configured rate (₹${
-                      criteria.rate?.doctor_rate || 0
-                    })`,
-              )}
-              {renderMatchRow(
-                'Location',
-                locMatch,
-                locMatch
-                  ? `Within your preferred travel radius`
-                  : `Outside your travel radius (${criteria.location?.distance_km} km away)`,
-              )}
             </View>
           </View>
 
@@ -711,31 +572,10 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
               </View>
             )}
           </View>
-
-          {/* DYNAMIC APPLICATION INPUT - Hidden if not permitted to apply */}
-          {canApply && (
-            <>
-              <Text style={styles.sectionTitle}>Apply</Text>
-              <View style={styles.multiInputContainer}>
-                <TextInput
-                  style={styles.multiInput}
-                  placeholder="Any specific requests or availability notes? (Optional)"
-                  placeholderTextColor={C.textMuted}
-                  multiline={true}
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                  value={note}
-                  onChangeText={setNote}
-                />
-              </View>
-            </>
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
       <View style={styles.footer}>
-        {/* --- DYNAMIC FOOTER ACTIONS --- */}
-        
         {isCancelled ? (
           <View style={{ gap: scale(8) }}>
             <View style={[styles.primaryBtn, { backgroundColor: C.errorLight, flexDirection: 'row', justifyContent: 'center' }]}>
@@ -758,7 +598,7 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
         ) : isInvitationExpired ? (
           <View style={[styles.primaryBtn, { backgroundColor: C.inputBg, flexDirection: 'row', justifyContent: 'center' }]}>
             <Ionicons name="time-outline" size={scale(18)} color={C.textMuted} style={{ marginRight: scale(8) }} />
-            <Text style={[styles.primaryBtnText, { color: C.textSub }]}>Invitation Expired</Text>
+            <Text style={[styles.primaryBtnText, { color: C.textSub }]}>Expired</Text>
           </View>
 
         ) : isAssigned ? (
@@ -783,7 +623,29 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
             </Text>
           </View>
 
-        ) : (isApplied || isInterested) ? (
+        ) : isInterested ? (
+          <View
+            style={[
+              styles.primaryBtn,
+              {
+                backgroundColor: C.primaryLight,
+                flexDirection: 'row',
+                justifyContent: 'center',
+              },
+            ]}
+          >
+            <Ionicons
+              name="checkmark-circle"
+              size={scale(18)}
+              color={C.primary}
+              style={{ marginRight: scale(8) }}
+            />
+            <Text style={[styles.primaryBtnText, { color: C.primary }]}>
+              Interested
+            </Text>
+          </View>
+          
+        ) : isApplied ? (
           <View
             style={[
               styles.primaryBtn,
@@ -808,18 +670,17 @@ const JobDetailsScreen = ({ route, navigation }: any) => {
         ) : isInvited ? (
           <View style={{ flexDirection: 'row', gap: scale(12) }}>
             <TouchableOpacity
-              style={[styles.primaryBtn, { flex: 1, backgroundColor: C.inputBg }]}
+              style={[styles.primaryBtn, { flex: 1, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#EF4444' }]}
               activeOpacity={0.8}
               onPress={() => handleRespondToInvitation('Not Interested')}
             >
-              <Text style={[styles.primaryBtnText, { color: C.textSub }]}>Not Interested</Text>
+              <Text style={[styles.primaryBtnText, { color: '#EF4444' }]}>Decline</Text>
             </TouchableOpacity>
             
-            {/* The "Interested" button actually performs the exact standard Apply function */}
             <TouchableOpacity
-              style={[styles.primaryBtn, { flex: 1, backgroundColor: C.primary }]}
+              style={[styles.primaryBtn, { flex: 1, backgroundColor: C.primary, borderWidth: 1, borderColor: C.primary }]}
               activeOpacity={0.8}
-              onPress={handleConfirmApplication}
+              onPress={() => handleRespondToInvitation('Interested')}
             >
               <Text style={styles.primaryBtnText}>Interested</Text>
             </TouchableOpacity>
@@ -954,56 +815,6 @@ const styles = StyleSheet.create({
     marginBottom: scale(20),
     overflow: 'hidden',
   },
-
-  matchWarningHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.warningLight,
-    paddingHorizontal: scale(16),
-    paddingVertical: scale(12),
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  matchWarningText: {
-    fontSize: scale(13),
-    color: C.warning,
-    fontWeight: '700',
-    marginLeft: scale(8),
-  },
-  matchSuccessHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.successLight,
-    paddingHorizontal: scale(16),
-    paddingVertical: scale(12),
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  matchSuccessText: {
-    fontSize: scale(13),
-    color: C.success,
-    fontWeight: '700',
-    marginLeft: scale(8),
-  },
-  matchRowsContainer: { padding: scale(16), gap: scale(16) },
-  matchRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  matchIconWrap: {
-    width: scale(24),
-    height: scale(24),
-    borderRadius: scale(12),
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: scale(12),
-    marginTop: scale(2),
-  },
-  matchRowContent: { flex: 1 },
-  matchRowTitle: {
-    fontSize: scale(13),
-    fontWeight: '700',
-    color: C.ink,
-    marginBottom: scale(2),
-  },
-  matchRowDesc: { fontSize: scale(12), fontWeight: '500' },
 
   infoRow: { flexDirection: 'row', alignItems: 'center', padding: scale(16) },
   infoIcon: {

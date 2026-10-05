@@ -72,7 +72,7 @@ const MainTabNavigator = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Saved Jobs" component={SavedJobsScreen} />
+      {/* <Tab.Screen name="Saved Jobs" component={SavedJobsScreen} /> */}
       <Tab.Screen name="My Duties" component={DutiesScreen} />
       <Tab.Screen name="Earnings" component={EarningsOverviewScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />

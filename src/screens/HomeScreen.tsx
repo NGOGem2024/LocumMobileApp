@@ -26,7 +26,6 @@ import api from '../services/axiosConfig';
 const { width: SW, height: SH } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
 
-// Toggle to show/hide the "Recommended for You" section on the home screen
 const SHOW_RECOMMENDED = false;
 
 const C = {
@@ -43,6 +42,7 @@ const C = {
   white: '#ffffff',
   urgent: '#ef4444',
   success: '#10b981',
+  successLight: '#dcfce7',
   warning: '#f59e0b',
   warningLight: '#fef3c7',
 };
@@ -61,6 +61,24 @@ type RateEntry = {
 };
 
 const formatRate = (val?: number | null) => (val == null ? '—' : `₹${val}`);
+
+// Time conversion function for AM/PM
+const formatTimeAMPM = (timeStr?: string) => {
+  if (!timeStr) return 'TBD';
+  const parts = timeStr.split(':');
+  if (parts.length < 2) return timeStr; 
+  
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  
+  hours = hours % 12;
+  hours = hours ? hours : 12; 
+  
+  const formattedHours = hours < 10 ? `0${hours}` : hours;
+  
+  return `${formattedHours}:${minutes} ${ampm}`;
+};
 
 const getPaymentConfig = (term?: PaymentTerm) => {
   const configs: Record<string, any> = {
@@ -122,7 +140,6 @@ const getRelativeTime = (dateString: string) => {
   return `${diffInMonths} month${diffInMonths > 1 ? 's' : ''} ago`;
 };
 
-// Date Formatters for the specific compact UI of HomeScreen
 const formatDate = (dateString: string) => {
   if (!dateString) return 'TBD';
   const options: Intl.DateTimeFormatOptions = {
@@ -207,7 +224,7 @@ const RateCardBottomSheet = ({
           </TouchableOpacity>
         </View>
 
-       <ScrollView
+        <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.scrollContentHorizontal}
@@ -387,14 +404,6 @@ const TopBar = () => {
           resizeMode="contain"
         />
       </TouchableOpacity>
-      {/* <View style={styles.topBarIcons}>
-        <TouchableOpacity style={styles.headerIcon} activeOpacity={0.7}>
-          <Ionicons name="chatbubble-ellipses-outline" size={scale(22)} color={C.ink} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.headerIcon} activeOpacity={0.7}>
-          <Ionicons name="notifications-outline" size={scale(22)} color={C.ink} />
-        </TouchableOpacity>
-      </View> */}
     </View>
   );
 };
@@ -405,8 +414,7 @@ const HomeScreen = ({ navigation }: any) => {
 
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
   const [upcomingDuties, setUpcomingDuties] = useState<any[]>([]);
-  const [completedCount, setCompletedCount] = useState<number>(0);
-  const [cancelledCount, setCancelledCount] = useState<number>(0);
+  const [currentDuty, setCurrentDuty] = useState<any>(null);
 
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [fetchedAvailability, setFetchedAvailability] = useState<any[]>([]);
@@ -415,20 +423,9 @@ const HomeScreen = ({ navigation }: any) => {
   const [toastMessage, setToastMessage] = useState<string>('');
   const [showRateSheet, setShowRateSheet] = useState(false);
 
-  const [activeSection, setActiveSection] = useState<'jobs' | 'availability'>(
-    'jobs',
-  );
+  const [activeSection, setActiveSection] = useState<'jobs' | 'availability'>('jobs');
 
   const toastFadeAnim = useRef(new Animated.Value(0)).current;
-
-  // --- MOCK DATA FOR CURRENT DUTY SECTION ---
-  const currentDuty = {
-    title: 'Radiology',
-    hospital: 'Smile Hospital Pandharpur',
-    location: 'Solapur, Maharashtra',
-    date: 'Today\n09 Sep 2026',
-    time: '09:00 AM - 05:00 PM\nEnds in 4h 32m',
-  };
 
   const quickActions = [
     {
@@ -463,42 +460,6 @@ const HomeScreen = ({ navigation }: any) => {
     },
   ];
 
-  const summaryStats = [
-    {
-      id: '1',
-      icon: 'calendar-outline',
-      value: upcomingDuties.length.toString(),
-      label: 'Upcoming\nDuties',
-      color: '#10b981',
-      bg: '#ecfdf5',
-    },
-    {
-      id: '2',
-      icon: 'checkmark-circle',
-      value: completedCount.toString(),
-      label: 'Completed\nDuties',
-      color: '#3b82f6',
-      bg: '#eff6ff',
-    },
-    {
-      id: '3',
-      icon: 'close-circle',
-      value: cancelledCount.toString(),
-      label: 'Cancelled\nDuties',
-      color: '#ef4444',
-      bg: '#fef2f2',
-    },
-    {
-      id: '4',
-      icon: 'wallet-outline',
-      value: '₹24,500',
-      label: 'Total Earnings',
-      color: '#8b5cf6',
-      bg: '#f5f3ff',
-      hasChevron: true,
-    },
-  ];
-
   const showToast = useCallback(
     (message: string) => {
       setToastMessage(message);
@@ -522,31 +483,13 @@ const HomeScreen = ({ navigation }: any) => {
   const loadAllData = useCallback(async () => {
     if (!doctor?._id) return;
     try {
-      const [jobsRes, availRes, rateRes, dutiesRes, pastRes, cancelledRes] =
-        await Promise.all([
-          api
-            .get('/api/doctors/jobs')
-            .catch(() => ({ data: { success: false, jobs: [] } })),
-          api
-            .get(`/api/doctors/${doctor._id}/availability`)
-            .catch(() => ({ data: { availability: [] } })),
-          api
-            .get(`/api/doctors/rate-card/${doctor._id}`)
-            .catch(() => ({ data: { data: [] } })),
-          api
-            .get('/api/doctors/assigned-jobs', {
-              params: { status: 'Upcoming' },
-            })
-            .catch(() => ({ data: { success: false, jobs: [] } })),
-          api
-            .get('/api/doctors/assigned-jobs', { params: { status: 'Past' } })
-            .catch(() => ({ data: { success: false, jobs: [] } })),
-          api
-            .get('/api/doctors/assigned-jobs', {
-              params: { status: 'Cancelled' },
-            })
-            .catch(() => ({ data: { success: false, jobs: [] } })),
-        ]);
+      const [jobsRes, availRes, rateRes, currentDutyRes, upcomingDutiesRes] = await Promise.all([
+        api.get('/api/doctors/jobs').catch(() => ({ data: { success: false, jobs: [] } })),
+        api.get(`/api/doctors/${doctor._id}/availability`).catch(() => ({ data: { availability: [] } })),
+        api.get(`/api/doctors/rate-card/${doctor._id}`).catch(() => ({ data: { data: [] } })),
+        api.get('/api/doctors/current-duty').catch(() => ({ data: { success: false } })),
+        api.get('/api/doctors/upcoming-duties').catch(() => ({ data: { success: false } })),
+      ]);
 
       if (jobsRes.data?.success) {
         setActiveJobs(
@@ -568,32 +511,25 @@ const HomeScreen = ({ navigation }: any) => {
             pay: `₹${reqItem.offered_rate}`,
             payType: reqItem.billing_shift_type === 'Hourly' ? '/hr' : 'Flat',
             urgency: reqItem.vacancy_status,
-            matchPercentage: reqItem.match_percentage || 0,
-            matchedCriteria: reqItem.matched_criteria || null,
+            matchPercentage: reqItem.matchPercentage || 0,
+            matchedCriteria: reqItem.matchedCriteria || null,
             rawDetails: reqItem,
           })),
         );
       }
 
-      if (dutiesRes.data?.success) {
-        setUpcomingDuties(dutiesRes.data.jobs || dutiesRes.data.data || []);
+      // Handle Current Duty
+      if (currentDutyRes.data?.success && currentDutyRes.data.has_current_duty) {
+        setCurrentDuty(currentDutyRes.data.duty);
+      } else {
+        setCurrentDuty(null);
+      }
+
+      // Handle Upcoming Duties
+      if (upcomingDutiesRes.data?.success) {
+        setUpcomingDuties(upcomingDutiesRes.data.duties || []);
       } else {
         setUpcomingDuties([]);
-      }
-
-      if (pastRes.data?.success) {
-        const pastJobs = pastRes.data.jobs || pastRes.data.data || [];
-        setCompletedCount(pastJobs.length);
-      } else {
-        setCompletedCount(0);
-      }
-
-      if (cancelledRes.data?.success) {
-        const cancelledJobs =
-          cancelledRes.data.jobs || cancelledRes.data.data || [];
-        setCancelledCount(cancelledJobs.length);
-      } else {
-        setCancelledCount(0);
       }
 
       setFetchedAvailability(availRes.data?.availability ?? []);
@@ -665,6 +601,21 @@ const HomeScreen = ({ navigation }: any) => {
     : '#6366f1';
   const userName = doctor?.first_name || 'Doctor';
 
+  // Extract Current Duty details
+  const cdArea = currentDuty?.hospital?.area || '';
+  const cdCity = currentDuty?.hospital?.district || currentDuty?.hospital?.city || '';
+  const cdState = currentDuty?.hospital?.state || '';
+  const cdPincode = currentDuty?.hospital?.pincode || '';
+
+  const cdLocationParts = [cdArea, cdCity, cdState].filter(Boolean);
+  let cdLocationString = cdLocationParts.join(', ');
+  if (cdPincode) {
+    cdLocationString = cdLocationString ? `${cdLocationString} - ${cdPincode}` : cdPincode;
+  }
+
+  const assignedDates: string[] = currentDuty?.assigned_schedule?.assigned_dates || [];
+  const remainingDates: string[] = currentDuty?.assigned_schedule?.remaining_dates || [];
+
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={C.background} />
@@ -691,20 +642,6 @@ const HomeScreen = ({ navigation }: any) => {
           </View>
           <Text style={styles.userNameText}>{userName}</Text>
         </View>
-
-        {/* <View style={styles.searchFilterContainer}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search-outline" size={scale(18)} color={C.textMuted} />
-            <TextInput 
-              placeholder="Search shifts, hospitals..." 
-              placeholderTextColor={C.textMuted} 
-              style={styles.searchInput} 
-            />
-          </View>
-          <TouchableOpacity style={styles.filterBtn} activeOpacity={0.7}>
-            <Ionicons name="options-outline" size={scale(20)} color={C.ink} />
-          </TouchableOpacity>
-        </View> */}
       </View>
 
       <ScrollView
@@ -738,95 +675,154 @@ const HomeScreen = ({ navigation }: any) => {
         ) : (
           <>
             {/* 1. CURRENT DUTY SECTION */}
-            <View style={styles.sectionContainer}>
-              <LinearGradient
-                colors={['#E5F8FA', '#F3FCFD']}
-                style={styles.currentDutyCard}
-              >
-                <View style={styles.cdHeader}>
-                  <View style={styles.cdHeaderLeft}>
-                    <View style={styles.cdDot} />
-                    <Text style={styles.cdHeaderText}>CURRENT DUTY</Text>
+            {currentDuty && (
+              <View style={styles.sectionContainer}>
+                <LinearGradient
+                  colors={['#E5F8FA', '#F3FCFD']}
+                  style={styles.currentDutyCard}
+                >
+                  <View style={styles.cdHeader}>
+                    <View style={styles.cdHeaderLeft}>
+                      <View style={styles.cdDot} />
+                      <Text style={styles.cdHeaderText}>CURRENT DUTY</Text>
+                    </View>
+                    <Text style={styles.cdInProgress}>
+                      {currentDuty.duty_state === 'IN_PROGRESS'
+                        ? 'In Progress'
+                        : currentDuty.status || 'Active'}
+                    </Text>
                   </View>
-                  <Text style={styles.cdInProgress}>In Progress</Text>
-                </View>
 
-                <View style={styles.cdBody}>
-                  <View style={styles.cdIconBox}>
-                    <Ionicons
-                      name="business-outline"
-                      size={scale(20)}
-                      color={C.primary}
-                    />
-                  </View>
-                  <View style={styles.cdInfo}>
-                    <Text style={styles.cdTitle} numberOfLines={1}>
-                      {currentDuty.title}
-                    </Text>
-                    <Text style={styles.cdHospital} numberOfLines={1}>
-                      {currentDuty.hospital}
-                    </Text>
-                    <View style={styles.cdLocationRow}>
+                  <View style={styles.cdBody}>
+                    <View style={styles.cdIconBox}>
                       <Ionicons
-                        name="location-outline"
-                        size={scale(12)}
+                        name="business-outline"
+                        size={scale(20)}
+                        color={C.primary}
+                      />
+                    </View>
+                    <View style={styles.cdInfo}>
+                      <Text style={styles.cdTitle} numberOfLines={1}>
+                        {currentDuty.speciality || currentDuty.department || 'General Duty'}
+                      </Text>
+                      <Text style={styles.cdHospital} numberOfLines={1}>
+                        {currentDuty.hospital?.name || 'Hospital'}
+                      </Text>
+                      {cdLocationString ? (
+                        <View style={styles.cdLocationRow}>
+                          <Ionicons
+                            name="location-outline"
+                            size={scale(12)}
+                            color={C.textSub}
+                          />
+                          <Text style={styles.cdLocationText} numberOfLines={2}>
+                            {cdLocationString}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+
+                  {/* ASSIGNED & REMAINING DATES BREAKDOWN */}
+                  <View style={styles.cdDatesBlock}>
+                    {/* Assigned Dates */}
+                    <View style={styles.cdDateRow}>
+                      <View style={styles.cdDateLabelWrap}>
+                        <Ionicons
+                          name="calendar-outline"
+                          size={scale(12)}
+                          color={C.primary}
+                        />
+                        <Text style={styles.cdDateLabelText}>
+                          Assigned ({assignedDates.length}):
+                        </Text>
+                      </View>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.cdChipsScroll}
+                      >
+                        {assignedDates.length > 0 ? (
+                          assignedDates.map((d: string) => (
+                            <View key={d} style={styles.cdAssignedChip}>
+                              <Text style={styles.cdAssignedChipText}>
+                                {formatShortDate(d)}
+                              </Text>
+                            </View>
+                          ))
+                        ) : (
+                          <Text style={styles.cdEmptyDateText}>No dates recorded</Text>
+                        )}
+                      </ScrollView>
+                    </View>
+
+                    {/* Remaining Dates */}
+                    <View style={styles.cdDateRow}>
+                      <View style={styles.cdDateLabelWrap}>
+                        <Ionicons
+                          name="time-outline"
+                          size={scale(12)}
+                          color={C.warning}
+                        />
+                        <Text style={styles.cdDateLabelText}>
+                          Remaining ({remainingDates.length}):
+                        </Text>
+                      </View>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.cdChipsScroll}
+                      >
+                        {remainingDates.length > 0 ? (
+                          remainingDates.map((d: string) => (
+                            <View key={d} style={styles.cdRemainingChip}>
+                              <Text style={styles.cdRemainingChipText}>
+                                {formatShortDate(d)}
+                              </Text>
+                            </View>
+                          ))
+                        ) : (
+                          <View style={styles.cdLastDayBadge}>
+                            <Text style={styles.cdLastDayText}>Final Day Today</Text>
+                          </View>
+                        )}
+                      </ScrollView>
+                    </View>
+                  </View>
+
+                  <View style={styles.cdDivider} />
+
+                  <View style={styles.cdFooter}>
+                    <View style={styles.cdFooterItem}>
+                      <Ionicons
+                        name="time-outline"
+                        size={scale(14)}
                         color={C.textSub}
                       />
-                      <Text style={styles.cdLocationText} numberOfLines={1}>
-                        {currentDuty.location}
+                      <Text style={styles.cdFooterText}>
+                        {formatTimeAMPM(currentDuty.shift_timings?.duty_from_time)} -{' '}
+                        {formatTimeAMPM(currentDuty.shift_timings?.duty_to_time)}
+                      </Text>
+                    </View>
+                    <View style={styles.cdFooterItem}>
+                      <Ionicons
+                        name="cash-outline"
+                        size={scale(14)}
+                        color={C.success}
+                      />
+                      <Text style={[styles.cdFooterText, { color: C.ink, fontWeight: '800' }]}>
+                        ₹{currentDuty.configured_rate || currentDuty.offered_rate || '0'}
                       </Text>
                     </View>
                   </View>
-                </View>
-
-                <View style={styles.cdFooter}>
-                  <View style={styles.cdFooterItem}>
-                    <Ionicons
-                      name="calendar-outline"
-                      size={scale(14)}
-                      color={C.textSub}
-                    />
-                    <Text style={styles.cdFooterText}>{currentDuty.date}</Text>
-                  </View>
-                  <View style={styles.cdFooterItem}>
-                    <Ionicons
-                      name="time-outline"
-                      size={scale(14)}
-                      color={C.textSub}
-                    />
-                    <Text style={styles.cdFooterText}>{currentDuty.time}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.cdBtn}>
-                    <Text style={styles.cdBtnText}>View Duty</Text>
-                    <Ionicons
-                      name="arrow-forward"
-                      size={scale(12)}
-                      color={C.white}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </LinearGradient>
-            </View>
+                </LinearGradient>
+              </View>
+            )}
 
             {/* 2. REAL UPCOMING DUTIES SECTION */}
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Upcoming Duties</Text>
-                <TouchableOpacity
-                  style={styles.viewAllBtn}
-                  onPress={() =>
-                    navigation.navigate('DutiesScreen', {
-                      defaultTab: 'Upcoming',
-                    })
-                  }
-                >
-                  <Text style={styles.viewAllText}>View All </Text>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={scale(14)}
-                    color={C.primary}
-                  />
-                </TouchableOpacity>
               </View>
 
               {loadingJobs && !refreshing ? (
@@ -848,56 +844,41 @@ const HomeScreen = ({ navigation }: any) => {
                 </View>
               ) : (
                 upcomingDuties.slice(0, 3).map(duty => {
-                  const hospitalName =
-                    duty.hospital_details?.hospital_name ||
-                    duty.hospital_name ||
-                    'Hospital';
-                  const city =
-                    duty.city ||
-                    duty.hospital_details?.city ||
-                    'Location unavailable';
-                  const state =
-                    duty.state || duty.hospital_details?.state || '';
+                  const hospitalName = duty.hospital?.name || 'Hospital Name Pending';
 
-                  // Date Processing
-                  const assignedDates =
-                    duty.assignment_info?.assigned_dates || [];
-                  const hasIndividualDates = assignedDates.length > 0;
+                  const area = duty.hospital?.area || '';
+                  const city = duty.hospital?.city || '';
+                  const state = duty.hospital?.state || '';
+                  const pincode = duty.hospital?.pincode || '';
+
+                  const locationParts = [area, city, state].filter(Boolean);
+                  let locationString = locationParts.join(', ');
+
+                  if (pincode) {
+                    locationString = locationString ? `${locationString} - ${pincode}` : pincode;
+                  }
+
+                  if (!locationString) {
+                    locationString = 'Location unavailable';
+                  }
+
+                  const dutyAssignedDates = duty.assigned_dates || [];
+                  const hasIndividualDates = dutyAssignedDates.length > 0;
 
                   let displayDatesRange = '';
                   if (!hasIndividualDates) {
-                    if (duty.assignment_info?.assigned_from) {
-                      const start = formatDate(
-                        duty.assignment_info.assigned_from,
-                      );
-                      const end = duty.assignment_info.assigned_to
-                        ? formatDate(duty.assignment_info.assigned_to)
-                        : start;
-                      displayDatesRange =
-                        start === end ? start : `${start} to ${end}`;
-                    } else {
-                      const start = formatDate(duty.shift_start_date);
-                      const end = duty.shift_end_date
-                        ? formatDate(duty.shift_end_date)
-                        : start;
-                      displayDatesRange =
-                        start === end ? start : `${start} to ${end}`;
-                    }
+                    displayDatesRange = 'Dates pending';
                   }
 
-                  const displayRate =
-                    duty.assignment_info?.doctor_rate ||
-                    duty.offered_rate ||
-                    '0';
+                  const displayRate = duty.configured_rate || duty.offered_rate || duty.rates || '0';
 
-                  // Limit chips to prevent layout overflow on home screen
                   const MAX_CHIPS = 2;
-                  const visibleDates = assignedDates.slice(0, MAX_CHIPS);
-                  const hiddenDatesCount = assignedDates.length - MAX_CHIPS;
+                  const visibleDates = dutyAssignedDates.slice(0, MAX_CHIPS);
+                  const hiddenDatesCount = dutyAssignedDates.length - MAX_CHIPS;
 
                   return (
                     <TouchableOpacity
-                      key={duty._id}
+                      key={duty.requirement_id || duty._id}
                       style={styles.upcomingCard}
                       activeOpacity={0.9}
                       onPress={() =>
@@ -911,19 +892,35 @@ const HomeScreen = ({ navigation }: any) => {
                       <View style={styles.ucTop}>
                         <View style={styles.ucIconBox}>
                           <Ionicons
-                            name="business-outline"
-                            size={scale(18)}
+                            name="medical-outline"
+                            size={scale(22)}
                             color={C.primary}
                           />
                         </View>
+
                         <View style={styles.ucInfo}>
-                          <Text style={styles.ucTitle} numberOfLines={1}>
-                            {duty.speciality} - {duty.department}
+                          <Text style={styles.ucTitle}>
+                            {duty.speciality || 'Speciality Not Specified'}
                           </Text>
-                          <Text style={styles.ucHospital} numberOfLines={1}>
-                            {hospitalName}
+                          <Text style={styles.ucDepartment}>
+                            {duty.department || 'Department Not Specified'}
                           </Text>
+                          <Text style={styles.ucHospital}>{hospitalName}</Text>
+
+                          {locationString ? (
+                            <View style={styles.ucLocationRowMain}>
+                              <Ionicons
+                                name="location-outline"
+                                size={scale(12)}
+                                color={C.textMuted}
+                              />
+                              <Text style={styles.ucLocation} numberOfLines={2}>
+                                {locationString}
+                              </Text>
+                            </View>
+                          ) : null}
                         </View>
+
                         <View
                           style={[
                             styles.ucBadge,
@@ -938,20 +935,8 @@ const HomeScreen = ({ navigation }: any) => {
                         </View>
                       </View>
 
-                      <View style={styles.ucLocationRowMain}>
-                        <Ionicons
-                          name="location-outline"
-                          size={scale(12)}
-                          color={C.textMuted}
-                        />
-                        <Text style={styles.ucLocation} numberOfLines={1}>
-                          {city} {state ? `, ${state}` : ''}
-                        </Text>
-                      </View>
-
                       <View style={styles.ucBottom}>
                         <View style={{ gap: scale(8) }}>
-                          {/* DATE ROW */}
                           <View style={styles.ucDateSection}>
                             <Ionicons
                               name="calendar-outline"
@@ -982,7 +967,6 @@ const HomeScreen = ({ navigation }: any) => {
                             )}
                           </View>
 
-                          {/* TIME ROW */}
                           <View style={styles.ucDetailRow}>
                             <Ionicons
                               name="time-outline"
@@ -990,18 +974,15 @@ const HomeScreen = ({ navigation }: any) => {
                               color={C.textSub}
                             />
                             <Text style={styles.ucDetailText}>
-                              {duty.duty_from_time || 'TBD'} -{' '}
-                              {duty.duty_to_time || 'TBD'}
+                              {duty.duty_from_time && duty.duty_to_time
+                                ? `${formatTimeAMPM(duty.duty_from_time)} - ${formatTimeAMPM(duty.duty_to_time)}`
+                                : 'Timing not specified'}
                             </Text>
                           </View>
                         </View>
 
-                        {/* PAY BADGE (Right aligned) */}
                         <View style={styles.ucPayBadge}>
                           <Text style={styles.ucPayAmt}>₹{displayRate}</Text>
-                          <Text style={styles.ucPayUnit}>
-                            {duty.billing_shift_type || 'Shift'}
-                          </Text>
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -1063,63 +1044,6 @@ const HomeScreen = ({ navigation }: any) => {
               </ScrollView>
             </View>
 
-            {/* 4. YOUR SUMMARY SECTION (MEDIUM SIZE UI)
-            <View style={styles.summaryContainer}>
-              <View style={styles.sectionHeaderNoPad}>
-                <Text style={styles.sectionTitlePad}>Your Summary</Text>
-                <TouchableOpacity style={[styles.viewAllBtn, { marginRight: scale(20) }]}>
-                  <Text style={styles.viewAllText}>This Month </Text>
-                  <Ionicons name="chevron-down" size={scale(14)} color={C.primary} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={styles.summaryScroll}
-                decelerationRate="fast"
-              >
-                {summaryStats.map((stat) => (
-                  <TouchableOpacity key={stat.id} style={styles.summaryCard} activeOpacity={0.9}>
-                    <View style={[styles.summaryIconBox, { backgroundColor: stat.bg }]}>
-                      <Ionicons name={stat.icon} size={scale(18)} color={stat.color} />
-                    </View>
-                    <View style={styles.summaryInfo}>
-                      <View style={styles.summaryValueRow}>
-                        <Text style={styles.summaryValue}>{stat.value}</Text>
-                        {stat.hasChevron && <Ionicons name="chevron-forward" size={scale(11)} color={C.primary} style={{marginLeft: 3, marginTop: 2}} />}
-                      </View>
-                      <Text style={styles.summaryLabel}>{stat.label}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View> */}
-
-            {/* 5. IMPORTANT UPDATES SECTION (LARGER UI) */}
-            {/* <View style={styles.updatesContainer}>
-              <View style={styles.sectionHeaderNoPad}>
-                <Text style={styles.sectionTitlePad}>Important Updates</Text>
-                <TouchableOpacity style={[styles.viewAllBtn, { marginRight: scale(20) }]}>
-                  <Text style={styles.viewAllText}>View All </Text>
-                  <Ionicons name="arrow-forward" size={scale(14)} color={C.primary} />
-                </TouchableOpacity>
-              </View>
-              
-              <View style={{ paddingHorizontal: scale(20) }}>
-                <TouchableOpacity style={styles.updateCard} activeOpacity={0.9}>
-                  <View style={styles.updateIconBox}>
-                    <Ionicons name="notifications-outline" size={scale(24)} color="#d97706" />
-                  </View>
-                  <View style={styles.updateInfo}>
-                    <Text style={styles.updateTitle}>Your next duty starts tomorrow at 9:00 AM</Text>
-                    <Text style={styles.updateSub}>General Medicine at TestAMK_Hospital</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={scale(20)} color={C.textMuted} />
-                </TouchableOpacity>
-              </View>
-            </View> */}
-
-            {/* 6. RECOMMENDED FOR YOU SECTION (hidden — set SHOW_RECOMMENDED = true to restore) */}
             {SHOW_RECOMMENDED && (
               <>
                 <View style={styles.sectionHeaderNoPad}>
@@ -1161,7 +1085,6 @@ const HomeScreen = ({ navigation }: any) => {
                     snapToInterval={scale(280) + scale(12)}
                     decelerationRate="fast"
                   >
-                    {/* ✅ ONLY SHOW FIRST 5 JOBS (.slice(0,5)) */}
                     {activeJobs.slice(0, 5).map(req => {
                       const saved = isJobSaved(req.id);
                       const applied = isJobApplied(req.id);
@@ -1363,8 +1286,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   logoImage: { width: '100%', height: '100%' },
-  topBarIcons: { flexDirection: 'row', alignItems: 'center', gap: scale(10) },
-  headerIcon: { padding: scale(2) },
 
   headerContainer: {
     paddingHorizontal: scale(20),
@@ -1385,40 +1306,6 @@ const styles = StyleSheet.create({
     color: C.ink,
     fontWeight: '900',
     marginLeft: scale(4),
-  },
-
-  searchFilterContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: scale(10),
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.cardBg,
-    borderRadius: scale(12),
-    paddingHorizontal: scale(14),
-    height: scale(42),
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: scale(8),
-    fontSize: scale(13),
-    color: C.ink,
-    padding: 0,
-  },
-  filterBtn: {
-    width: scale(42),
-    height: scale(42),
-    backgroundColor: C.cardBg,
-    borderRadius: scale(12),
-    borderWidth: 1,
-    borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   sectionContainer: { marginHorizontal: scale(20), marginBottom: scale(20) },
@@ -1475,7 +1362,7 @@ const styles = StyleSheet.create({
   cdBody: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: scale(16),
+    marginBottom: scale(12),
   },
   cdIconBox: {
     width: scale(42),
@@ -1496,11 +1383,90 @@ const styles = StyleSheet.create({
   cdHospital: {
     fontSize: scale(13),
     color: C.textSub,
-    marginBottom: scale(2),
-    fontWeight: '500',
+    marginBottom: scale(3),
+    fontWeight: '600',
   },
-  cdLocationRow: { flexDirection: 'row', alignItems: 'center', gap: scale(4) },
-  cdLocationText: { fontSize: scale(12), color: C.textSub, fontWeight: '500' },
+  cdLocationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: scale(4) },
+  cdLocationText: { fontSize: scale(12), color: C.textSub, fontWeight: '500', flex: 1, lineHeight: scale(16) },
+
+  // Current duty date chips & breakdown
+  cdDatesBlock: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: scale(10),
+    padding: scale(10),
+    gap: scale(8),
+    marginBottom: scale(10),
+  },
+  cdDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cdDateLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(4),
+    width: scale(110),
+  },
+  cdDateLabelText: {
+    fontSize: scale(11),
+    fontWeight: '700',
+    color: C.ink,
+  },
+  cdChipsScroll: {
+    flexDirection: 'row',
+    gap: scale(6),
+    paddingRight: scale(8),
+  },
+  cdAssignedChip: {
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: '#C7E4E9',
+    paddingHorizontal: scale(7),
+    paddingVertical: scale(2.5),
+    borderRadius: scale(5),
+  },
+  cdAssignedChipText: {
+    fontSize: scale(10),
+    fontWeight: '700',
+    color: C.primary,
+  },
+  cdRemainingChip: {
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    paddingHorizontal: scale(7),
+    paddingVertical: scale(2.5),
+    borderRadius: scale(5),
+  },
+  cdRemainingChipText: {
+    fontSize: scale(10),
+    fontWeight: '700',
+    color: '#d97706',
+  },
+  cdLastDayBadge: {
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(2.5),
+    borderRadius: scale(5),
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  cdLastDayText: {
+    fontSize: scale(10),
+    fontWeight: '700',
+    color: '#059669',
+  },
+  cdEmptyDateText: {
+    fontSize: scale(10),
+    color: C.textMuted,
+    fontStyle: 'italic',
+  },
+
+  cdDivider: {
+    height: 1,
+    backgroundColor: '#d8eef0',
+    marginBottom: scale(10),
+  },
 
   cdFooter: {
     flexDirection: 'row',
@@ -1510,19 +1476,18 @@ const styles = StyleSheet.create({
   cdFooterItem: {
     flexDirection: 'row',
     gap: scale(6),
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   cdFooterText: {
-    fontSize: scale(11),
+    fontSize: scale(12),
     color: C.textSub,
-    fontWeight: '500',
-    lineHeight: scale(15),
+    fontWeight: '700',
   },
   cdBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#006C7C',
-    paddingVertical: scale(8),
+    paddingVertical: scale(7),
     paddingHorizontal: scale(12),
     borderRadius: scale(8),
     gap: scale(4),
@@ -1547,38 +1512,49 @@ const styles = StyleSheet.create({
   },
   upcomingCard: {
     backgroundColor: C.cardBg,
-    borderRadius: scale(12),
+    borderRadius: scale(14),
     borderWidth: 1,
     borderColor: C.border,
-    padding: scale(12),
-    marginBottom: scale(10),
+    padding: scale(16),
+    marginBottom: scale(14),
   },
   ucTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: scale(6),
+    marginBottom: scale(8),
   },
   ucIconBox: {
-    width: scale(36),
-    height: scale(36),
-    borderRadius: scale(8),
-    backgroundColor: C.inputBg,
+    width: scale(44),
+    height: scale(44),
+    borderRadius: scale(22),
+    backgroundColor: C.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: scale(10),
+    marginRight: scale(12),
   },
   ucInfo: { flex: 1, paddingRight: scale(8) },
-  ucTitle: { fontSize: scale(14), fontWeight: '800', color: C.ink },
+  ucTitle: { 
+    fontSize: scale(15), 
+    fontWeight: '800', 
+    color: C.ink, 
+    marginBottom: scale(2) 
+  },
+  ucDepartment: { 
+    fontSize: scale(13), 
+    color: C.textSub, 
+    fontWeight: '600', 
+    marginBottom: scale(4) 
+  },
   ucHospital: {
-    fontSize: scale(12),
-    color: C.textSub,
-    fontWeight: '600',
-    marginTop: scale(2),
+    fontSize: scale(13),
+    color: C.primary,
+    fontWeight: '700',
   },
   ucBadge: {
     paddingHorizontal: scale(6),
     paddingVertical: scale(3),
     borderRadius: scale(6),
+    alignSelf: 'flex-start',
   },
   ucBadgeText: { fontSize: scale(10), fontWeight: '700' },
 
@@ -1586,16 +1562,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: scale(4),
-    marginLeft: scale(46),
-    marginBottom: scale(12),
+    marginTop: scale(4), 
   },
-  ucLocation: { fontSize: scale(11), color: C.textMuted, fontWeight: '500' },
+  ucLocation: { 
+    fontSize: scale(12), 
+    color: C.textMuted, 
+    fontWeight: '500',
+    flex: 1 
+  },
 
   ucBottom: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingTop: scale(10),
+    paddingTop: scale(12),
+    marginTop: scale(8),
     borderTopWidth: 1,
     borderTopColor: C.border,
   },
@@ -1674,78 +1655,6 @@ const styles = StyleSheet.create({
     marginBottom: scale(2),
   },
   qaSub: { fontSize: scale(11), color: C.textSub, fontWeight: '500' },
-
-  // --- 4. YOUR SUMMARY (MEDIUM SIZE UI) ---
-  summaryContainer: { marginBottom: scale(20) },
-  summaryScroll: {
-    paddingHorizontal: scale(20),
-    gap: scale(10),
-    paddingBottom: scale(4),
-  },
-  summaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.cardBg,
-    borderRadius: scale(12),
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingVertical: scale(10),
-    paddingHorizontal: scale(12),
-    minWidth: scale(120),
-    shadowColor: C.ink,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  summaryIconBox: {
-    width: scale(34),
-    height: scale(34),
-    borderRadius: scale(9),
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: scale(10),
-  },
-  summaryInfo: { justifyContent: 'center' },
-  summaryValueRow: { flexDirection: 'row', alignItems: 'center' },
-  summaryValue: { fontSize: scale(15), fontWeight: '900', color: C.ink },
-  summaryLabel: {
-    fontSize: scale(10),
-    color: C.textSub,
-    fontWeight: '600',
-    marginTop: scale(1),
-    lineHeight: scale(12),
-  },
-
-  // --- 5. IMPORTANT UPDATES (LARGER UI) ---
-  updatesContainer: { marginBottom: scale(24) },
-  updateCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fffbeb',
-    borderWidth: 1,
-    borderColor: '#fde68a',
-    borderRadius: scale(16),
-    padding: scale(16),
-  },
-  updateIconBox: {
-    width: scale(48),
-    height: scale(48),
-    borderRadius: scale(12),
-    backgroundColor: '#fef3c7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: scale(14),
-  },
-  updateInfo: { flex: 1, marginRight: scale(8) },
-  updateTitle: {
-    fontSize: scale(14),
-    fontWeight: '800',
-    color: C.ink,
-    marginBottom: scale(4),
-    lineHeight: scale(20),
-  },
-  updateSub: { fontSize: scale(12), color: C.textSub, fontWeight: '500' },
 
   // --- 6. RECOMMENDED FOR YOU ---
   horizontalJobScroll: {
@@ -1947,7 +1856,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: scale(48),
     gap: scale(12),
-    width: SW - scale(40), // Full screen width minus padding
+    width: SW - scale(40),
   },
   emptyIconCircle: {
     width: scale(64),
@@ -1971,7 +1880,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     overflow: 'hidden',
-    width: scale(280), // Ensure consistent width for horizontal layout
+    width: scale(280),
   },
   cardHeader: {
     flexDirection: 'row',

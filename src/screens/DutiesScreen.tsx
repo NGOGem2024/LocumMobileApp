@@ -78,30 +78,20 @@ const DutiesScreen = ({ route, navigation }: any) => {
     ]).start();
   };
 
-  // Fetch Logic
+  // Fetch Logic using the unified /duties API
   const fetchDuties = useCallback(async () => {
     try {
-      if (activeTab === 'Invited' || activeTab === 'Interested') {
-        const response = await api.get('/api/doctors/invited-jobs?limit=50');
-        if (response.data?.success) {
-          const allInvites = response.data.jobs || [];
-          if (activeTab === 'Invited') {
-            setJobs(allInvites.filter((j: any) => j.pipeline_status === 'Invited' && j.doctor_response !== 'Interested' && j.doctor_response !== 'Not Interested'));
-          } else {
-            setJobs(allInvites.filter((j: any) => j.pipeline_status === 'Interested' || j.doctor_response === 'Interested'));
-          }
-        } else {
-          setJobs([]);
-        }
+      const currentTab = activeTab.toLowerCase();
+      const response = await api.get('/api/doctors/duties', {
+        params: { tab: currentTab }
+      });
+      
+      if (response.data?.success) {
+        // Handle both paginated tab response and 'all' tabs response formats securely
+        const fetchedJobs = response.data.duties || response.data.tabs?.[currentTab] || [];
+        setJobs(fetchedJobs);
       } else {
-        const response = await api.get('/api/doctors/assigned-jobs', {
-          params: { status: activeTab },
-        });
-        if (response.data?.success) {
-          setJobs(response.data.jobs || response.data.data || []);
-        } else {
-          setJobs([]);
-        }
+        setJobs([]);
       }
     } catch (error) {
       console.error('Error fetching duties:', error);
@@ -129,7 +119,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
 
   // Formatting Helpers
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'TBD';
+    if (!dateString) return 'Timing not specified';
     const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
     return new Date(dateString).toLocaleDateString('en-GB', options);
   };
@@ -138,6 +128,18 @@ const DutiesScreen = ({ route, navigation }: any) => {
     if (!dateString) return '';
     const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
     return new Date(dateString).toLocaleDateString('en-GB', options);
+  };
+
+  const formatAMPM = (timeString: string) => {
+    if (!timeString) return '';
+    const [hourString, minute] = timeString.split(':');
+    if (!hourString || !minute) return timeString;
+    
+    let hour = parseInt(hourString, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12;
+    hour = hour ? hour : 12;
+    return `${hour}:${minute} ${ampm}`;
   };
 
   // Action: Assigned Job Update Status
@@ -184,46 +186,60 @@ const DutiesScreen = ({ route, navigation }: any) => {
   };
 
   const renderItem = ({ item }: { item: any }) => {
-    const hospitalName = item.hospital_details?.hospital_name || item.hospital_name || 'Hospital';
-    const city = item.city || item.hospital_details?.city || 'Location unavailable';
-    const state = item.state || item.hospital_details?.state || '';
+    const hospitalName = item.hospital_details?.hospital_name || 'Hospital';
+    
+    // --- LOCATION FORMATTING LOGIC ---
+    const area = item.req_location_details?.area || '';
+    const city = item.req_location_details?.district || item.req_location_details?.dist || '';
+    const state = item.req_location_details?.state || '';
+    const pincode = item.req_location_details?.pincode || item.req_location_details?.pin || '';
 
-    const assignedDates = item.assignment_info?.assigned_dates || [];
+    // Join Area, City, State with commas
+    const locationParts = [area, city, state].filter(Boolean);
+    let locationString = locationParts.join(', ');
+    
+    // Add Pincode at the end if exists
+    if (pincode) {
+      locationString = locationString ? `${locationString} - ${pincode}` : pincode;
+    }
+    
+    // Fallback if no location data is present
+    if (!locationString) {
+      locationString = 'Location unavailable';
+    }
+    // ---------------------------------
+
+    const assignedDates = item.assigned_dates || [];
     const hasIndividualDates = assignedDates.length > 0;
 
     let displayDatesRange = '';
 
     if (!hasIndividualDates) {
-      if (item.assignment_info?.assigned_from) {
-        const start = formatDate(item.assignment_info.assigned_from);
-        const end = item.assignment_info.assigned_to ? formatDate(item.assignment_info.assigned_to) : start;
-        displayDatesRange = start === end ? start : `${start} to ${end}`;
-      } else {
-        const start = formatDate(item.shift_start_date);
-        const end = item.shift_end_date ? formatDate(item.shift_end_date) : start;
-        displayDatesRange = start === end ? start : `${start} to ${end}`;
-      }
+      const start = formatDate(item.shift_date_from);
+      const end = item.shift_date_to ? formatDate(item.shift_date_to) : start;
+      displayDatesRange = start === end ? start : `${start} to ${end}`;
     }
 
-    const displayRate = item.assignment_info?.doctor_rate || item.offered_rate || '0';
+    const isExpired = item.shift_date_to ? (new Date(item.shift_date_to).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)) : false;
+
+    const isInvitedOrInterested = activeTab === 'Invited' || activeTab === 'Interested';
     
-    const shiftStartDate = item.assignment_info?.assigned_from || item.shift_start_date;
-    const shiftEndDate = item.assignment_info?.assigned_to || item.shift_end_date || item.assignment_info?.assigned_from || item.shift_start_date;
-    const isExpired = shiftEndDate ? (new Date(shiftEndDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)) : false;
+    // Use offered_rate for Invited/Interested, else prefer configured_rate (fallback to offered_rate if null)
+    const displayRate = isInvitedOrInterested 
+      ? (item.offered_rate || '0') 
+      : (item.configured_rate || item.offered_rate || '0');
 
     return (
       <TouchableOpacity
         style={styles.jobCard}
         activeOpacity={activeTab === 'Invited' ? 1 : 0.85}
         onPress={() => {
-          if (activeTab === 'Invited') {
-            return;
-          }
+          if (activeTab === 'Invited') return;
           
           navigation.navigate('JobDetails', {
             jobDetails: item,
             isAssigned: ['Assigned', 'Upcoming', 'Past'].includes(activeTab as string), 
-            jobStatus: activeTab === 'Interested' ? 'Invited' : activeTab,
+            jobStatus: activeTab,
           });
         }}
       >
@@ -243,9 +259,9 @@ const DutiesScreen = ({ route, navigation }: any) => {
              <Text style={styles.hospitalName}>{hospitalName}</Text>
           )}
 
-          <Text style={styles.locationText}>
+          <Text style={styles.locationText} numberOfLines={2}>
             <Ionicons name="location-outline" size={scale(12)} color={C.textMuted} />{' '}
-            {city} {state ? `, ${state}` : ''}
+            {locationString}
           </Text>
         </View>
 
@@ -278,7 +294,10 @@ const DutiesScreen = ({ route, navigation }: any) => {
           <View style={styles.detailRow}>
             <Ionicons name="time-outline" size={scale(16)} color={C.textSub} />
             <Text style={styles.detailText}>
-              {item.duty_from_time || 'TBD'} - {item.duty_to_time || 'TBD'}
+              {/* येथे AM/PM फंक्शन कॉल केले आहे */}
+              {item.shift_time_from && item.shift_time_to 
+                ? `${formatAMPM(item.shift_time_from)} - ${formatAMPM(item.shift_time_to)}` 
+                : 'Timing not specified'}
             </Text>
           </View>
         </View>
@@ -291,7 +310,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
               {activeTab === 'Invited' || activeTab === 'Interested' ? 'Invitation' : `${activeTab} Duty`}
             </Text>
             <Text style={styles.payText}>
-              ₹{displayRate} <Text style={styles.paySubText}>/ {item.billing_shift_type || 'Shift'}</Text>
+              ₹{displayRate}
             </Text>
           </View>
 
@@ -300,7 +319,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
               <TouchableOpacity
                 style={[styles.actionBtn, styles.declineBtn]}
                 onPress={() => {
-                  setSelectedJobId(item._id);
+                  setSelectedJobId(item.req_id);
                   setDeclineModalVisible(true);
                 }}
               >
@@ -308,7 +327,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionBtn, styles.confirmBtn]}
-                onPress={() => handleUpdateDutyStatus(item._id, 'Confirmed')}
+                onPress={() => handleUpdateDutyStatus(item.req_id, 'Confirmed')}
               >
                 <Text style={styles.confirmText}>Confirm</Text>
               </TouchableOpacity>
@@ -320,7 +339,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
               <View style={[styles.appliedBadge, { backgroundColor: C.border }]}>
                 <Text style={[styles.appliedBadgeText, { color: C.textSub }]}>Expired</Text>
               </View>
-            ) : item.pipeline_status === 'Invited' ? (
+            ) : item.vacancy_status !== 'Closed' ? (
               <View style={styles.actionButtons}>
                 <TouchableOpacity
                   style={[styles.actionBtn, styles.declineBtn]}
@@ -406,7 +425,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
       ) : (
         <FlatList
           data={jobs}
-          keyExtractor={(item, index) => item.invitation_id || item._id || index.toString()}
+          keyExtractor={(item, index) => item.invitation_id || item.req_id || index.toString()}
           renderItem={renderItem}
           contentContainerStyle={[
             styles.listContent,

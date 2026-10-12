@@ -3,6 +3,8 @@ import {
   Animated,
   Dimensions,
   Modal,
+  PermissionsAndroid,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -18,6 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
+import Geolocation from '@react-native-community/geolocation';
 import { useAuth } from '../context/AuthContext';
 import { useJobs } from '../context/JobContext';
 import AvailabilitySection from '../components/AvailabilitySection';
@@ -79,6 +82,67 @@ const formatTimeAMPM = (timeStr?: string) => {
   
   return `${formattedHours}:${minutes} ${ampm}`;
 };
+
+// Formats an ISO timestamp (e.g. check-in time) as hh:mm AM/PM
+const formatTimestampTime = (iso?: string | null) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+// ---- Location helpers for Check-In / Check-Out ----
+const requestLocationPermission = async (): Promise<boolean> => {
+  if (Platform.OS === 'android') {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      {
+        title: 'Location Permission',
+        message: 'We need your location to verify you are at the hospital.',
+        buttonPositive: 'Allow',
+        buttonNegative: 'Deny',
+      },
+    );
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
+  }
+  return true;
+};
+
+Geolocation.setRNConfiguration({
+  skipPermissionRequests: false,
+  authorizationLevel: 'whenInUse',
+  locationProvider: 'auto',
+});
+
+type Coords = { latitude: number; longitude: number; accuracy: number };
+
+const getCurrentPosition = (): Promise<Coords> =>
+  new Promise((resolve, reject) => {
+    const onSuccess = (position: any) =>
+      resolve({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+      });
+
+    // 1st attempt: high accuracy (GPS). If it fails or times out
+    // (common indoors / emulators), retry with network-based location.
+    Geolocation.getCurrentPosition(
+      onSuccess,
+      () => {
+        Geolocation.getCurrentPosition(onSuccess, error => reject(error), {
+          enableHighAccuracy: false,
+          timeout: 20000,
+          maximumAge: 10000,
+        });
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  });
 
 const getPaymentConfig = (term?: PaymentTerm) => {
   const configs: Record<string, any> = {
@@ -422,6 +486,7 @@ const HomeScreen = ({ navigation }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [showRateSheet, setShowRateSheet] = useState(false);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
 
   const [activeSection, setActiveSection] = useState<'jobs' | 'availability'>('jobs');
 
@@ -581,6 +646,58 @@ const HomeScreen = ({ navigation }: any) => {
     }
   };
 
+  // Check-In / Check-Out for the current duty
+  const handleAttendance = async (type: 'check-in' | 'check-out') => {
+    if (!currentDuty?.requirement_id || attendanceLoading) return;
+    setAttendanceLoading(true);
+
+    try {
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        showToast('Location permission is required');
+        return;
+      }
+
+      let coords;
+      try {
+        coords = await getCurrentPosition();
+      } catch (locErr: any) {
+        console.log('Location error:', locErr?.code, locErr?.message);
+        // 1 = permission denied, 2 = position unavailable, 3 = timeout
+        if (locErr?.code === 1) {
+          showToast('Location permission denied. Enable it in app settings.');
+        } else if (locErr?.code === 2) {
+          showToast('Location unavailable. Turn on GPS / Location services.');
+        } else if (locErr?.code === 3) {
+          showToast('Location request timed out. Move to open sky and retry.');
+        } else {
+          showToast('Unable to get location. Turn on GPS and try again.');
+        }
+        return;
+      }
+
+      const { data } = await api.post(`/api/doctors/${type}`, {
+        requirement_id: currentDuty.requirement_id,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: coords.accuracy,
+      });
+
+      showToast(
+        data?.message ||
+          (type === 'check-in' ? 'Check-in successful!' : 'Check-out successful!'),
+      );
+      await loadAllData();
+    } catch (error: any) {
+      showToast(
+        error.response?.data?.message ||
+          (type === 'check-in' ? 'Error during check-in' : 'Error during check-out'),
+      );
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
   const currentHour = new Date().getHours();
   const isMorning = currentHour < 12;
   const isAfternoon = currentHour >= 12 && currentHour < 17;
@@ -615,6 +732,14 @@ const HomeScreen = ({ navigation }: any) => {
 
   const assignedDates: string[] = currentDuty?.assigned_schedule?.assigned_dates || [];
   const remainingDates: string[] = currentDuty?.assigned_schedule?.remaining_dates || [];
+
+  // Attendance state for current duty
+  const attendance = currentDuty?.attendance;
+  const canCheckIn = !!attendance?.can_check_in;
+  const canCheckOut = !!attendance?.can_check_out;
+  const isDutyCompleted = !!attendance?.is_checked_out;
+  const checkInTimeStr = formatTimestampTime(attendance?.check_in_time);
+  const checkOutTimeStr = formatTimestampTime(attendance?.check_out_time);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -702,8 +827,11 @@ const HomeScreen = ({ navigation }: any) => {
                       />
                     </View>
                     <View style={styles.cdInfo}>
-                      <Text style={styles.cdTitle} numberOfLines={1}>
-                        {currentDuty.speciality || currentDuty.department || 'General Duty'}
+                     <Text style={styles.cdTitle} numberOfLines={1}>
+                        {currentDuty.speciality || 'General Duty'}
+                      </Text>
+                      <Text style={styles.cdDepartment} numberOfLines={1}>
+                        {currentDuty.department || 'Department Not Specified'}
                       </Text>
                       <Text style={styles.cdHospital} numberOfLines={1}>
                         {currentDuty.hospital?.name || 'Hospital'}
@@ -815,6 +943,86 @@ const HomeScreen = ({ navigation }: any) => {
                       </Text>
                     </View>
                   </View>
+
+                  {/* CHECK-IN / CHECK-OUT */}
+                  <View style={styles.cdAttendanceWrap}>
+                    {(checkInTimeStr || checkOutTimeStr) && (
+                      <View style={styles.cdAttendanceInfoRow}>
+                        {checkInTimeStr ? (
+                          <Text style={styles.cdAttendanceInfoText}>
+                            Checked in: {checkInTimeStr}
+                          </Text>
+                        ) : null}
+                        {checkOutTimeStr ? (
+                          <Text style={styles.cdAttendanceInfoText}>
+                            Checked out: {checkOutTimeStr}
+                          </Text>
+                        ) : null}
+                      </View>
+                    )}
+
+                    {canCheckIn && (
+                      <TouchableOpacity
+                        style={[
+                          styles.cdActionBtn,
+                          attendanceLoading && styles.cdActionBtnDisabled,
+                        ]}
+                        activeOpacity={0.85}
+                        disabled={attendanceLoading}
+                        onPress={() => handleAttendance('check-in')}
+                      >
+                        {attendanceLoading ? (
+                          <ActivityIndicator size="small" color={C.white} />
+                        ) : (
+                          <>
+                            <Ionicons
+                              name="log-in-outline"
+                              size={scale(16)}
+                              color={C.white}
+                            />
+                            <Text style={styles.cdBtnText}>Check In</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
+
+                    {canCheckOut && (
+                      <TouchableOpacity
+                        style={[
+                          styles.cdActionBtn,
+                          styles.cdActionBtnOut,
+                          attendanceLoading && styles.cdActionBtnDisabled,
+                        ]}
+                        activeOpacity={0.85}
+                        disabled={attendanceLoading}
+                        onPress={() => handleAttendance('check-out')}
+                      >
+                        {attendanceLoading ? (
+                          <ActivityIndicator size="small" color={C.white} />
+                        ) : (
+                          <>
+                            <Ionicons
+                              name="log-out-outline"
+                              size={scale(16)}
+                              color={C.white}
+                            />
+                            <Text style={styles.cdBtnText}>Check Out</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
+
+                    {isDutyCompleted && (
+                      <View style={styles.cdCompletedBadge}>
+                        <Ionicons
+                          name="checkmark-circle-outline"
+                          size={scale(16)}
+                          color="#059669"
+                        />
+                        <Text style={styles.cdLastDayText}>Duty Completed</Text>
+                      </View>
+                    )}
+                  </View>
                 </LinearGradient>
               </View>
             )}
@@ -843,7 +1051,10 @@ const HomeScreen = ({ navigation }: any) => {
                   </Text>
                 </View>
               ) : (
-                upcomingDuties.slice(0, 3).map(duty => {
+                upcomingDuties
+                  .filter(duty => duty.requirement_id !== currentDuty?.requirement_id)
+                  .slice(0, 3)
+                  .map(duty => {
                   const hospitalName = duty.hospital?.name || 'Hospital Name Pending';
 
                   const area = duty.hospital?.area || '';
@@ -864,6 +1075,17 @@ const HomeScreen = ({ navigation }: any) => {
 
                   const dutyAssignedDates = duty.assigned_dates || [];
                   const hasIndividualDates = dutyAssignedDates.length > 0;
+
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+
+                  const futureDates = dutyAssignedDates.filter((dateStr: string) => {
+                    const d = new Date(dateStr);
+                    d.setHours(0, 0, 0, 0);
+                    return d.getTime() >= today.getTime();
+                  }).sort((a: string, b: string) => new Date(a).getTime() - new Date(b).getTime());
+
+                  const nextShiftDate = futureDates.length > 0 ? futureDates[0] : null;
 
                   let displayDatesRange = '';
                   if (!hasIndividualDates) {
@@ -906,7 +1128,11 @@ const HomeScreen = ({ navigation }: any) => {
                             {duty.department || 'Department Not Specified'}
                           </Text>
                           <Text style={styles.ucHospital}>{hospitalName}</Text>
-
+                          {area ? (
+                            <Text style={styles.ucArea} numberOfLines={1}>
+                              {area}
+                            </Text>
+                          ) : null}
                           {locationString ? (
                             <View style={styles.ucLocationRowMain}>
                               <Ionicons
@@ -943,23 +1169,18 @@ const HomeScreen = ({ navigation }: any) => {
                               size={scale(13)}
                               color={C.textSub}
                             />
-                            {hasIndividualDates ? (
+                            {nextShiftDate ? (
                               <View style={styles.ucDateChipsWrap}>
-                                {visibleDates.map((d: string) => (
-                                  <View key={d} style={styles.ucDateChip}>
-                                    <Text style={styles.ucDateChipText}>
-                                      {formatShortDate(d)}
-                                    </Text>
-                                  </View>
-                                ))}
-                                {hiddenDatesCount > 0 && (
-                                  <View style={styles.ucDateChipMore}>
-                                    <Text style={styles.ucDateChipMoreText}>
-                                      +{hiddenDatesCount}
-                                    </Text>
-                                  </View>
-                                )}
+                                <View style={styles.ucDateChip}>
+                                  <Text style={styles.ucDateChipText}>
+                                    Next Shift: {formatShortDate(nextShiftDate)}
+                                  </Text>
+                                </View>
                               </View>
+                            ) : hasIndividualDates ? (
+                              <Text style={styles.ucDetailText}>
+                                Shifts completed
+                              </Text>
                             ) : (
                               <Text style={styles.ucDetailText}>
                                 {displayDatesRange}
@@ -1380,6 +1601,12 @@ const styles = StyleSheet.create({
     color: C.ink,
     marginBottom: scale(2),
   },
+  cdDepartment: { 
+    fontSize: scale(13), 
+    color: C.textSub, 
+    fontWeight: '600', 
+    marginBottom: scale(2) 
+  },
   cdHospital: {
     fontSize: scale(13),
     color: C.textSub,
@@ -1494,6 +1721,44 @@ const styles = StyleSheet.create({
   },
   cdBtnText: { color: C.white, fontSize: scale(12), fontWeight: '700' },
 
+  // Check-in / Check-out
+  cdAttendanceWrap: {
+    marginTop: scale(12),
+    gap: scale(8),
+  },
+  cdAttendanceInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cdAttendanceInfoText: {
+    fontSize: scale(11),
+    color: C.textSub,
+    fontWeight: '600',
+  },
+  cdActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#006C7C',
+    paddingVertical: scale(10),
+    borderRadius: scale(10),
+    gap: scale(6),
+  },
+  cdActionBtnOut: { backgroundColor: C.urgent },
+  cdActionBtnDisabled: { opacity: 0.7 },
+  cdCompletedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: scale(6),
+    backgroundColor: '#ecfdf5',
+    paddingVertical: scale(8),
+    borderRadius: scale(10),
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+
   // --- 2. UPCOMING DUTIES ---
   emptyUpcomingBox: {
     alignItems: 'center',
@@ -1545,10 +1810,16 @@ const styles = StyleSheet.create({
     fontWeight: '600', 
     marginBottom: scale(4) 
   },
-  ucHospital: {
+ucHospital: {
     fontSize: scale(13),
     color: C.primary,
     fontWeight: '700',
+  },
+  ucArea: {
+    fontSize: scale(12),
+    color: C.textSub,
+    fontWeight: '500',
+    marginTop: scale(2),
   },
   ucBadge: {
     paddingHorizontal: scale(6),

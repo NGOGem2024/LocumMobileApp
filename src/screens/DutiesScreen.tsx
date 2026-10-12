@@ -64,6 +64,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentDutyId, setCurrentDutyId] = useState<string | null>(null);
 
   // Toast States
   const [toastMessage, setToastMessage] = useState('');
@@ -82,6 +83,21 @@ const DutiesScreen = ({ route, navigation }: any) => {
   const fetchDuties = useCallback(async () => {
     try {
       const currentTab = activeTab.toLowerCase();
+
+      // Upcoming tab: get the Current Duty so it can be excluded from the list
+      if (currentTab === 'upcoming') {
+        const currentRes = await api
+          .get('/api/doctors/current-duty')
+          .catch(() => ({ data: { success: false } }));
+        const cd =
+          currentRes.data?.success && currentRes.data.has_current_duty
+            ? currentRes.data.duty
+            : null;
+        setCurrentDutyId(cd?.requirement_id ? String(cd.requirement_id) : null);
+      } else {
+        setCurrentDutyId(null);
+      }
+
       const response = await api.get('/api/doctors/duties', {
         params: { tab: currentTab }
       });
@@ -377,6 +393,12 @@ const DutiesScreen = ({ route, navigation }: any) => {
     </View>
   );
 
+  // Hide the Current Duty from the Upcoming list (it's already shown on Home)
+  const displayJobs =
+    activeTab === 'Upcoming' && currentDutyId
+      ? jobs.filter(job => String(job.req_id || job.requirement_id) !== currentDutyId)
+      : jobs;
+
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={C.cardBg} />
@@ -424,12 +446,12 @@ const DutiesScreen = ({ route, navigation }: any) => {
         </View>
       ) : (
         <FlatList
-          data={jobs}
+          data={displayJobs}
           keyExtractor={(item, index) => item.invitation_id || item.req_id || index.toString()}
           renderItem={renderItem}
           contentContainerStyle={[
             styles.listContent,
-            jobs.length === 0 && styles.listContentEmpty,
+            displayJobs.length === 0 && styles.listContentEmpty,
           ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptyState}

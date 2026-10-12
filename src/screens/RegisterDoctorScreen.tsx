@@ -23,7 +23,7 @@ import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import { useAuth } from '../context/AuthContext';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
-import api from '../services/axiosConfig' // ⬅️ Imported the custom Axios instance
+import api from '../services/axiosConfig';
 
 const GOOGLE_API_KEY = 'AIzaSyCUgfce6vE1U10ZsdF7s62KxOFD2Q_dNDc';
 
@@ -38,7 +38,7 @@ const C = {
   border: '#F3F4F6',     
   inputBg: '#FFFFFF',    
   primary: '#007b8e',
-  primaryBorder: 'rgba(0, 123, 142, 0.35)', // Aesthetic translucent teal border
+  primaryBorder: 'rgba(0, 123, 142, 0.35)',
   accentCyan: '#00a8c2',
   primaryDark: '#04424c',
   primaryLight: '#E0F5F8',
@@ -49,8 +49,6 @@ const C = {
   error: '#ef4444',
   success: '#10b981',
 };
-
-// ⬅️ Removed BASE_URL constant since it is now managed by Axios
 
 const SPECIALIZATIONS = [
   'General Physician', 'Pediatrics', 'Gynecology & Obstetrics', 'Orthopedics',
@@ -89,15 +87,13 @@ const MEDICAL_COUNCILS = [
 
 const TITLES = ['Dr', 'Mr', 'Ms', 'Mrs'];
 const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: currentYear - 1969 }, (_, i) => String(currentYear - i));
-const MONTHS = [
-  { label: 'January', value: '01' }, { label: 'February', value: '02' },
-  { label: 'March', value: '03' }, { label: 'April', value: '04' },
-  { label: 'May', value: '05' }, { label: 'June', value: '06' },
-  { label: 'July', value: '07' }, { label: 'August', value: '08' },
-  { label: 'September', value: '09' }, { label: 'October', value: '10' },
-  { label: 'November', value: '11' }, { label: 'December', value: '12' },
-];
+
+interface PlaceSuggestion {
+  place_id: string;
+  description: string;
+  main_text: string;
+  secondary_text: string;
+}
 
 interface FormData {
   qualification_other: string; specialization_other: string; title: string;
@@ -127,18 +123,21 @@ const RegisterDoctorScreen: React.FC = () => {
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const { setDoctor } = useAuth();
 
+  // Address Autocomplete States
+  const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const addressDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dropdownConfig, setDropdownConfig] = useState<{
     visible: boolean; field: keyof FormData | 'reg_month' | 'reg_year' | null;
     options: string[]; title: string;
   }>({ visible: false, field: null, options: [], title: '' });
 
-  // Navigation & Screen Animations
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const successScale = useRef(new Animated.Value(0)).current;
   const navigation = useNavigation<any>();
 
-  // Stepper Stretch Animations
   const dotWidths = useRef([
     new Animated.Value(scale(24)),
     new Animated.Value(scale(8)),
@@ -151,11 +150,17 @@ const RegisterDoctorScreen: React.FC = () => {
         Animated.timing(anim, {
           toValue: currentStep === index + 1 ? scale(24) : scale(8),
           duration: 300,
-          useNativeDriver: false, // Width animations require false
+          useNativeDriver: false,
         })
       )
     ).start();
   }, [currentStep, dotWidths]);
+
+  useEffect(() => {
+    return () => {
+      if (addressDebounceTimer.current) clearTimeout(addressDebounceTimer.current);
+    };
+  }, []);
 
   const [form, setForm] = useState<FormData>({
     title: '', first_name: '', middle_name: '', last_name: '',
@@ -181,25 +186,116 @@ const RegisterDoctorScreen: React.FC = () => {
     const { field } = dropdownConfig;
     if (!field) return;
 
-    if (field === 'reg_month') {
-      const found = MONTHS.find(m => m.label === value);
-      if (found) setField('registration_date_month', found.value);
-    } else if (field === 'reg_year') {
-      setField('registration_date_year', value);
-    } else {
-      setField(field as keyof FormData, value);
-      if (field === 'qualification' && value !== 'Other') {
-        setForm(prev => ({ ...prev, qualification: value, qualification_other: '' }));
-      }
+    setField(field as keyof FormData, value);
+    if (field === 'qualification' && value !== 'Other') {
+      setForm(prev => ({ ...prev, qualification: value, qualification_other: '' }));
     }
     setDropdownConfig(p => ({ ...p, visible: false }));
   };
 
+  // Fetch address predictions from Google Places Autocomplete API
+  const fetchAddressPredictions = async (query: string) => {
+    if (!query || query.trim().length < 3) {
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+      return;
+    }
+    setIsSearchingAddress(true);
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+          query
+        )}&components=country:in&key=${GOOGLE_API_KEY}`
+      );
+      const data = await res.json();
+      if (data.status === 'OK' && data.predictions) {
+        const results: PlaceSuggestion[] = data.predictions.map((p: any) => ({
+          place_id: p.place_id,
+          description: p.description,
+          main_text: p.structured_formatting?.main_text || p.description,
+          secondary_text: p.structured_formatting?.secondary_text || '',
+        }));
+        setAddressSuggestions(results);
+        setShowAddressSuggestions(results.length > 0);
+      } else {
+        setAddressSuggestions([]);
+        setShowAddressSuggestions(false);
+      }
+    } catch {
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+    } finally {
+      setIsSearchingAddress(false);
+    }
+  };
+
+  const handleAddressInputChange = (text: string) => {
+    setField('clinic_address', text);
+    if (addressDebounceTimer.current) clearTimeout(addressDebounceTimer.current);
+
+    if (text.trim().length < 3) {
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+      return;
+    }
+
+    addressDebounceTimer.current = setTimeout(() => {
+      fetchAddressPredictions(text);
+    }, 350);
+  };
+
+  // Fetch Place Details & extract Pincode, City, State
+  const handleSelectSuggestion = async (suggestion: PlaceSuggestion) => {
+    setShowAddressSuggestions(false);
+    setField('clinic_address', suggestion.description);
+    setPincodeLoading(true);
+
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${suggestion.place_id}&fields=address_components,formatted_address&key=${GOOGLE_API_KEY}`
+      );
+      const data = await res.json();
+
+      if (data.status === 'OK' && data.result?.address_components) {
+        const components: any[] = data.result.address_components;
+        const getComponent = (type: string): string => {
+          const found = components.find((c: any) => c.types.includes(type));
+          return found?.long_name || '';
+        };
+
+        const pincode = getComponent('postal_code');
+        const city =
+          getComponent('locality') ||
+          getComponent('administrative_area_level_3') ||
+          getComponent('administrative_area_level_2');
+        const state = getComponent('administrative_area_level_1');
+
+        setForm(prev => ({
+          ...prev,
+          pincode: pincode || prev.pincode,
+          city: city || prev.city,
+          state: state || prev.state,
+        }));
+
+        setPincodeFetched(Boolean(city || state || pincode));
+        setErrors(prev => ({ ...prev, pincode: undefined, city: undefined, state: undefined, clinic_address: undefined }));
+      }
+    } catch {
+      Alert.alert('Address Error', 'Unable to resolve full details. Please enter the pincode manually.');
+    } finally {
+      setPincodeLoading(false);
+    }
+  };
+
+  // Fallback direct pincode lookup
   const fetchLocationByPincode = async (pincode: string) => {
     if (pincode.length !== 6) return;
-    setPincodeLoading(true); setPincodeFetched(false);
+    setPincodeLoading(true);
+    setPincodeFetched(false);
     try {
-      const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${pincode}&region=IN&key=${GOOGLE_API_KEY}`);
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${pincode}&region=IN&key=${GOOGLE_API_KEY}`
+      );
       const data = await res.json();
       if (data.status !== 'OK' || !data.results?.length) throw new Error('Invalid pincode');
 
@@ -209,7 +305,10 @@ const RegisterDoctorScreen: React.FC = () => {
         return found?.long_name || '';
       };
 
-      const city = getComponent('locality') || getComponent('administrative_area_level_3') || getComponent('administrative_area_level_2');
+      const city =
+        getComponent('locality') ||
+        getComponent('administrative_area_level_3') ||
+        getComponent('administrative_area_level_2');
       const state = getComponent('administrative_area_level_1');
 
       if (!city && !state) throw new Error('Location not found');
@@ -247,6 +346,11 @@ const RegisterDoctorScreen: React.FC = () => {
       else if (!/^[6-9]\d{9}$/.test(form.mobile_number)) e.mobile_number = 'Invalid mobile number';
       if (!form.email.trim()) e.email = 'Required';
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email address';
+      if (!form.clinic_address.trim()) e.clinic_address = 'Required';
+      if (!form.pincode.trim()) e.pincode = 'Required';
+      else if (!/^\d{6}$/.test(form.pincode)) e.pincode = 'Invalid 6-digit pincode';
+      if (!form.city.trim()) e.city = 'Required';
+      if (!form.state.trim()) e.state = 'Required';
     }
     if (step === 2) {
       if (!form.specialization) e.specialization = 'Required';
@@ -255,11 +359,6 @@ const RegisterDoctorScreen: React.FC = () => {
       if (!form.medical_council_name) e.medical_council_name = 'Required';
     }
     if (step === 3) {
-      if (!form.pincode.trim()) e.pincode = 'Required';
-      else if (!/^\d{6}$/.test(form.pincode)) e.pincode = 'Invalid 6-digit pincode';
-      if (!form.city.trim()) e.city = 'Invalid Pincode';
-      if (!form.state.trim()) e.state = 'Invalid Pincode';
-      if (!form.clinic_address.trim()) e.clinic_address = 'Required';
       if (!form.job_type.length) e.job_type = 'Required';
       if (!form.preferred_km) e.preferred_km = 'Required';
       if (form.preferred_pincode && !/^\d{6}$/.test(form.preferred_pincode)) e.preferred_pincode = 'Invalid 6-digit pincode';
@@ -302,13 +401,13 @@ const RegisterDoctorScreen: React.FC = () => {
   const handleSubmit = async () => {
     if (!validateStep(3)) return;
     if (!form.state.trim()) {
-      Alert.alert('Missing State', 'Please enter a valid pincode and wait for location to load.');
+      Alert.alert('Missing State', 'Please select a valid address or enter pincode to load location.');
       return;
     }
     setLoading(true);
     try {
       const payload: Record<string, any> = {
-        prefix: form.title, // explicitly send the title as the prefix
+        prefix: form.title,
         first_name: form.first_name.trim(),
         middle_name: form.middle_name.trim(),
         last_name: form.last_name.trim(),
@@ -340,7 +439,6 @@ const RegisterDoctorScreen: React.FC = () => {
         payload.preferred_pincode = form.preferred_pincode.trim();
       }
 
-      // ⬅️ Refactored to use Axios instance
       const response = await api.post('/api/doctors/register', payload);
       const data = response.data;
 
@@ -352,7 +450,6 @@ const RegisterDoctorScreen: React.FC = () => {
       setSubmitted(true);
       Animated.spring(successScale, { toValue: 1, friction: 6, tension: 80, useNativeDriver: true }).start();
     } catch (err: any) {
-      // ⬅️ Refactored error handling for Axios structure
       const errorMessage = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
       Alert.alert('Registration Failed', errorMessage, [{ text: 'OK' }]);
     } finally {
@@ -459,16 +556,85 @@ const RegisterDoctorScreen: React.FC = () => {
                 <Field label="FIRST NAME" required icon="person-outline" placeholder="First name" value={form.first_name} onChangeText={v => setField('first_name', v)} error={errors.first_name} />
                 <Field label="MIDDLE NAME" icon="person-outline" placeholder="Optional" value={form.middle_name} onChangeText={v => setField('middle_name', v)} />
                 <Field label="LAST NAME" required icon="person-outline" placeholder="Last name" value={form.last_name} onChangeText={v => setField('last_name', v)} error={errors.last_name} />
-                <Field label="MOBILE NUMBER" required icon="call-outline" placeholder="9876543210" value={form.mobile_number} onChangeText={v => setField('mobile_number', v.replace(/\D/g, '').slice(0, 10))} error={errors.mobile_number} keyboardType="phone-pad" maxLength={10} prefix="+91" />
+                <Field label="MOBILE NUMBER" required icon="call-outline" placeholder="9876543210" value={form.mobile_number} onChangeText={v => setField('mobile_number', v.replace(/\D/g, '').slice(10))} error={errors.mobile_number} keyboardType="phone-pad" maxLength={10} prefix="+91" />
                 <Field label="EMAIL ADDRESS" required icon="mail-outline" placeholder="name@domain.com" value={form.email} onChangeText={v => setField('email', v.trim())} error={errors.email} keyboardType="email-address" autoCapitalize="none" />
-                <Field label="PINCODE" required icon="location-outline" placeholder="6-digit pincode" value={form.pincode} onChangeText={handlePincodeChange} error={errors.pincode} keyboardType="numeric" maxLength={6} />
                 
-                {pincodeLoading && <Text style={styles.pinText}>Fetching location…</Text>}
+                {/* ── ADDRESS AUTOCOMPLETE ── */}
+                <Field
+                  label="CLINIC / HOME ADDRESS"
+                  required
+                  icon="home-outline"
+                  placeholder="Type clinic or street address..."
+                  value={form.clinic_address}
+                  onChangeText={handleAddressInputChange}
+                  error={errors.clinic_address}
+                  multiline
+                  numberOfLines={2}
+                />
+
+                {isSearchingAddress && (
+                  <View style={styles.searchingRow}>
+                    <ActivityIndicator size="small" color={C.primary} />
+                    <Text style={styles.searchingText}>Finding address suggestions...</Text>
+                  </View>
+                )}
+
+                {/* Suggestions List */}
+                {showAddressSuggestions && addressSuggestions.length > 0 && (
+                  <View style={styles.suggestionsContainer}>
+                    {addressSuggestions.map(item => (
+                      <TouchableOpacity
+                        key={item.place_id}
+                        style={styles.suggestionRow}
+                        onPress={() => handleSelectSuggestion(item)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="location-sharp" size={16} color={C.primary} style={{ marginRight: scale(8), marginTop: 2 }} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.suggestionMainText} numberOfLines={1}>{item.main_text}</Text>
+                          {item.secondary_text ? (
+                            <Text style={styles.suggestionSubText} numberOfLines={1}>{item.secondary_text}</Text>
+                          ) : null}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* ── AUTO-POPULATED PINCODE, CITY, STATE ── */}
+                <Field
+                  label="PINCODE"
+                  required
+                  icon="location-outline"
+                  placeholder="6-digit pincode"
+                  value={form.pincode}
+                  onChangeText={handlePincodeChange}
+                  error={errors.pincode}
+                  keyboardType="numeric"
+                  maxLength={6}
+                />
+                
+                {pincodeLoading && <Text style={styles.pinText}>Fetching location details…</Text>}
                 {pincodeFetched && <Text style={[styles.pinText, { color: C.success }]}>Location verified</Text>}
                 
-                <Field label="CITY" icon="business-outline" value={form.city} onChangeText={() => {}} placeholder="Auto-filled" error={errors.city} />
-                <Field label="STATE" icon="map-outline" value={form.state} onChangeText={() => {}} placeholder="Auto-filled" error={errors.state} />
-                <Field label="CLINIC / HOME ADDRESS" required icon="home-outline" placeholder="Full address details" value={form.clinic_address} onChangeText={v => setField('clinic_address', v)} error={errors.clinic_address} multiline numberOfLines={3} />
+                <Field
+                  label="CITY"
+                  required
+                  icon="business-outline"
+                  value={form.city}
+                  onChangeText={v => setField('city', v)}
+                  placeholder="Auto-filled from address"
+                  error={errors.city}
+                />
+                <Field
+                  label="STATE"
+                  required
+                  icon="map-outline"
+                  value={form.state}
+                  onChangeText={v => setField('state', v)}
+                  placeholder="Auto-filled from address"
+                  error={errors.state}
+                />
               </View>
             )}
 
@@ -656,7 +822,7 @@ const fieldStyles = StyleSheet.create({
     paddingHorizontal: scale(14), 
     minHeight: scale(48), 
     borderWidth: 1, 
-    borderColor: C.primaryBorder, // Soft teal border
+    borderColor: C.primaryBorder,
     shadowColor: '#000', 
     shadowOffset: { width: 0, height: 2 }, 
     shadowOpacity: 0.02, 
@@ -685,12 +851,12 @@ const styles = StyleSheet.create({
     height: scale(8), 
     borderRadius: scale(4), 
     backgroundColor: C.primary, 
-    opacity: 0.2 // Slightly visible translucent teal for inactive dots
+    opacity: 0.2 
   },
   stepperDotCompleted: { backgroundColor: C.primary, opacity: 0.5 },
   stepperDotActive: { backgroundColor: C.primary, opacity: 1 },
 
-  scroll: { paddingHorizontal: scale(24), paddingTop: scale(10), paddingBottom: scale(120) }, // Padding bottom clears the floating bar
+  scroll: { paddingHorizontal: scale(24), paddingTop: scale(10), paddingBottom: scale(120) },
   sectionTitle: { fontSize: scale(24), fontWeight: '800', color: C.ink, lineHeight: scale(30), marginBottom: scale(24), letterSpacing: -0.3 },
 
   chipGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: scale(10) },
@@ -699,7 +865,35 @@ const styles = StyleSheet.create({
   chipText: { color: C.textSub, fontSize: scale(14), fontWeight: '600' },
   chipTextActive: { color: C.primary, fontWeight: '800' },
 
-  pinText: { fontSize: scale(12), color: C.textMuted, marginTop: -scale(12), marginBottom: scale(16), marginLeft: 4, fontWeight: '600' },
+  pinText: { fontSize: scale(12), color: C.textMuted, marginTop: -scale(10), marginBottom: scale(16), marginLeft: 4, fontWeight: '600' },
+
+  // Suggestions styling
+  searchingRow: { flexDirection: 'row', alignItems: 'center', marginTop: -scale(10), marginBottom: scale(12), marginLeft: 4 },
+  searchingText: { fontSize: scale(12), color: C.primary, marginLeft: scale(8), fontWeight: '500' },
+  suggestionsContainer: {
+    backgroundColor: C.white,
+    borderRadius: scale(12),
+    borderWidth: 1,
+    borderColor: C.border,
+    marginTop: -scale(10),
+    marginBottom: scale(16),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: scale(14),
+    paddingVertical: scale(12),
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  suggestionMainText: { fontSize: scale(13), fontWeight: '700', color: C.ink },
+  suggestionSubText: { fontSize: scale(11), color: C.textSub, marginTop: 2 },
 
   floatingActionBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', paddingHorizontal: scale(24), paddingTop: scale(16), paddingBottom: Platform.OS === 'ios' ? 36 : scale(24), backgroundColor: 'rgba(249, 250, 251, 0.95)', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.03)' },
   nextBtnWrapper: { flex: 1, shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 6, borderRadius: scale(16) },

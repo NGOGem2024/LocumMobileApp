@@ -57,7 +57,7 @@ interface LoginScreenProps {
 
 const LoginScreen = ({ navigation }: LoginScreenProps) => {
   const [loginMethod, setLoginMethod] = useState<'email' | 'mobile'>('mobile');
-  const [authType, setAuthType] = useState<'password' | 'otp'>('otp');
+  const [authType, setAuthType] = useState<'password' | 'otp'>('password');
 
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');

@@ -230,6 +230,7 @@ const AvailabilitySection: React.FC<Props> = ({
   const [viewY, setViewY] = useState(today.getFullYear());
   const [viewM, setViewM] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const [showCalendar, setShowCalendar] = useState<boolean>(false); // calendar hidden until the doctor taps the calendar icon
 
   // ── Data States ──
   const [avail, setAvail] = useState<AvailabilityEntry[]>(initialAvailability || []);
@@ -246,7 +247,7 @@ const AvailabilitySection: React.FC<Props> = ({
   const [showEndDrop, setShowEndDrop] = useState<boolean>(false);
 
   // ── General Availability (Bulk) States ──
-  const [showRoutineCard, setShowRoutineCard] = useState<boolean>(false);
+  const [showRoutineCard, setShowRoutineCard] = useState<boolean>(true);
   const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [bulkShift, setBulkShift] = useState<ShiftType>('full');
   const [repeatValue, setRepeatValue] = useState<number>(1);
@@ -452,7 +453,9 @@ const AvailabilitySection: React.FC<Props> = ({
      <View style={styles.header}>
              <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn}><Ionicons name="chevron-back" size={scale(24)} /></TouchableOpacity>
              <Text style={styles.headerTitle}>Manage Availability</Text>
-             <View style={{ width: scale(24) }} />
+             <TouchableOpacity onPress={() => setShowCalendar(v => !v)} style={styles.backBtn} accessibilityLabel="Toggle calendar">
+               <Ionicons name={showCalendar ? 'calendar' : 'calendar-outline'} size={scale(24)} color={C.primary} />
+             </TouchableOpacity>
            </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -594,7 +597,8 @@ const AvailabilitySection: React.FC<Props> = ({
           )}
         </View>
 
-        {/* ── 2. DAILY AVAILABILITY CALENDAR CARD ── */}
+        {/* ── 2. DAILY AVAILABILITY CALENDAR CARD (shown only when calendar icon is tapped) ── */}
+        {showCalendar && (
         <View style={[styles.card, { zIndex: 1 }]}>
           <View style={styles.dailyCardHeader}>
             <Text style={styles.sectionTitle}>Daily Availability</Text>
@@ -713,6 +717,7 @@ const AvailabilitySection: React.FC<Props> = ({
             </View>
           </View>
         </View>
+        )}
 
         {/* ── 3. DAILY SCHEDULE & ACTIVITY PANEL ── */}
         <View style={styles.agendaCard}>

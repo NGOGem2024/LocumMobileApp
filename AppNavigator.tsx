@@ -17,7 +17,7 @@ import SavedJobsScreen from './src/screens/SavedJobsScreen';
 import MainTabNavigator from './src/components/MainTabNavigator';
 
 import { useAuth } from './src/context/AuthContext';
-import JobDetailsScreen from './src/screens/JobDetailsScreen';
+import { DutyShiftsDetailScreen } from './src/screens/DutyShiftsDetailScreen';
 import ApplyJobScreen from './src/screens/ApplyJobScreen';
 import EarningsHistoryScreen from './src/screens/EarningsHistoryScreen';
 import EarningsOverviewScreen from './src/screens/EarningsOverviewScreen';
@@ -47,7 +47,7 @@ const AppNavigator = () => {
           <Stack.Group>
             <Stack.Screen name="MainTabs" component={MainTabNavigator} />
             <Stack.Screen name="SavedJobs" component={SavedJobsScreen} />
-            <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
+            <Stack.Screen name="DutyShiftsDetailScreen" component={DutyShiftsDetailScreen} />
             <Stack.Screen name="DutiesScreen" component={DutiesScreen} />
             <Stack.Screen name="EditDoctorProfileScreen" component={EditDoctorProfileScreen} />
             <Stack.Screen name="EarningsHistory" component={EarningsHistoryScreen} />

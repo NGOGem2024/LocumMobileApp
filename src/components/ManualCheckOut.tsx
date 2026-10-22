@@ -17,8 +17,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import api from '../services/axiosConfig';
 
-// Put this file in: src/components/ManualCheckOut.tsx
-
 const { width: SW, height: SH } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
 
@@ -38,13 +36,10 @@ const C = {
   warningBorder: '#fde68a',
 };
 
-// ─────────────────────────────────────────────────────────────
-// Types + API
-// ─────────────────────────────────────────────────────────────
 export type MissedCheckOut = {
   assignment_id: string;
   requirement_id: string;
-  duty_date: string; // "YYYY-MM-DD"
+  duty_date: string;
   hospital_name: string;
   shift_from: string;
   shift_to: string;
@@ -58,10 +53,12 @@ export type ManualTarget = {
   requirementId: string;
   dutyDate: string;
   hospitalName?: string;
-  checkInTime?: string | null; // first check-in of that day
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  shiftFrom?: string | null;
+  shiftTo?: string | null;
 };
 
-// Earlier days where the doctor checked in but never checked out
 export const fetchMissedCheckOuts = async (): Promise<MissedCheckOut[]> => {
   try {
     const { data } = await api.get('/api/doctors/missed-check-outs');
@@ -79,24 +76,14 @@ const fmtTime = (iso?: string | null) => {
 };
 
 const fmtDate = (ymd: string) => {
+  if (!ymd) return '';
   const d = new Date(`${ymd}T00:00:00`);
   if (isNaN(d.getTime())) return ymd;
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
-const fmtDateTime = (iso?: string | null) => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  return `${date}, ${fmtTime(iso)}`;
-};
-
 const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
 
-// ─────────────────────────────────────────────────────────────
-// Manual check-out modal: End time + Reason (both mandatory). No map, no GPS.
-// ─────────────────────────────────────────────────────────────
 type ModalProps = {
   visible: boolean;
   target: ManualTarget | null;
@@ -105,49 +92,100 @@ type ModalProps = {
 };
 
 export const ManualCheckOutModal = ({ visible, target, onClose, onSubmitted }: ModalProps) => {
-  const [hour, setHour] = useState('');
-  const [minute, setMinute] = useState('');
-  const [ampm, setAmpm] = useState<'AM' | 'PM'>('PM');
+  const [startHour, setStartHour] = useState('');
+  const [startMin, setStartMin] = useState('');
+  const [startAmpm, setStartAmpm] = useState<'AM' | 'PM'>('AM');
+
+  const [endHour, setEndHour] = useState('');
+  const [endMin, setEndMin] = useState('');
+  const [endAmpm, setEndAmpm] = useState<'AM' | 'PM'>('PM');
+
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (visible) {
-      setHour('');
-      setMinute('');
-      setAmpm('PM');
+    if (visible && target) {
+      if (target.checkInTime) {
+        const d = new Date(target.checkInTime);
+        if (!isNaN(d.getTime())) {
+          let h = d.getHours();
+          const m = d.getMinutes();
+          const ampmVal = h >= 12 ? 'PM' : 'AM';
+          h = h % 12 || 12;
+          setStartHour(String(h));
+          setStartMin(pad(m));
+          setStartAmpm(ampmVal);
+        }
+      } else {
+        setStartHour('');
+        setStartMin('');
+        setStartAmpm('AM');
+      }
+
+      if (target.checkOutTime) {
+        const d = new Date(target.checkOutTime);
+        if (!isNaN(d.getTime())) {
+          let h = d.getHours();
+          const m = d.getMinutes();
+          const ampmVal = h >= 12 ? 'PM' : 'AM';
+          h = h % 12 || 12;
+          setEndHour(String(h));
+          setEndMin(pad(m));
+          setEndAmpm(ampmVal);
+        }
+      } else {
+        setEndHour('');
+        setEndMin('');
+        setEndAmpm('PM');
+      }
+
       setReason('');
       setError('');
       setLoading(false);
     }
-  }, [visible]);
+  }, [visible, target]);
 
   const submit = async () => {
     if (!target || loading) return;
-    const h = parseInt(hour, 10);
-    const m = parseInt(minute, 10);
-    if (isNaN(h) || h < 1 || h > 12 || isNaN(m) || m < 0 || m > 59) {
-      setError('Enter a valid end time.');
+
+    const sh = parseInt(startHour, 10);
+    const sm = parseInt(startMin, 10);
+    const eh = parseInt(endHour, 10);
+    const em = parseInt(endMin, 10);
+
+    if (isNaN(sh) || sh < 1 || sh > 12 || isNaN(sm) || sm < 0 || sm > 59) {
+      setError('Please provide a valid start time (Check-in).');
       return;
     }
+
+    if (isNaN(eh) || eh < 1 || eh > 12 || isNaN(em) || em < 0 || em > 59) {
+      setError('Please provide a valid end time (Check-out).');
+      return;
+    }
+
     if (!reason.trim()) {
-      setError('Reason is required.');
+      setError('Reason for regularization is required.');
       return;
     }
-    const h24 = (h % 12) + (ampm === 'PM' ? 12 : 0);
+
+    const startH24 = (sh % 12) + (startAmpm === 'PM' ? 12 : 0);
+    const endH24 = (eh % 12) + (endAmpm === 'PM' ? 12 : 0);
+
     setLoading(true);
     setError('');
+
     try {
-      const { data } = await api.post('/api/doctors/manual-check-out', {
+      const { data } = await api.post('/api/doctors/regularize-shift', {
         requirement_id: target.requirementId,
         duty_date: target.dutyDate,
-        check_out_time: `${pad(h24)}:${pad(m)}`,
+        check_in_time: `${pad(startH24)}:${pad(sm)}`,
+        check_out_time: `${pad(endH24)}:${pad(em)}`,
         reason: reason.trim(),
       });
-      onSubmitted(data?.message || 'Check-out time submitted for approval.');
+      onSubmitted(data?.message || 'Regularization request submitted for approval.');
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not submit. Please try again.');
+      setError(e?.response?.data?.message || 'Could not submit regularization request.');
     } finally {
       setLoading(false);
     }
@@ -157,83 +195,117 @@ export const ManualCheckOutModal = ({ visible, target, onClose, onSubmitted }: M
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
         <View style={styles.box}>
-          <Text style={styles.title}>Add Check-Out Time</Text>
-          <Text style={styles.sub}>
-            {target?.hospitalName ? `${target.hospitalName} · ` : ''}
-            {target?.dutyDate ? fmtDate(target.dutyDate) : ''}
-          </Text>
-
-          {target?.checkInTime ? (
-            <View style={styles.startBox}>
-              <Text style={styles.startLabel}>Start (first check-in)</Text>
-              <Text style={styles.startValue}>{fmtDateTime(target.checkInTime)}</Text>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.title}>Shift Regularization</Text>
+              <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={scale(20)} color={C.ink} />
+              </TouchableOpacity>
             </View>
-          ) : null}
+            <Text style={styles.sub}>
+              {target?.hospitalName ? `${target.hospitalName} · ` : ''}
+              {target?.dutyDate ? fmtDate(target.dutyDate) : ''}
+            </Text>
 
-          <Text style={styles.label}>End time</Text>
-          <View style={styles.timeRow}>
-            <TextInput
-              style={[styles.input, styles.timeInput]}
-              placeholder="HH"
-              placeholderTextColor={C.textMuted}
-              keyboardType="number-pad"
-              maxLength={2}
-              value={hour}
-              onChangeText={setHour}
-            />
-            <Text style={styles.colon}>:</Text>
-            <TextInput
-              style={[styles.input, styles.timeInput]}
-              placeholder="MM"
-              placeholderTextColor={C.textMuted}
-              keyboardType="number-pad"
-              maxLength={2}
-              value={minute}
-              onChangeText={setMinute}
-            />
-            <View style={styles.ampmWrap}>
-              {(['AM', 'PM'] as const).map(v => (
-                <TouchableOpacity
-                  key={v}
-                  style={[styles.ampmBtn, ampm === v && styles.ampmBtnActive]}
-                  onPress={() => setAmpm(v)}
-                >
-                  <Text style={[styles.ampmText, ampm === v && styles.ampmTextActive]}>{v}</Text>
-                </TouchableOpacity>
-              ))}
+            {/* Check-In / Start Time Input */}
+            <Text style={styles.label}>Start Time (Check-In)</Text>
+            <View style={styles.timeRow}>
+              <TextInput
+                style={[styles.input, styles.timeInput]}
+                placeholder="HH"
+                placeholderTextColor={C.textMuted}
+                keyboardType="number-pad"
+                maxLength={2}
+                value={startHour}
+                onChangeText={setStartHour}
+              />
+              <Text style={styles.colon}>:</Text>
+              <TextInput
+                style={[styles.input, styles.timeInput]}
+                placeholder="MM"
+                placeholderTextColor={C.textMuted}
+                keyboardType="number-pad"
+                maxLength={2}
+                value={startMin}
+                onChangeText={setStartMin}
+              />
+              <View style={styles.ampmWrap}>
+                {(['AM', 'PM'] as const).map(v => (
+                  <TouchableOpacity
+                    key={v}
+                    style={[styles.ampmBtn, startAmpm === v && styles.ampmBtnActive]}
+                    onPress={() => setStartAmpm(v)}
+                  >
+                    <Text style={[styles.ampmText, startAmpm === v && styles.ampmTextActive]}>{v}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-          </View>
 
-          <Text style={styles.label}>Reason</Text>
-          <TextInput
-            style={[styles.input, styles.reasonInput]}
-            placeholder="E.g., Forgot to check out after handover"
-            placeholderTextColor={C.textMuted}
-            multiline
-            value={reason}
-            onChangeText={setReason}
-          />
+            {/* Check-Out / End Time Input */}
+            <Text style={styles.label}>End Time (Check-Out)</Text>
+            <View style={styles.timeRow}>
+              <TextInput
+                style={[styles.input, styles.timeInput]}
+                placeholder="HH"
+                placeholderTextColor={C.textMuted}
+                keyboardType="number-pad"
+                maxLength={2}
+                value={endHour}
+                onChangeText={setEndHour}
+              />
+              <Text style={styles.colon}>:</Text>
+              <TextInput
+                style={[styles.input, styles.timeInput]}
+                placeholder="MM"
+                placeholderTextColor={C.textMuted}
+                keyboardType="number-pad"
+                maxLength={2}
+                value={endMin}
+                onChangeText={setEndMin}
+              />
+              <View style={styles.ampmWrap}>
+                {(['AM', 'PM'] as const).map(v => (
+                  <TouchableOpacity
+                    key={v}
+                    style={[styles.ampmBtn, endAmpm === v && styles.ampmBtnActive]}
+                    onPress={() => setEndAmpm(v)}
+                  >
+                    <Text style={[styles.ampmText, endAmpm === v && styles.ampmTextActive]}>{v}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <Text style={styles.note}>Back office will review this time before it is final.</Text>
+            {/* Reason Input */}
+            <Text style={styles.label}>Reason</Text>
+            <TextInput
+              style={[styles.input, styles.reasonInput]}
+              placeholder="E.g., Emergency OT overtime, biometrics network delay"
+              placeholderTextColor={C.textMuted}
+              multiline
+              value={reason}
+              onChangeText={setReason}
+            />
 
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={loading}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.submitBtn, loading && { opacity: 0.7 }]} onPress={submit} disabled={loading}>
-              {loading ? <ActivityIndicator size="small" color={C.white} /> : <Text style={styles.submitText}>Submit</Text>}
-            </TouchableOpacity>
-          </View>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Text style={styles.note}>Back office will review your submitted shift regularization times.</Text>
+
+            <View style={styles.actions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={loading}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.submitBtn, loading && { opacity: 0.7 }]} onPress={submit} disabled={loading}>
+                {loading ? <ActivityIndicator size="small" color={C.white} /> : <Text style={styles.submitText}>Submit</Text>}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </KeyboardAvoidingView>
     </Modal>
   );
 };
 
-// ─────────────────────────────────────────────────────────────
-// Card listing earlier days with a missed check-out
-// ─────────────────────────────────────────────────────────────
 export const MissedCheckOutsCard = ({
   items,
   onAdd,
@@ -241,7 +313,7 @@ export const MissedCheckOutsCard = ({
 }: {
   items: MissedCheckOut[];
   onAdd: (item: MissedCheckOut) => void;
-  flush?: boolean; // true when the parent already has horizontal padding
+  flush?: boolean;
 }) => {
   if (!items || items.length === 0) return null;
   return (
@@ -269,7 +341,7 @@ export const MissedCheckOutsCard = ({
           ) : (
             <TouchableOpacity style={styles.missedBtn} onPress={() => onAdd(it)}>
               <Ionicons name="time-outline" size={scale(16)} color={C.white} />
-              <Text style={styles.missedBtnText}>Add Check-Out Time</Text>
+              <Text style={styles.missedBtnText}>Regularize Timings</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -278,9 +350,6 @@ export const MissedCheckOutsCard = ({
   );
 };
 
-// ─────────────────────────────────────────────────────────────
-// Hamburger button (top-left). Panel opens only when tapped, X closes it.
-// ─────────────────────────────────────────────────────────────
 export const ManualCheckOutMenu = ({
   items,
   onAdd,
@@ -294,7 +363,6 @@ export const ManualCheckOutMenu = ({
 
   const handleAdd = (item: MissedCheckOut) => {
     setOpen(false);
-    // iOS can't present a modal while another one is still dismissing
     setTimeout(() => onAdd(item), Platform.OS === 'ios' ? 350 : 50);
   };
 
@@ -315,7 +383,7 @@ export const ManualCheckOutMenu = ({
             <TouchableWithoutFeedback>
               <View style={[styles.menuPanel, { marginTop: insets.top + scale(52) }]}>
                 <View style={styles.menuHeader}>
-                  <Text style={styles.menuTitle}>Manual Check-Out</Text>
+                  <Text style={styles.menuTitle}>Missed Shifts & Attendance</Text>
                   <TouchableOpacity style={styles.menuClose} onPress={() => setOpen(false)} hitSlop={8}>
                     <Ionicons name="close" size={scale(20)} color={C.ink} />
                   </TouchableOpacity>
@@ -326,7 +394,7 @@ export const ManualCheckOutMenu = ({
                   ) : (
                     <View style={styles.menuEmpty}>
                       <Ionicons name="checkmark-circle-outline" size={scale(32)} color={C.textMuted} />
-                      <Text style={styles.menuEmptyText}>No missed check-outs</Text>
+                      <Text style={styles.menuEmptyText}>All shifts checked out properly</Text>
                     </View>
                   )}
                 </ScrollView>
@@ -341,15 +409,13 @@ export const ManualCheckOutMenu = ({
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: scale(20) },
-  box: { backgroundColor: C.cardBg, borderRadius: scale(16), padding: scale(20), width: '100%' },
+  box: { backgroundColor: C.cardBg, borderRadius: scale(16), padding: scale(20), width: '100%', maxHeight: SH * 0.85 },
+  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: scale(16), fontWeight: '800', color: C.ink, marginBottom: scale(4) },
   sub: { fontSize: scale(12), color: C.textSub, marginBottom: scale(16) },
-  startBox: { backgroundColor: C.primaryLight, borderRadius: scale(10), paddingVertical: scale(10), paddingHorizontal: scale(12), marginBottom: scale(16) },
-  startLabel: { fontSize: scale(11), fontWeight: '600', color: C.textSub },
-  startValue: { fontSize: scale(14), fontWeight: '800', color: C.primary, marginTop: scale(2) },
   label: { fontSize: scale(12), fontWeight: '700', color: C.ink, marginBottom: scale(6) },
   input: { backgroundColor: C.inputBg, borderRadius: scale(10), borderWidth: 1, borderColor: C.border, paddingHorizontal: scale(12), paddingVertical: scale(10), color: C.ink, fontSize: scale(14) },
-  timeRow: { flexDirection: 'row', alignItems: 'center', gap: scale(8), marginBottom: scale(16) },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: scale(8), marginBottom: scale(14) },
   timeInput: { width: scale(58), textAlign: 'center' },
   colon: { fontSize: scale(16), fontWeight: '800', color: C.ink },
   ampmWrap: { flexDirection: 'row', marginLeft: scale(6), borderRadius: scale(10), borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
@@ -357,10 +423,10 @@ const styles = StyleSheet.create({
   ampmBtnActive: { backgroundColor: C.primary },
   ampmText: { fontSize: scale(13), fontWeight: '700', color: C.textSub },
   ampmTextActive: { color: C.white },
-  reasonInput: { minHeight: scale(90), textAlignVertical: 'top', marginBottom: scale(8) },
+  reasonInput: { minHeight: scale(80), textAlignVertical: 'top', marginBottom: scale(8) },
   error: { color: C.urgent, fontSize: scale(12), fontWeight: '600', marginBottom: scale(6) },
   note: { fontSize: scale(11), color: C.textMuted, marginBottom: scale(16) },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: scale(12) },
+  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: scale(12), marginTop: scale(8) },
   cancelBtn: { paddingVertical: scale(10), paddingHorizontal: scale(16) },
   cancelText: { color: C.textSub, fontWeight: '700', fontSize: scale(14) },
   submitBtn: { backgroundColor: C.primary, paddingVertical: scale(10), paddingHorizontal: scale(20), borderRadius: scale(8), minWidth: scale(90), alignItems: 'center' },

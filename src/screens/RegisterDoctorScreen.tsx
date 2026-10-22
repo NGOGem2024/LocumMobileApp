@@ -556,7 +556,7 @@ const RegisterDoctorScreen: React.FC = () => {
                 <Field label="FIRST NAME" required icon="person-outline" placeholder="First name" value={form.first_name} onChangeText={v => setField('first_name', v)} error={errors.first_name} />
                 <Field label="MIDDLE NAME" icon="person-outline" placeholder="Optional" value={form.middle_name} onChangeText={v => setField('middle_name', v)} />
                 <Field label="LAST NAME" required icon="person-outline" placeholder="Last name" value={form.last_name} onChangeText={v => setField('last_name', v)} error={errors.last_name} />
-                <Field label="MOBILE NUMBER" required icon="call-outline" placeholder="9876543210" value={form.mobile_number} onChangeText={v => setField('mobile_number', v.replace(/\D/g, '').slice(10))} error={errors.mobile_number} keyboardType="phone-pad" maxLength={10} prefix="+91" />
+                <Field label="MOBILE NUMBER" required icon="call-outline" placeholder="9876543210" value={form.mobile_number} onChangeText={v => setField('mobile_number', v.replace(/\D/g, '').slice(0, 10))} error={errors.mobile_number} keyboardType="phone-pad" maxLength={10} prefix="+91" />
                 <Field label="EMAIL ADDRESS" required icon="mail-outline" placeholder="name@domain.com" value={form.email} onChangeText={v => setField('email', v.trim())} error={errors.email} keyboardType="email-address" autoCapitalize="none" />
                 
                 {/* ── ADDRESS AUTOCOMPLETE ── */}

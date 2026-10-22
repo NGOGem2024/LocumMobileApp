@@ -22,10 +22,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import Geolocation from '@react-native-community/geolocation';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import { useAuth } from '../context/AuthContext';
-import { useJobs } from '../context/JobContext';
-import AvailabilitySection from '../components/AvailabilitySection';
 import api from '../services/axiosConfig';
-import { ManualCheckOutModal, ManualCheckOutMenu, fetchMissedCheckOuts, MissedCheckOut, ManualTarget } from '../components/ManualCheckOut';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
@@ -84,29 +81,8 @@ const formatTimestampTime = (iso?: string | null) => {
   });
 };
 
-const isDutyTimeActionable = (fromTime?: string, toTime?: string, isCheckedIn?: boolean, isCheckedOut?: boolean) => {
-  if (isCheckedOut) return false; 
-  if (isCheckedIn) return true; 
-  if (!fromTime || !toTime) return true; 
-
-  const now = new Date();
-  const currentMins = now.getHours() * 60 + now.getMinutes();
-
-  const parseMins = (t: string) => {
-    const parts = t.split(':');
-    if (parts.length < 2) return 0;
-    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-  };
-
-  const startMins = parseMins(fromTime);
-  const endMins = parseMins(toTime);
-  const effectiveStart = startMins - 30; // Allow 30 mins early
-
-  if (endMins < startMins) {
-    return currentMins >= effectiveStart || currentMins <= endMins;
-  }
-  // Not checked in yet: button stays available from 30 min before start, even after the duty end time
-  return currentMins >= effectiveStart;
+const isDutyTimeActionable = (_fromTime?: string, _toTime?: string, _isCheckedIn?: boolean, isCheckedOut?: boolean) => {
+  return !isCheckedOut;
 };
 
 const requestLocationPermission = async (): Promise<boolean> => {
@@ -147,9 +123,7 @@ const getCurrentPosition = (): Promise<Coords> =>
       failures += 1;
       if (!done && failures >= 2) reject(error);
     };
-    // Fast path: recent cached / network fix (returns almost instantly)
     Geolocation.getCurrentPosition(onSuccess, onError, { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 });
-    // Accurate path: fresh GPS fix, runs in parallel; whichever answers first wins
     Geolocation.getCurrentPosition(onSuccess, onError, { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 });
   });
 
@@ -277,11 +251,8 @@ const HomeScreen = ({ navigation }: any) => {
   const [mapType, setMapType] = useState<'check-in' | 'check-out'>('check-in');
   const [mapCoords, setMapCoords] = useState<Coords | null>(null);
   const [mapLocating, setMapLocating] = useState(false);
-  const [missedCheckOuts, setMissedCheckOuts] = useState<MissedCheckOut[]>([]);
-  const [manualTarget, setManualTarget] = useState<ManualTarget | null>(null);
   const mapRef = useRef<MapView>(null);
 
-  // Once location arrives, zoom the map to show your pin (and the hospital, if known)
   useEffect(() => {
     if (!mapVisible || !mapCoords || !mapRef.current) return;
     const hc = mapDuty?.hospital?.coordinates;
@@ -296,7 +267,6 @@ const HomeScreen = ({ navigation }: any) => {
     }, 300);
     return () => clearTimeout(t);
   }, [mapVisible, mapCoords, mapDuty]);
-  const [activeSection] = useState<'jobs' | 'availability'>('jobs');
 
   const toastFadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -318,12 +288,11 @@ const HomeScreen = ({ navigation }: any) => {
   const loadAllData = useCallback(async () => {
     if (!doctor?._id) return;
     try {
-      const [availRes, rateRes, todayDutiesRes, upcomingDutiesRes, missedRes] = await Promise.all([
+      const [availRes, rateRes, todayDutiesRes, upcomingDutiesRes] = await Promise.all([
         api.get(`/api/doctors/${doctor._id}/availability`).catch(() => ({ data: { availability: [] } })),
         api.get(`/api/doctors/rate-card/${doctor._id}`).catch(() => ({ data: { data: [] } })),
         api.get('/api/doctors/today-duties').catch(() => ({ data: { success: false } })),
         api.get('/api/doctors/upcoming-duties').catch(() => ({ data: { success: false } })),
-        fetchMissedCheckOuts(),
       ]);
 
       if (todayDutiesRes.data?.success && todayDutiesRes.data.has_today_duty) {
@@ -338,7 +307,6 @@ const HomeScreen = ({ navigation }: any) => {
         setUpcomingDuties([]);
       }
 
-      setMissedCheckOuts(missedRes);
       setFetchedAvailability(availRes.data?.availability ?? []);
       setRateCard(rateRes.data?.data ?? []);
     } catch (error) {
@@ -357,7 +325,6 @@ const HomeScreen = ({ navigation }: any) => {
     setRefreshing(false);
   }, [loadAllData]);
 
-  // Opens the map first; location is fetched while the map is already on screen
   const openAttendanceMap = async (duty: any, type: 'check-in' | 'check-out') => {
     if (!duty?.requirement_id || attendanceLoading) return;
 
@@ -391,38 +358,17 @@ const HomeScreen = ({ navigation }: any) => {
     }
   };
 
-  // Manual check-out (late / missed): end time + reason, no map, no GPS
-  const openManualCheckOut = (duty: any) => {
-    setManualTarget({
-      requirementId: duty.requirement_id,
-      dutyDate: duty.attendance?.duty_date,
-      hospitalName: duty.hospital?.name,
-      checkInTime: duty.attendance?.check_in_time,
-    });
-  };
-
-  const openManualForMissed = (item: MissedCheckOut) => {
-    setManualTarget({
-      requirementId: item.requirement_id,
-      dutyDate: item.duty_date,
-      hospitalName: item.hospital_name,
-      checkInTime: item.first_check_in_time,
-    });
-  };
-
   const closeAttendanceMap = () => {
     if (attendanceLoading) return;
     setMapVisible(false);
   };
 
-  // Called from the map's confirm button, reuses the location already fetched
   const handleAttendance = async (duty: any, type: 'check-in' | 'check-out', coords: Coords) => {
     if (!duty?.requirement_id || attendanceLoading) return;
 
     setAttendanceLoading(true);
 
     try {
-      // Sends accurate geo payload matching updated backend check-in/out structures
       const { data } = await api.post(`/api/doctors/${type}`, {
         requirement_id: duty.requirement_id,
         latitude: coords.latitude,
@@ -430,7 +376,6 @@ const HomeScreen = ({ navigation }: any) => {
         accuracy: coords.accuracy,
       });
 
-      // Update the card instantly instead of waiting for 4 API calls
       setTodayDuties(prev => prev.map(d => {
         if (d.requirement_id !== duty.requirement_id) return d;
         const att = d.attendance || {};
@@ -442,7 +387,6 @@ const HomeScreen = ({ navigation }: any) => {
             ...existingSessions,
             { check_in: { timestamp: newCheckInIso }, check_out: null },
           ];
-          // Oldest check-in is ALWAYS the first session's timestamp (or existing att.check_in_time)
           const oldestCheckInTime =
             updatedSessions[0]?.check_in?.timestamp ||
             att.check_in_time ||
@@ -457,8 +401,7 @@ const HomeScreen = ({ navigation }: any) => {
               can_check_in: false,
               can_check_out: true,
               check_in_status: 'Checked In',
-              check_in_time: oldestCheckInTime, // Keep oldest check-in
-              // Keep previous newest check_out_time visible if they checked out earlier
+              check_in_time: oldestCheckInTime,
               check_out_time: att.check_out_time || null,
               sessions: updatedSessions,
             },
@@ -483,8 +426,8 @@ const HomeScreen = ({ navigation }: any) => {
               can_check_out: false,
               can_check_in: !!data?.data?.can_check_in_again,
               check_in_status: data?.data?.can_check_in_again ? 'Checked Out Early' : 'Completed',
-              check_in_time: oldestCheckInTime,   // Oldest check-in
-              check_out_time: newestCheckOutIso,  // Newest check-out
+              check_in_time: oldestCheckInTime,
+              check_out_time: newestCheckOutIso,
               sessions: updatedSessions,
             },
           };
@@ -493,17 +436,9 @@ const HomeScreen = ({ navigation }: any) => {
 
       setMapVisible(false);
       showToast(data?.message || (type === 'check-in' ? 'Check-in successful!' : 'Check-out successful!'));
-      loadAllData(); // background refresh, not awaited
+      loadAllData();
     } catch (error: any) {
-      if (error.response?.data?.manual_check_out_required) {
-        // Check-out time is over: switch to the manual form (no map)
-        setMapVisible(false);
-        showToast(error.response?.data?.message || 'Please add your check-out time.');
-        openManualCheckOut(duty);
-        loadAllData();
-      } else {
-        showToast(error.response?.data?.message || `Error during ${type}`);
-      }
+      showToast(error.response?.data?.message || `Error during ${type}`);
     } finally {
       setAttendanceLoading(false);
     }
@@ -531,7 +466,6 @@ const HomeScreen = ({ navigation }: any) => {
         <TouchableOpacity style={styles.logoContainer} activeOpacity={0.8}>
           <Image source={require('../assets/image.png')} style={styles.logoImage} resizeMode="contain" />
         </TouchableOpacity>
-        <ManualCheckOutMenu items={missedCheckOuts} onAdd={openManualForMissed} />
       </View>
 
       <View style={styles.headerContainer}>
@@ -549,318 +483,288 @@ const HomeScreen = ({ navigation }: any) => {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.primary]} />}
       >
-        {activeSection === 'availability' ? (
-          <View style={styles.availabilityWrapper}>
-            <View style={styles.availabilityHeader}>
-              <Text style={styles.availabilityTitle}>Manage Availability</Text>
-              <Ionicons name="ellipsis-horizontal" size={scale(20)} color={C.textMuted} />
+        {/* TODAY'S DUTIES SECTION */}
+        {todayDuties.length > 0 && (
+          <View style={styles.sectionContainerNoMargin}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Today's Duties</Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('DutiesScreen', { defaultTab: 'Today' })}
+                style={styles.viewAllBtn}
+              >
+                <Text style={styles.viewAllText}>View All</Text>
+                <Ionicons name="chevron-forward" size={scale(14)} color={C.primary} />
+              </TouchableOpacity>
             </View>
-            <AvailabilitySection
-              doctorId={doctor?._id || ''}
-              apiBaseUrl={api.defaults.baseURL ?? ''}
-              authToken={token ?? ''}
-              initialAvailability={fetchedAvailability}
-            />
-          </View>
-        ) : (
-          <>
-            {/* 1. TODAY'S DUTIES SECTION (COMPACT WITH NAVIGATION & RATES) */}
-            {todayDuties.length > 0 && (
-              <View style={styles.sectionContainerNoMargin}>
-                <View style={styles.sectionHeaderPad}>
-                  <Text style={styles.sectionTitle}>Today's Duties</Text>
-                </View>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.todayDutiesScrollContainer}
-                  snapToInterval={SW * 0.85 + scale(14)}
-                  decelerationRate="fast"
-                >
-                  {todayDuties.map((duty, index) => {
-                    const cdArea = duty.hospital?.area || '';
-                    const cdCity = duty.hospital?.district || duty.hospital?.city || '';
-                    const cdState = duty.hospital?.state || '';
-                    const cdPincode = duty.hospital?.pincode || '';
-                    
-                    const cdLocationParts = [cdArea, cdCity, cdState].filter(Boolean);
-                    let cdLocationString = cdLocationParts.join(', ');
-                    if (cdPincode) cdLocationString = cdLocationString ? `${cdLocationString} - ${cdPincode}` : cdPincode;
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.todayDutiesScrollContainer}
+              snapToInterval={SW * 0.85 + scale(14)}
+              decelerationRate="fast"
+            >
+              {todayDuties.map((duty, index) => {
+                const cdArea = duty.hospital?.area || '';
+                const cdCity = duty.hospital?.district || duty.hospital?.city || '';
+                const cdState = duty.hospital?.state || '';
+                const cdPincode = duty.hospital?.pincode || '';
+                
+                const cdLocationParts = [cdArea, cdCity, cdState].filter(Boolean);
+                let cdLocationString = cdLocationParts.join(', ');
+                if (cdPincode) cdLocationString = cdLocationString ? `${cdLocationString} - ${cdPincode}` : cdPincode;
 
-                    // Relies entirely on the safely-processed attendance object injected by the backend
-                    const attendance = duty.attendance;
-                    const sessions = Array.isArray(attendance?.sessions) ? attendance.sessions : [];
+                const attendance = duty.attendance;
+                const sessions = Array.isArray(attendance?.sessions) ? attendance.sessions : [];
 
-                    // Oldest Check-In: 1st element in sessions array (fallback to attendance.check_in_time)
-                    const oldestCheckInIso =
-                      sessions[0]?.check_in?.timestamp || attendance?.check_in_time || null;
+                const oldestCheckInIso =
+                  sessions[0]?.check_in?.timestamp || attendance?.check_in_time || null;
 
-                    // Newest Check-Out: last session that has a check_out timestamp (fallback to attendance.check_out_time)
-                    const completedSessions = sessions.filter((s: any) => s?.check_out?.timestamp);
-                    const newestCheckOutIso =
-                      completedSessions.length > 0
-                        ? completedSessions[completedSessions.length - 1].check_out.timestamp
-                        : attendance?.check_out_time || null;
+                const completedSessions = sessions.filter((s: any) => s?.check_out?.timestamp);
+                const newestCheckOutIso =
+                  completedSessions.length > 0
+                    ? completedSessions[completedSessions.length - 1].check_out.timestamp
+                    : attendance?.check_out_time || null;
 
-                    const isDutyCompleted =
-                      (!!attendance?.is_checked_out && !attendance?.can_check_in) ||
-                      duty.duty_state === 'COMPLETED';
-                    const canCheckIn = !!attendance?.can_check_in;
-                    const canCheckOut = !!attendance?.can_check_out;
-                    const checkInTimeStr = formatTimestampTime(oldestCheckInIso);
-                    const checkOutTimeStr = formatTimestampTime(newestCheckOutIso);
-                    const manualRequired = !!attendance?.manual_check_out_required;
-                    const manualPending = !!attendance?.manual_check_out_pending;
-                    const checkOutUntilStr = formatTimestampTime(attendance?.check_out_allowed_until);
+                const isDutyCompleted =
+                  (!!attendance?.is_checked_out && !attendance?.can_check_in) ||
+                  duty.duty_state === 'COMPLETED';
+                const canCheckIn = !!attendance?.can_check_in;
+                const canCheckOut = !!attendance?.can_check_out;
+                const checkInTimeStr = formatTimestampTime(oldestCheckInIso);
+                const checkOutTimeStr = formatTimestampTime(newestCheckOutIso);
 
-                    const showActions = isDutyTimeActionable(
-                      duty.shift_timings?.duty_from_time, 
-                      duty.shift_timings?.duty_to_time,
-                      attendance?.is_checked_in,
-                      attendance?.is_checked_out && !attendance?.can_check_in
-                    );
+                const showActions = isDutyTimeActionable(
+                  duty.shift_timings?.duty_from_time, 
+                  duty.shift_timings?.duty_to_time,
+                  attendance?.is_checked_in,
+                  attendance?.is_checked_out && !attendance?.can_check_in
+                );
 
-                    const todayFormatted = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-                    const displayRate = duty.configured_rate || duty.offered_rate || '0';
+                const todayFormatted = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                const displayRate = duty.configured_rate || duty.offered_rate || '0';
 
-                    return (
-                      <TouchableOpacity
-                        key={duty.assignment_id || index}
-                        activeOpacity={0.95}
-                        onPress={() => navigation.navigate('DutiesScreen', { defaultTab: 'Today' })}
-                        style={{ width: SW * 0.85, marginRight: scale(14) }}
-                      >
-                        <LinearGradient colors={['#E5F8FA', '#F3FCFD']} style={[styles.currentDutyCard, { width: '100%', marginRight: 0 }]}>
-                          <View style={styles.cdHeader}>
-                            <View style={styles.cdHeaderLeft}>
-                              <View style={styles.cdDot} />
-                              <Text style={styles.cdHeaderText}>{todayDuties.length > 1 ? `DUTY ${index + 1} OF ${todayDuties.length}` : 'CURRENT DUTY'}</Text>
-                            </View>
-                            <Text style={styles.cdInProgress}>{duty.duty_state === 'IN_PROGRESS' ? 'In Progress' : (duty.duty_state === 'COMPLETED' ? 'Completed' : duty.status || 'Active')}</Text>
-                          </View>
-
-                          <View style={styles.cdBody}>
-                            <View style={styles.cdIconBox}>
-                              <Ionicons name="business-outline" size={scale(20)} color={C.primary} />
-                            </View>
-                            <View style={styles.cdInfo}>
-                              <Text style={styles.cdTitle} numberOfLines={1}>{duty.speciality || 'General Duty'}</Text>
-                              <Text style={styles.cdHospital} numberOfLines={1}>{duty.hospital?.name || 'Hospital'}</Text>
-                              {cdLocationString ? (
-                                <View style={styles.cdLocationRow}>
-                                  <Ionicons name="location-outline" size={scale(12)} color={C.textSub} />
-                                  <Text style={styles.cdLocationText} numberOfLines={2}>{cdLocationString}</Text>
-                                </View>
-                              ) : null}
-                            </View>
-                          </View>
-
-                          <View style={styles.cdDivider} />
-
-                          <View style={styles.cdFooter}>
-                            <View style={styles.cdFooterItem}>
-                              <Ionicons name="calendar-outline" size={scale(14)} color={C.textSub} />
-                              <Text style={styles.cdFooterText}>{todayFormatted}</Text>
-                            </View>
-                            <View style={styles.cdFooterItem}>
-                              <Ionicons name="time-outline" size={scale(14)} color={C.textSub} />
-                              <Text style={styles.cdFooterText}>
-                                {formatTimeAMPM(duty.shift_timings?.duty_from_time)} - {formatTimeAMPM(duty.shift_timings?.duty_to_time)}
-                              </Text>
-                            </View>
-                            <View style={styles.cdFooterItem}>
-                              <Ionicons name="cash-outline" size={scale(14)} color={C.success} />
-                              <Text style={[styles.cdFooterText, { color: C.ink, fontWeight: '800' }]}>₹{displayRate}</Text>
-                            </View>
-                          </View>
-
-                          <View style={styles.cdAttendanceWrap}>
-                            {(checkInTimeStr || checkOutTimeStr) ? (
-                              <View style={styles.cdAttendanceInfoRow}>
-                                {checkInTimeStr ? <Text style={styles.cdAttendanceInfoText}>Checked in: {checkInTimeStr}</Text> : null}
-                                {checkOutTimeStr ? <Text style={styles.cdAttendanceInfoText}>Checked out: {checkOutTimeStr}</Text> : null}
-                              </View>
-                            ) : null}
-
-                            {manualRequired && (
-                              <TouchableOpacity style={[styles.cdActionBtn, { backgroundColor: '#d97706' }]} onPress={() => openManualCheckOut(duty)}>
-                                <><Ionicons name="time-outline" size={scale(16)} color={C.white} /><Text style={styles.cdBtnText}>Add Check-Out Time</Text></>
-                              </TouchableOpacity>
-                            )}
-                            {manualPending && (
-                              <View style={styles.cdTimeWaitBadge}>
-                                <Ionicons name="hourglass-outline" size={scale(14)} color={C.warning} />
-                                <Text style={styles.cdTimeWaitText}>Check-out waiting for approval</Text>
-                              </View>
-                            )}
-                            {canCheckOut && checkOutUntilStr ? (
-                              <Text style={styles.cdAttendanceInfoText}>Check out before {checkOutUntilStr}</Text>
-                            ) : null}
-
-                            {showActions ? (
-                              <>
-                                {canCheckIn && (
-                                  <TouchableOpacity style={styles.cdActionBtn} disabled={attendanceLoading} onPress={() => openAttendanceMap(duty, 'check-in')}>
-                                    <><Ionicons name="log-in-outline" size={scale(16)} color={C.white} /><Text style={styles.cdBtnText}>Check In</Text></>
-                                  </TouchableOpacity>
-                                )}
-                                {canCheckOut && (
-                                  <TouchableOpacity style={[styles.cdActionBtn, styles.cdActionBtnOut]} disabled={attendanceLoading} onPress={() => openAttendanceMap(duty, 'check-out')}>
-                                    <><Ionicons name="log-out-outline" size={scale(16)} color={C.white} /><Text style={styles.cdBtnText}>Check Out</Text></>
-                                  </TouchableOpacity>
-                                )}
-                              </>
-                            ) : (
-                              !isDutyCompleted && (
-                                <View style={styles.cdTimeWaitBadge}>
-                                  <Ionicons name="time-outline" size={scale(14)} color={C.warning} />
-                                  <Text style={styles.cdTimeWaitText}>Buttons appear at duty time</Text>
-                                </View>
-                              )
-                            )}
-                            {isDutyCompleted && (
-                              <View style={styles.cdCompletedBadge}>
-                                <Ionicons name="checkmark-circle-outline" size={scale(16)} color="#059669" />
-                                <Text style={styles.cdLastDayText}>Shift Completed</Text>
-                              </View>
-                            )}
-                          </View>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* 2. REAL UPCOMING DUTIES SECTION */}
-            <View style={styles.sectionContainer}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Upcoming Duties</Text>
-              </View>
-              {loadingJobs && !refreshing ? (
-                <ActivityIndicator size="small" color={C.primary} style={{ marginVertical: 10 }} />
-              ) : upcomingDuties.length === 0 ? (
-                <View style={styles.emptyUpcomingBox}>
-                  <Ionicons name="calendar-outline" size={scale(24)} color={C.textMuted} />
-                  <Text style={styles.emptyUpcomingText}>No upcoming duties scheduled.</Text>
-                </View>
-              ) : (
-                upcomingDuties
-                  .filter(duty => !todayRequirementIds.includes(duty.requirement_id))
-                  .slice(0, 3)
-                  .map(duty => {
-                  const hospitalName = duty.hospital?.name || 'Hospital Name Pending';
-                  const area = duty.hospital?.area || '';
-                  const city = duty.hospital?.city || '';
-                  const state = duty.hospital?.state || '';
-                  const pincode = duty.hospital?.pincode || '';
-
-                  const locationParts = [area, city, state].filter(Boolean);
-                  let locationString = locationParts.join(', ');
-                  if (pincode) locationString = locationString ? `${locationString} - ${pincode}` : pincode;
-                  if (!locationString) locationString = 'Location unavailable';
-
-                  const dutyAssignedDates = duty.assigned_dates || [];
-                  const hasIndividualDates = dutyAssignedDates.length > 0;
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-
-                  const futureDates = dutyAssignedDates.filter((dateStr: string) => {
-                    const d = new Date(dateStr);
-                    d.setHours(0, 0, 0, 0);
-                    return d.getTime() >= today.getTime();
-                  }).sort((a: string, b: string) => new Date(a).getTime() - new Date(b).getTime());
-
-                  const nextShiftDate = futureDates.length > 0 ? futureDates[0] : null;
-                  let displayDatesRange = '';
-                  if (!hasIndividualDates) displayDatesRange = 'Dates pending';
-
-                  const displayRate = duty.configured_rate || duty.offered_rate || duty.rates || '0';
-
-                  return (
-                    <TouchableOpacity
-                      key={duty.requirement_id || duty._id}
-                      style={styles.upcomingCard}
-                      activeOpacity={0.9}
-                      onPress={() => navigation.navigate('JobDetails', { jobDetails: duty, isAssigned: true, jobStatus: 'Upcoming' })}
-                    >
-                      <View style={styles.ucTop}>
-                        <View style={styles.ucIconBox}>
-                          <Ionicons name="medical-outline" size={scale(22)} color={C.primary} />
+                return (
+                  <TouchableOpacity
+                    key={duty.assignment_id || index}
+                    activeOpacity={0.95}
+                    // FLOW CHANGE: Tapping this card opens the dedicated DutyShiftsDetailScreen
+                    onPress={() => navigation.navigate('DutyShiftsDetailScreen', { duty })}
+                    style={{ width: SW * 0.85, marginRight: scale(14) }}
+                  >
+                    <LinearGradient colors={['#E5F8FA', '#F3FCFD']} style={[styles.currentDutyCard, { width: '100%', marginRight: 0 }]}>
+                      <View style={styles.cdHeader}>
+                        <View style={styles.cdHeaderLeft}>
+                          <View style={styles.cdDot} />
+                          <Text style={styles.cdHeaderText}>{todayDuties.length > 1 ? `DUTY ${index + 1} OF ${todayDuties.length}` : 'CURRENT DUTY'}</Text>
                         </View>
-                        <View style={styles.ucInfo}>
-                          <Text style={styles.ucTitle}>{duty.speciality || 'Speciality Not Specified'}</Text>
-                          <Text style={styles.ucDepartment}>{duty.department || 'Department Not Specified'}</Text>
-                          <Text style={styles.ucHospital}>{hospitalName}</Text>
-                          {area ? <Text style={styles.ucArea} numberOfLines={1}>{area}</Text> : null}
-                          {locationString ? (
-                            <View style={styles.ucLocationRowMain}>
-                              <Ionicons name="location-outline" size={scale(12)} color={C.textMuted} />
-                              <Text style={styles.ucLocation} numberOfLines={2}>{locationString}</Text>
+                        <Text style={styles.cdInProgress}>{duty.duty_state === 'IN_PROGRESS' ? 'In Progress' : (duty.duty_state === 'COMPLETED' ? 'Completed' : duty.status || 'Active')}</Text>
+                      </View>
+
+                      <View style={styles.cdBody}>
+                        <View style={styles.cdIconBox}>
+                          <Ionicons name="business-outline" size={scale(20)} color={C.primary} />
+                        </View>
+                        <View style={styles.cdInfo}>
+                          <Text style={styles.cdTitle} numberOfLines={1}>{duty.speciality || 'General Duty'}</Text>
+                          <Text style={styles.cdHospital} numberOfLines={1}>{duty.hospital?.name || 'Hospital'}</Text>
+                          {cdLocationString ? (
+                            <View style={styles.cdLocationRow}>
+                              <Ionicons name="location-outline" size={scale(12)} color={C.textSub} />
+                              <Text style={styles.cdLocationText} numberOfLines={2}>{cdLocationString}</Text>
                             </View>
                           ) : null}
                         </View>
-                        <View style={[styles.ucBadge, { backgroundColor: '#d1fae5' }]}>
-                          <Text style={[styles.ucBadgeText, { color: '#10b981' }]}>Confirmed</Text>
+                      </View>
+
+                      <View style={styles.cdDivider} />
+
+                      <View style={styles.cdFooter}>
+                        <View style={styles.cdFooterItem}>
+                          <Ionicons name="calendar-outline" size={scale(14)} color={C.textSub} />
+                          <Text style={styles.cdFooterText}>{todayFormatted}</Text>
+                        </View>
+                        <View style={styles.cdFooterItem}>
+                          <Ionicons name="time-outline" size={scale(14)} color={C.textSub} />
+                          <Text style={styles.cdFooterText}>
+                            {formatTimeAMPM(duty.shift_timings?.duty_from_time)} - {formatTimeAMPM(duty.shift_timings?.duty_to_time)}
+                          </Text>
+                        </View>
+                        <View style={styles.cdFooterItem}>
+                          <Ionicons name="cash-outline" size={scale(14)} color={C.success} />
+                          <Text style={[styles.cdFooterText, { color: C.ink, fontWeight: '800' }]}>₹{displayRate}</Text>
                         </View>
                       </View>
 
-                      <View style={styles.ucBottom}>
-                        <View style={{ gap: scale(8) }}>
-                          <View style={styles.ucDateSection}>
-                            <Ionicons name="calendar-outline" size={scale(13)} color={C.textSub} />
-                            {nextShiftDate ? (
-                              <View style={styles.ucDateChipsWrap}>
-                                <View style={styles.ucDateChip}>
-                                  <Text style={styles.ucDateChipText}>Next Shift: {formatShortDate(nextShiftDate)}</Text>
-                                </View>
-                              </View>
-                            ) : hasIndividualDates ? (
-                              <Text style={styles.ucDetailText}>Shifts completed</Text>
-                            ) : (
-                              <Text style={styles.ucDetailText}>{displayDatesRange}</Text>
+                      <View style={styles.cdAttendanceWrap}>
+                        {(checkInTimeStr || checkOutTimeStr) ? (
+                          <View style={styles.cdAttendanceInfoRow}>
+                            {checkInTimeStr ? <Text style={styles.cdAttendanceInfoText}>Checked in: {checkInTimeStr}</Text> : null}
+                            {checkOutTimeStr ? <Text style={styles.cdAttendanceInfoText}>Checked out: {checkOutTimeStr}</Text> : null}
+                          </View>
+                        ) : null}
+
+                        {showActions ? (
+                          <>
+                            {canCheckIn && (
+                              <TouchableOpacity style={styles.cdActionBtn} disabled={attendanceLoading} onPress={() => openAttendanceMap(duty, 'check-in')}>
+                                <><Ionicons name="log-in-outline" size={scale(16)} color={C.white} /><Text style={styles.cdBtnText}>Check In</Text></>
+                              </TouchableOpacity>
                             )}
+                            {canCheckOut && (
+                              <TouchableOpacity style={[styles.cdActionBtn, styles.cdActionBtnOut]} disabled={attendanceLoading} onPress={() => openAttendanceMap(duty, 'check-out')}>
+                                <><Ionicons name="log-out-outline" size={scale(16)} color={C.white} /><Text style={styles.cdBtnText}>Check Out</Text></>
+                              </TouchableOpacity>
+                            )}
+                          </>
+                        ) : (
+                          !isDutyCompleted && (
+                            <View style={styles.cdTimeWaitBadge}>
+                              <Ionicons name="time-outline" size={scale(14)} color={C.warning} />
+                              <Text style={styles.cdTimeWaitText}>Buttons appear at duty time</Text>
+                            </View>
+                          )
+                        )}
+                        {isDutyCompleted && (
+                          <View style={styles.cdCompletedBadge}>
+                            <Ionicons name="checkmark-circle-outline" size={scale(16)} color="#059669" />
+                            <Text style={styles.cdLastDayText}>Shift Completed</Text>
                           </View>
-                          <View style={styles.ucDetailRow}>
-                            <Ionicons name="time-outline" size={scale(13)} color={C.textSub} />
-                            <Text style={styles.ucDetailText}>
-                              {duty.duty_from_time && duty.duty_to_time
-                                ? `${formatTimeAMPM(duty.duty_from_time)} - ${formatTimeAMPM(duty.duty_to_time)}`
-                                : 'Timing not specified'}
-                            </Text>
-                          </View>
-                        </View>
-                        <View style={styles.ucPayBadge}>
-                          <Text style={styles.ucPayAmt}>₹{displayRate}</Text>
-                        </View>
+                        )}
                       </View>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-
-            {/* 3. QUICK ACTIONS SECTION */}
-            <View style={styles.quickActionsContainer}>
-              <Text style={styles.sectionTitlePad}>Quick Actions</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScroll} decelerationRate="fast" snapToInterval={scale(145) + scale(12)}>
-                {quickActions.map(action => (
-                  <TouchableOpacity key={action.id} style={[styles.qaCard, { backgroundColor: action.lightBg, borderColor: action.borderColor }]} activeOpacity={0.8} onPress={action.onPress}>
-                    <View style={styles.qaTopRow}>
-                      <View style={[styles.qaIconBox, { backgroundColor: action.color }]}>
-                        <Ionicons name={action.icon} size={scale(16)} color={C.white} />
-                      </View>
-                      <Ionicons name="chevron-forward" size={scale(14)} color={action.color} />
-                    </View>
-                    <Text style={styles.qaTitle} numberOfLines={1}>{action.title}</Text>
-                    <Text style={styles.qaSub} numberOfLines={1}>{action.sub}</Text>
+                    </LinearGradient>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </>
+                );
+              })}
+            </ScrollView>
+          </View>
         )}
+
+        {/* UPCOMING DUTIES SECTION */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Upcoming Duties</Text>
+          </View>
+          {loadingJobs && !refreshing ? (
+            <ActivityIndicator size="small" color={C.primary} style={{ marginVertical: 10 }} />
+          ) : upcomingDuties.length === 0 ? (
+            <View style={styles.emptyUpcomingBox}>
+              <Ionicons name="calendar-outline" size={scale(24)} color={C.textMuted} />
+              <Text style={styles.emptyUpcomingText}>No upcoming duties scheduled.</Text>
+            </View>
+          ) : (
+            upcomingDuties
+              .filter(duty => !todayRequirementIds.includes(duty.requirement_id))
+              .slice(0, 3)
+              .map(duty => {
+              const hospitalName = duty.hospital?.name || 'Hospital Name Pending';
+              const area = duty.hospital?.area || '';
+              const city = duty.hospital?.city || '';
+              const state = duty.hospital?.state || '';
+              const pincode = duty.hospital?.pincode || '';
+
+              const locationParts = [area, city, state].filter(Boolean);
+              let locationString = locationParts.join(', ');
+              if (pincode) locationString = locationString ? `${locationString} - ${pincode}` : pincode;
+              if (!locationString) locationString = 'Location unavailable';
+
+              const dutyAssignedDates = duty.assigned_dates || [];
+              const hasIndividualDates = dutyAssignedDates.length > 0;
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+
+              const futureDates = dutyAssignedDates.filter((dateStr: string) => {
+                const d = new Date(dateStr);
+                d.setHours(0, 0, 0, 0);
+                return d.getTime() >= today.getTime();
+              }).sort((a: string, b: string) => new Date(a).getTime() - new Date(b).getTime());
+
+              const nextShiftDate = futureDates.length > 0 ? futureDates[0] : null;
+              let displayDatesRange = '';
+              if (!hasIndividualDates) displayDatesRange = 'Dates pending';
+
+              const displayRate = duty.configured_rate || duty.offered_rate || duty.rates || '0';
+
+              return (
+                <TouchableOpacity
+                  key={duty.requirement_id || duty._id}
+                  style={styles.upcomingCard}
+                  activeOpacity={0.9}
+                  onPress={() => navigation.navigate('DutyShiftsDetailScreen', { duty })}
+                >
+                  <View style={styles.ucTop}>
+                    <View style={styles.ucIconBox}>
+                      <Ionicons name="medical-outline" size={scale(22)} color={C.primary} />
+                    </View>
+                    <View style={styles.ucInfo}>
+                      <Text style={styles.ucTitle}>{duty.speciality || 'Speciality Not Specified'}</Text>
+                      <Text style={styles.ucDepartment}>{duty.department || 'Department Not Specified'}</Text>
+                      <Text style={styles.ucHospital}>{hospitalName}</Text>
+                      {area ? <Text style={styles.ucArea} numberOfLines={1}>{area}</Text> : null}
+                      {locationString ? (
+                        <View style={styles.ucLocationRowMain}>
+                          <Ionicons name="location-outline" size={scale(12)} color={C.textMuted} />
+                          <Text style={styles.ucLocation} numberOfLines={2}>{locationString}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={[styles.ucBadge, { backgroundColor: '#d1fae5' }]}>
+                      <Text style={[styles.ucBadgeText, { color: '#10b981' }]}>Confirmed</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.ucBottom}>
+                    <View style={{ gap: scale(8) }}>
+                      <View style={styles.ucDateSection}>
+                        <Ionicons name="calendar-outline" size={scale(13)} color={C.textSub} />
+                        {nextShiftDate ? (
+                          <View style={styles.ucDateChipsWrap}>
+                            <View style={styles.ucDateChip}>
+                              <Text style={styles.ucDateChipText}>Next Shift: {formatShortDate(nextShiftDate)}</Text>
+                            </View>
+                          </View>
+                        ) : hasIndividualDates ? (
+                          <Text style={styles.ucDetailText}>Shifts completed</Text>
+                        ) : (
+                          <Text style={styles.ucDetailText}>{displayDatesRange}</Text>
+                        )}
+                      </View>
+                      <View style={styles.ucDetailRow}>
+                        <Ionicons name="time-outline" size={scale(13)} color={C.textSub} />
+                        <Text style={styles.ucDetailText}>
+                          {duty.duty_from_time && duty.duty_to_time
+                            ? `${formatTimeAMPM(duty.duty_from_time)} - ${formatTimeAMPM(duty.duty_to_time)}`
+                            : 'Timing not specified'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.ucPayBadge}>
+                      <Text style={styles.ucPayAmt}>₹{displayRate}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
+
+        {/* QUICK ACTIONS SECTION */}
+        <View style={styles.quickActionsContainer}>
+          <Text style={styles.sectionTitlePad}>Quick Actions</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScroll} decelerationRate="fast" snapToInterval={scale(145) + scale(12)}>
+            {quickActions.map(action => (
+              <TouchableOpacity key={action.id} style={[styles.qaCard, { backgroundColor: action.lightBg, borderColor: action.borderColor }]} activeOpacity={0.8} onPress={action.onPress}>
+                <View style={styles.qaTopRow}>
+                  <View style={[styles.qaIconBox, { backgroundColor: action.color }]}>
+                    <Ionicons name={action.icon} size={scale(16)} color={C.white} />
+                  </View>
+                  <Ionicons name="chevron-forward" size={scale(14)} color={action.color} />
+                </View>
+                <Text style={styles.qaTitle} numberOfLines={1}>{action.title}</Text>
+                <Text style={styles.qaSub} numberOfLines={1}>{action.sub}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       </ScrollView>
 
       <RateCardBottomSheet visible={showRateSheet} rates={rateCard} onClose={() => setShowRateSheet(false)} />
@@ -940,17 +844,6 @@ const HomeScreen = ({ navigation }: any) => {
         })()}
       </Modal>
 
-      {/* MANUAL CHECK-OUT (end time + reason, no map) */}
-      <ManualCheckOutModal
-        visible={!!manualTarget}
-        target={manualTarget}
-        onClose={() => setManualTarget(null)}
-        onSubmitted={(msg) => {
-          setManualTarget(null);
-          showToast(msg);
-          loadAllData();
-        }}
-      />
     </SafeAreaView>
   );
 };
@@ -972,12 +865,13 @@ const styles = StyleSheet.create({
   userNameText: { fontSize: scale(16), color: C.ink, fontWeight: '900', marginLeft: scale(4) },
   sectionContainer: { marginHorizontal: scale(20), marginBottom: scale(20) },
   sectionContainerNoMargin: { marginBottom: scale(20) },
-  sectionHeaderPad: { paddingHorizontal: scale(20), marginBottom: scale(10) },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: scale(20), marginBottom: scale(10) },
+  viewAllBtn: { flexDirection: 'row', alignItems: 'center', gap: scale(2) },
+  viewAllText: { fontSize: scale(13), color: C.primary, fontWeight: '700' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: scale(10) },
   sectionTitle: { fontSize: scale(16), fontWeight: '800', color: C.ink },
   sectionTitlePad: { fontSize: scale(16), fontWeight: '800', color: C.ink, marginLeft: scale(20) },
 
-  // TODAY DUTY CARDS
   todayDutiesScrollContainer: { paddingHorizontal: scale(20), paddingBottom: scale(6) },
   currentDutyCard: { borderRadius: scale(14), padding: scale(14), borderWidth: 1, borderColor: '#D4EBEB', width: SW * 0.85, marginRight: scale(14) },
   cdHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: scale(12) },
@@ -1008,7 +902,6 @@ const styles = StyleSheet.create({
   cdCompletedBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: scale(6), backgroundColor: '#ecfdf5', paddingVertical: scale(8), borderRadius: scale(10), borderWidth: 1, borderColor: '#a7f3d0' },
   cdLastDayText: { fontSize: scale(10), fontWeight: '700', color: '#059669' },
 
-  // UPCOMING DUTIES
   emptyUpcomingBox: { alignItems: 'center', paddingVertical: scale(16), backgroundColor: C.cardBg, borderRadius: scale(12), borderWidth: 1, borderColor: C.border, borderStyle: 'dashed' },
   emptyUpcomingText: { fontSize: scale(12), color: C.textMuted, fontWeight: '500', marginTop: scale(8) },
   upcomingCard: { backgroundColor: C.cardBg, borderRadius: scale(14), borderWidth: 1, borderColor: C.border, padding: scale(16), marginBottom: scale(14) },
@@ -1033,7 +926,6 @@ const styles = StyleSheet.create({
   ucPayBadge: { backgroundColor: C.primaryLight, paddingHorizontal: scale(12), paddingVertical: scale(6), borderRadius: scale(8), alignItems: 'flex-end' },
   ucPayAmt: { fontSize: scale(13), fontWeight: '800', color: C.primary },
 
-  // QUICK ACTIONS
   quickActionsContainer: { marginBottom: scale(20) },
   actionsScroll: { paddingHorizontal: scale(20), paddingTop: scale(6), gap: scale(10), paddingBottom: scale(4) },
   qaCard: { width: scale(145), borderRadius: scale(12), padding: scale(14), borderWidth: 1 },
@@ -1042,11 +934,6 @@ const styles = StyleSheet.create({
   qaTitle: { fontSize: scale(14), fontWeight: '800', color: C.ink, marginBottom: scale(2) },
   qaSub: { fontSize: scale(11), color: C.textSub, fontWeight: '500' },
 
-  availabilityWrapper: { marginHorizontal: scale(20), marginBottom: scale(24), marginTop: scale(8) },
-  availabilityHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: scale(12), paddingHorizontal: scale(4) },
-  availabilityTitle: { fontSize: scale(16), fontWeight: '900', color: C.ink, letterSpacing: -0.5 },
-
-  // BOTTOM SHEET
   backdrop: { flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.4)' },
   sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.background, borderTopLeftRadius: scale(28), borderTopRightRadius: scale(28), maxHeight: SH * 0.85, paddingBottom: scale(34) },
   handle: { width: scale(40), height: scale(5), borderRadius: scale(2.5), backgroundColor: C.border, alignSelf: 'center', marginTop: scale(12), marginBottom: scale(4) },
@@ -1084,7 +971,6 @@ const styles = StyleSheet.create({
   mapTitle: { fontSize: scale(16), fontWeight: '800', color: C.ink },
   mapWrap: { flex: 1, backgroundColor: C.inputBg },
   mapLocatingBadge: { position: 'absolute', top: scale(12), alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: scale(8), backgroundColor: C.cardBg, paddingHorizontal: scale(14), paddingVertical: scale(8), borderRadius: scale(20), borderWidth: 1, borderColor: C.border },
-  mapLoader: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: scale(10) },
   mapLoaderText: { fontSize: scale(13), color: C.textSub, fontWeight: '600' },
   mapFooter: { padding: scale(16), gap: scale(8), borderTopWidth: 1, borderTopColor: C.border },
   mapHospital: { fontSize: scale(15), fontWeight: '800', color: C.ink },

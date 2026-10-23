@@ -123,7 +123,7 @@ interface FormData {
   medical_council_name: string; registration_number: string; registration_date_day: string;
   registration_date_month: string; registration_date_year: string; clinic_name: string;
   clinic_address: string; city: string; state: string; pincode: string;
-  job_type: string[]; preferred_km: string; preferred_pincode: string;
+  interested_in: string[]; preferred_km: string; preferred_pincode: string;
   preferred_district: string; preferred_state: string; preferred_area: string;
 }
 
@@ -135,7 +135,7 @@ interface FormErrors {
 const RegisterDoctorScreen: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [pincodeFetched, setPincodeFetched] = useState(false);
   const [doctorUniqueId, setDoctorUniqueId] = useState('');
@@ -143,7 +143,6 @@ const RegisterDoctorScreen: React.FC = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [dataConsentAccepted, setDataConsentAccepted] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
-  const { setDoctor } = useAuth();
 
   // Address Autocomplete States
   const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -166,7 +165,6 @@ const RegisterDoctorScreen: React.FC = () => {
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const successScale = useRef(new Animated.Value(0)).current;
   const navigation = useNavigation<any>();
 
   const dotWidths = useRef([
@@ -201,7 +199,7 @@ const RegisterDoctorScreen: React.FC = () => {
     medical_council_name: '', registration_number: '', registration_date_day: '',
     registration_date_month: '', registration_date_year: '', clinic_name: '',
     clinic_address: '', city: '', state: '', pincode: '',
-    job_type: ['locum_shifts'], preferred_km: '50', preferred_pincode: '',
+    interested_in: ['Locum'], preferred_km: '50', preferred_pincode: '',
     preferred_district: '', preferred_state: '', preferred_area: '',
   });
   
@@ -531,7 +529,7 @@ const RegisterDoctorScreen: React.FC = () => {
       if (!form.medical_council_name) e.medical_council_name = 'Required';
     }
     if (step === 3) {
-      if (!form.job_type.length) e.job_type = 'Required';
+      if (!form.interested_in.length) e.interested_in = 'Select at least one work preference';
       if (!form.preferred_km) e.preferred_km = 'Required';
       if (form.preferred_pincode && !/^\d{6}$/.test(form.preferred_pincode)) e.preferred_pincode = 'Invalid 6-digit pincode';
     }
@@ -603,16 +601,16 @@ const RegisterDoctorScreen: React.FC = () => {
           start_date: new Date().toISOString(),
           is_current: true,
         }],
-        interested_in: ['Locum shifts'],
-        preferred_distance_km: Number(form.preferred_km),
+        interested_in: form.interested_in,
+        preferred_locations: (form.preferred_pincode.trim() || form.preferred_district.trim() || form.preferred_state.trim() || form.preferred_area.trim()) ? [{
+          pincode: form.preferred_pincode.trim(),
+          distance_km: Number(form.preferred_km),
+          city: form.preferred_district.trim(),
+          state: form.preferred_state.trim(),
+          address: form.preferred_area.trim() || prefQuery.trim(),
+        }] : [],
       };
 
-      if (form.preferred_pincode.trim()) {
-        payload.preferred_pincode = form.preferred_pincode.trim();
-      }
-      if (form.preferred_district.trim()) payload.preferred_district = form.preferred_district.trim();
-      if (form.preferred_state.trim()) payload.preferred_state = form.preferred_state.trim();
-      if (form.preferred_area.trim()) payload.preferred_area = form.preferred_area.trim();
 
       const response = await api.post('/api/doctors/register', payload);
       const data = response.data;
@@ -621,9 +619,13 @@ const RegisterDoctorScreen: React.FC = () => {
         setDoctorUniqueId(data.doctor.doctor_unique_id);
       }
 
-      setDoctor(data.doctor);
-      setSubmitted(true);
-      Animated.spring(successScale, { toValue: 1, friction: 6, tension: 80, useNativeDriver: true }).start();
+      if (!data?.doctor) {
+        throw new Error('Registration completed, but doctor details were not returned. Please contact support.');
+      }
+
+      // Registration is pending review, so do not authenticate the doctor here.
+      // Keep the user in the unauthenticated stack until they log in after approval.
+      setSuccessModalVisible(true);
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
       Alert.alert('Registration Failed', errorMessage, [{ text: 'OK' }]);
@@ -632,57 +634,49 @@ const RegisterDoctorScreen: React.FC = () => {
     }
   };
 
-  // ─── SUCCESS SCREEN ──────────────────────────────────────────────────────────
-  if (submitted) {
-    return (
-      <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-        <StatusBar barStyle="dark-content" backgroundColor={C.background} />
-        <View style={styles.successBg}>
-          <Animated.View style={[styles.successCard, { transform: [{ scale: successScale }] }]}>
-            <View style={styles.successRing}>
-              <Ionicons name="checkmark" size={32} color={C.white} />
-            </View>
-
-            <Text style={styles.successTitle}>Welcome Aboard!</Text>
-            <Text style={styles.successName}>
-              {form.title}. {form.first_name} {form.middle_name ? ` ${form.middle_name}` : ''} {form.last_name}
-            </Text>
-            <Text style={styles.successSub}>
-              Your registration is submitted.{'\n'}We'll verify your profile within 24–48 hours.
-            </Text>
-
-            {doctorUniqueId ? (
-              <View style={styles.idBadge}>
-                <Text style={styles.idBadgeLabel}>YOUR DOCTOR ID</Text>
-                <Text style={styles.idBadgeValue}>{doctorUniqueId}</Text>
-              </View>
-            ) : null}
-
-            <Text style={styles.emailNote}>Confirmation sent to <Text style={{ fontWeight: '700', color: C.ink }}>{form.email}</Text></Text>
-
-            <View style={styles.successDivider} />
-            <SRow icon="call-outline" label="Mobile" value={`+91 ${form.mobile_number}`} />
-            <SRow icon="location-outline" label="Location" value={`${form.city}, ${form.state}`} />
-          </Animated.View>
-          
-          <TouchableOpacity
-            style={styles.btnShadowWrapper}
-            onPress={() => navigation.navigate('DashboardScreen')}
-            activeOpacity={0.85}
-          >
-            <LinearGradient colors={['#00a8c2', '#007b8e']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.successBtnGradient}>
-              <Text style={styles.successBtnText}>Go to Dashboard →</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   // ─── MAIN FORM ────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor={C.background} />
+
+      <Modal
+        visible={successModalVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => {}}
+      >
+        <View style={styles.registrationModalOverlay}>
+          <View style={styles.registrationModalCard}>
+            <View style={styles.registrationModalIcon}>
+              <Ionicons name="checkmark" size={32} color={C.white} />
+            </View>
+            <Text style={styles.registrationModalTitle}>Registration Successful!</Text>
+            <Text style={styles.registrationModalMessage}>
+              Thank you for registering. We will review your profile and reach out to you soon.
+            </Text>
+            {doctorUniqueId ? (
+              <Text style={styles.registrationModalDoctorId}>Doctor ID: {doctorUniqueId}</Text>
+            ) : null}
+            <TouchableOpacity
+              style={styles.registrationModalButton}
+              activeOpacity={0.85}
+              onPress={() => {
+                setSuccessModalVisible(false);
+                // Registration does not mean the doctor is authenticated or approved.
+                // DashboardScreen is in the unauthenticated stack, so navigate there
+                // without calling setDoctor().
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'DashboardScreen' }],
+                });
+              }}
+            >
+              <Text style={styles.registrationModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       
       {/* ── Top Header & Animated Stepper ── */}
       <View style={styles.topNav}>
@@ -838,15 +832,23 @@ const RegisterDoctorScreen: React.FC = () => {
                 <View style={{ marginBottom: scale(20) }}>
                   <Text style={fieldStyles.label}>INTERESTED IN</Text>
                   <View style={styles.chipGroup}>
-                    {[{ key: 'locum_shifts', label: 'Locum Shifts' }].map(({ key, label }) => {
-                      const selected = form.job_type.includes(key);
+                    {(['Locum', 'Teleconsultancy', 'Full time'] as const).map(option => {
+                      const selected = form.interested_in.includes(option);
                       return (
-                        <TouchableOpacity key={key} onPress={() => {}} style={[styles.chip, selected && styles.chipActive]} activeOpacity={1}>
-                          <Text style={[styles.chipText, selected && styles.chipTextActive]}>{label}</Text>
+                        <TouchableOpacity
+                          key={option}
+                          onPress={() => setField('interested_in', selected
+                            ? form.interested_in.filter(item => item !== option)
+                            : [...form.interested_in, option])}
+                          style={[styles.chip, selected && styles.chipActive]}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[styles.chipText, selected && styles.chipTextActive]}>{option}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </View>
+                  {errors.interested_in && <Text style={fieldStyles.error}>⚠ {errors.interested_in}</Text>}
                 </View>
 
                 <Field
@@ -1200,16 +1202,15 @@ const styles = StyleSheet.create({
   optionTxt: { fontSize: scale(15), color: C.textSub, fontWeight: '500' },
   optionTxtSel: { color: C.primary, fontWeight: '800' },
 
-  // SUCCESS SCREEN
-  successBg: { flex: 1, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center', padding: scale(24) },
-  successCard: { backgroundColor: C.white, borderRadius: scale(32), padding: scale(32), width: '100%', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.05, shadowRadius: 24, elevation: 8, borderWidth: 1, borderColor: C.border },
-  successRing: { width: scale(72), height: scale(72), borderRadius: scale(36), backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: scale(24) },
-  successTitle: { fontSize: scale(24), fontWeight: '900', color: C.ink, marginBottom: 8 },
-  successName: { fontSize: scale(16), fontWeight: '700', color: C.textSub, marginBottom: 24, textAlign: 'center' },
-  successSub: { fontSize: scale(14), color: C.textSub, textAlign: 'center', lineHeight: scale(22), marginBottom: 24 },
-  idBadge: { backgroundColor: C.primaryLight, borderRadius: scale(16), paddingHorizontal: scale(24), paddingVertical: scale(16), alignItems: 'center', marginBottom: scale(20), borderWidth: 1, borderColor: '#c8e8ed', width: '100%' },
-  idBadgeLabel: { fontSize: scale(10), color: C.primaryDark, fontWeight: '800', letterSpacing: 1.5, marginBottom: 4 },
-  idBadgeValue: { fontSize: scale(22), color: C.primary, fontWeight: '900', letterSpacing: 1 },
+  // Registration success modal
+  registrationModalOverlay: { flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.58)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: scale(24) },
+  registrationModalCard: { width: '100%', maxWidth: 420, backgroundColor: C.white, borderRadius: scale(24), paddingHorizontal: scale(24), paddingTop: scale(28), paddingBottom: scale(24), alignItems: 'center', elevation: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 16 },
+  registrationModalIcon: { width: scale(64), height: scale(64), borderRadius: scale(32), backgroundColor: C.success, alignItems: 'center', justifyContent: 'center', marginBottom: scale(18) },
+  registrationModalTitle: { color: C.ink, fontSize: scale(21), fontWeight: '800', textAlign: 'center', marginBottom: scale(10) },
+  registrationModalMessage: { color: C.textSub, fontSize: scale(15), lineHeight: scale(23), textAlign: 'center', marginBottom: scale(16) },
+  registrationModalDoctorId: { color: C.primary, fontSize: scale(13), fontWeight: '700', marginBottom: scale(16) },
+  registrationModalButton: { width: '100%', backgroundColor: C.primary, borderRadius: scale(12), paddingVertical: scale(14), alignItems: 'center', justifyContent: 'center', marginTop: scale(4) },
+  registrationModalButtonText: { color: C.white, fontSize: scale(16), fontWeight: '800' },
   emailNote: { fontSize: scale(13), color: C.textMuted, textAlign: 'center', marginBottom: scale(24) },
   successDivider: { width: '100%', height: 1, backgroundColor: C.border, marginBottom: 20 },
   

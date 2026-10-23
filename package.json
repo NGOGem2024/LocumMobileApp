@@ -31,7 +31,7 @@
     "react-native-gesture-handler": "^2.31.1",
     "react-native-google-places-autocomplete": "^2.6.4",
     "react-native-linear-gradient": "^2.8.3",
-    "react-native-maps": "^1.26.0",
+    "react-native-maps": "^1.29.11",
     "react-native-reanimated": "^4.3.0",
     "react-native-safe-area-context": "^5.7.0",
     "react-native-screens": "^4.24.0",

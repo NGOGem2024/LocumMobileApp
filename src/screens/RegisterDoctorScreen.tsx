@@ -15,6 +15,8 @@ import {
   Animated,
   StatusBar,
   Dimensions,
+  PanResponder,
+  LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -86,7 +88,26 @@ const MEDICAL_COUNCILS = [
 ];
 
 const TITLES = ['Dr', 'Mr', 'Ms', 'Mrs'];
+
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
+  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
+  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
+  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Andaman and Nicobar Islands',
+  'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi',
+  'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
+];
 const currentYear = new Date().getFullYear();
+
+// Google sometimes returns a revenue "Division" (e.g. "Pune Division") as a level; skip it and use the real district
+const pickDistrict = (components: any[]): string => {
+  const candidates = ['administrative_area_level_2', 'administrative_area_level_3', 'locality']
+    .map(type => components.find((c: any) => c.types.includes(type))?.long_name || '')
+    .map((name: string) => name.replace(/\s+District$/i, '').trim())
+    .filter((name: string) => name && !/division/i.test(name));
+  return candidates[0] || '';
+};
 
 interface PlaceSuggestion {
   place_id: string;
@@ -103,6 +124,7 @@ interface FormData {
   registration_date_month: string; registration_date_year: string; clinic_name: string;
   clinic_address: string; city: string; state: string; pincode: string;
   job_type: string[]; preferred_km: string; preferred_pincode: string;
+  preferred_district: string; preferred_state: string; preferred_area: string;
 }
 
 interface FormErrors {
@@ -128,6 +150,15 @@ const RegisterDoctorScreen: React.FC = () => {
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const addressDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Preferred Hospital Location States (Step 3)
+  const [prefQuery, setPrefQuery] = useState('');
+  const [prefSuggestions, setPrefSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [showPrefSuggestions, setShowPrefSuggestions] = useState(false);
+  const [isSearchingPref, setIsSearchingPref] = useState(false);
+  const [prefPincodeLoading, setPrefPincodeLoading] = useState(false);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  const prefDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dropdownConfig, setDropdownConfig] = useState<{
     visible: boolean; field: keyof FormData | 'reg_month' | 'reg_year' | null;
     options: string[]; title: string;
@@ -159,6 +190,7 @@ const RegisterDoctorScreen: React.FC = () => {
   useEffect(() => {
     return () => {
       if (addressDebounceTimer.current) clearTimeout(addressDebounceTimer.current);
+      if (prefDebounceTimer.current) clearTimeout(prefDebounceTimer.current);
     };
   }, []);
 
@@ -169,7 +201,8 @@ const RegisterDoctorScreen: React.FC = () => {
     medical_council_name: '', registration_number: '', registration_date_day: '',
     registration_date_month: '', registration_date_year: '', clinic_name: '',
     clinic_address: '', city: '', state: '', pincode: '',
-    job_type: ['locum_shifts'], preferred_km: '', preferred_pincode: '',
+    job_type: ['locum_shifts'], preferred_km: '50', preferred_pincode: '',
+    preferred_district: '', preferred_state: '', preferred_area: '',
   });
   
   const [errors, setErrors] = useState<FormErrors>({});
@@ -336,6 +369,145 @@ const RegisterDoctorScreen: React.FC = () => {
     }
   };
 
+  // ─── PREFERRED HOSPITAL LOCATION (STEP 3) ────────────────────────────────────
+  const fetchPrefPredictions = async (query: string) => {
+    if (!query || query.trim().length < 3) {
+      setPrefSuggestions([]);
+      setShowPrefSuggestions(false);
+      return;
+    }
+    setIsSearchingPref(true);
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+          query
+        )}&components=country:in&key=${GOOGLE_API_KEY}`
+      );
+      const data = await res.json();
+      if (data.status === 'OK' && data.predictions) {
+        const results: PlaceSuggestion[] = data.predictions.map((p: any) => ({
+          place_id: p.place_id,
+          description: p.description,
+          main_text: p.structured_formatting?.main_text || p.description,
+          secondary_text: p.structured_formatting?.secondary_text || '',
+        }));
+        setPrefSuggestions(results);
+        setShowPrefSuggestions(results.length > 0);
+      } else {
+        setPrefSuggestions([]);
+        setShowPrefSuggestions(false);
+      }
+    } catch {
+      setPrefSuggestions([]);
+      setShowPrefSuggestions(false);
+    } finally {
+      setIsSearchingPref(false);
+    }
+  };
+
+  const handlePrefSearchChange = (text: string) => {
+    setPrefQuery(text);
+    if (prefDebounceTimer.current) clearTimeout(prefDebounceTimer.current);
+    if (text.trim().length < 3) {
+      setPrefSuggestions([]);
+      setShowPrefSuggestions(false);
+      return;
+    }
+    prefDebounceTimer.current = setTimeout(() => fetchPrefPredictions(text), 350);
+  };
+
+  const handleSelectPrefSuggestion = async (suggestion: PlaceSuggestion) => {
+    setShowPrefSuggestions(false);
+    setPrefQuery(suggestion.description);
+    setPrefPincodeLoading(true);
+
+    const getFrom = (components: any[], type: string): string => {
+      const found = components.find((c: any) => c.types.includes(type));
+      return found?.long_name || '';
+    };
+
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${suggestion.place_id}&fields=address_components,geometry&key=${GOOGLE_API_KEY}`
+      );
+      const data = await res.json();
+
+      if (data.status === 'OK' && data.result?.address_components) {
+        const components: any[] = data.result.address_components;
+        let pincode = getFrom(components, 'postal_code');
+
+        // City-level places often have no postal code — reverse geocode the coordinates
+        if (!pincode && data.result.geometry?.location) {
+          try {
+            const { lat, lng } = data.result.geometry.location;
+            const rev = await fetch(
+              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&result_type=postal_code&key=${GOOGLE_API_KEY}`
+            );
+            const revData = await rev.json();
+            if (revData.status === 'OK' && revData.results?.length) {
+              pincode = getFrom(revData.results[0].address_components, 'postal_code');
+            }
+          } catch {}
+        }
+
+        const district = pickDistrict(components);
+        const state = getFrom(components, 'administrative_area_level_1');
+
+        setForm(prev => ({
+          ...prev,
+          preferred_pincode: pincode,
+          preferred_district: district,
+          preferred_state: state,
+          preferred_area: suggestion.description.replace(/,\s*India$/i, ''),
+        }));
+        setErrors(prev => ({ ...prev, preferred_pincode: undefined }));
+      }
+    } catch {
+      Alert.alert('Location Error', 'Unable to resolve full details. Please enter the details manually.');
+    } finally {
+      setPrefPincodeLoading(false);
+    }
+  };
+
+  const fetchPrefLocationByPincode = async (pincode: string) => {
+    if (pincode.length !== 6) return;
+    setPrefPincodeLoading(true);
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${pincode}&region=IN&key=${GOOGLE_API_KEY}`
+      );
+      const data = await res.json();
+      if (data.status !== 'OK' || !data.results?.length) throw new Error('Invalid pincode');
+
+      const components: any[] = data.results[0].address_components;
+      const getComponent = (type: string): string => {
+        const found = components.find((c: any) => c.types.includes(type));
+        return found?.long_name || '';
+      };
+      const district = pickDistrict(components);
+      const state = getComponent('administrative_area_level_1');
+      if (!district && !state) throw new Error('Location not found');
+
+      setForm(prev => ({
+        ...prev,
+        preferred_district: district || prev.preferred_district,
+        preferred_state: state || prev.preferred_state,
+        preferred_area: prev.preferred_area || [district, state].filter(Boolean).join(', '),
+      }));
+      setErrors(prev => ({ ...prev, preferred_pincode: undefined }));
+    } catch {
+      setErrors(prev => ({ ...prev, preferred_pincode: 'Unable to fetch location.' }));
+    } finally {
+      setPrefPincodeLoading(false);
+    }
+  };
+
+  const handlePrefPincodeChange = (val: string) => {
+    const cleaned = val.replace(/\D/g, '').slice(0, 6);
+    setField('preferred_pincode', cleaned);
+    if (cleaned.length === 6) fetchPrefLocationByPincode(cleaned);
+  };
+
   const validateStep = (step: number): boolean => {
     const e: FormErrors = {};
     if (step === 1) {
@@ -438,6 +610,9 @@ const RegisterDoctorScreen: React.FC = () => {
       if (form.preferred_pincode.trim()) {
         payload.preferred_pincode = form.preferred_pincode.trim();
       }
+      if (form.preferred_district.trim()) payload.preferred_district = form.preferred_district.trim();
+      if (form.preferred_state.trim()) payload.preferred_state = form.preferred_state.trim();
+      if (form.preferred_area.trim()) payload.preferred_area = form.preferred_area.trim();
 
       const response = await api.post('/api/doctors/register', payload);
       const data = response.data;
@@ -544,6 +719,7 @@ const RegisterDoctorScreen: React.FC = () => {
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          scrollEnabled={scrollEnabled}
         >
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
             
@@ -673,23 +849,70 @@ const RegisterDoctorScreen: React.FC = () => {
                   </View>
                 </View>
 
+                <Field
+                  label="QUICK SEARCH (GOOGLE MAPS)"
+                  icon="search-outline"
+                  placeholder="Search city, area or hospital"
+                  value={prefQuery}
+                  onChangeText={handlePrefSearchChange}
+                  autoCapitalize="words"
+                />
+
+                {isSearchingPref && (
+                  <View style={styles.searchingRow}>
+                    <ActivityIndicator size="small" color={C.primary} />
+                    <Text style={styles.searchingText}>Finding location suggestions...</Text>
+                  </View>
+                )}
+
+                {showPrefSuggestions && prefSuggestions.length > 0 && (
+                  <View style={styles.suggestionsContainer}>
+                    {prefSuggestions.map(item => (
+                      <TouchableOpacity key={item.place_id} style={styles.suggestionRow} onPress={() => handleSelectPrefSuggestion(item)} activeOpacity={0.7}>
+                        <Ionicons name="location-sharp" size={16} color={C.primary} style={{ marginRight: scale(8), marginTop: 2 }} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.suggestionMainText} numberOfLines={1}>{item.main_text}</Text>
+                          {item.secondary_text ? <Text style={styles.suggestionSubText} numberOfLines={1}>{item.secondary_text}</Text> : null}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                <Field
+                  label="PINCODE"
+                  icon="location-outline"
+                  placeholder="6-digit pincode"
+                  value={form.preferred_pincode}
+                  onChangeText={handlePrefPincodeChange}
+                  error={errors.preferred_pincode}
+                  keyboardType="numeric"
+                  maxLength={6}
+                />
+                {prefPincodeLoading && <Text style={styles.pinText}>Fetching location details…</Text>}
+
+                <Field label="DISTRICT" icon="business-outline" placeholder="District" value={form.preferred_district} onChangeText={v => setField('preferred_district', v)} autoCapitalize="words" />
+                <DropdownField label="STATE" icon="map-outline" placeholder="Select state" value={form.preferred_state} onPress={() => openDropdown('preferred_state', INDIAN_STATES, 'Select State')} />
+                <Field label="AREA" icon="navigate-outline" placeholder="Area / locality" value={form.preferred_area} onChangeText={v => setField('preferred_area', v)} autoCapitalize="words" />
+
                 <View style={{ marginBottom: scale(20) }}>
-                  <Text style={fieldStyles.label}>PREFERRED DISTANCE <Text style={fieldStyles.req}>*</Text></Text>
-                  <View style={styles.chipGroup}>
-                    {['5', '10', '20', '50', '100'].map(km => {
-                      const selected = form.preferred_km === km;
-                      return (
-                        <TouchableOpacity key={km} onPress={() => setField('preferred_km', km)} style={[styles.chip, selected && styles.chipActive]}>
-                          <Text style={[styles.chipText, selected && styles.chipTextActive]}>{km} km</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                  <View style={pf.travelHeader}>
+                    <Text style={[fieldStyles.label, { marginBottom: 0 }]}>WILLINGNESS TO TRAVEL <Text style={fieldStyles.req}>*</Text></Text>
+                    <Text style={pf.kmValue}>{form.preferred_km || '50'}<Text style={pf.kmUnit}> km</Text></Text>
+                  </View>
+                  <KmSlider
+                    value={Number(form.preferred_km) || 50}
+                    onChange={v => setField('preferred_km', String(v))}
+                    onDragChange={d => setScrollEnabled(!d)}
+                  />
+                  <View style={pf.sliderLabels}>
+                    <Text style={pf.sliderLabel}>1 km</Text>
+                    <Text style={pf.sliderLabel}>100 km</Text>
                   </View>
                   {errors.preferred_km && <Text style={fieldStyles.error}>⚠ {errors.preferred_km}</Text>}
                 </View>
 
-                <Field label="PREFERRED WORK PINCODE" icon="location-outline" placeholder="Area pincode (optional)" value={form.preferred_pincode} onChangeText={v => setField('preferred_pincode', v.replace(/\D/g, '').slice(0, 6))} error={errors.preferred_pincode} keyboardType="numeric" maxLength={6} />
-                <InfoBox text="Enter a pincode to specify where you'd prefer to work. We use this to match you with nearby facilities." />
+                <InfoBox text="Pick a preferred location and how far you'd travel. We use this to match you with nearby facilities." />
               </View>
             )}
           </Animated.View>
@@ -793,6 +1016,71 @@ const InfoBox: React.FC<{ text: string }> = ({ text }) => (
 const ib = StyleSheet.create({
   box: { flexDirection: 'row', backgroundColor: 'rgba(0, 168, 194, 0.08)', borderRadius: scale(12), padding: scale(12), marginBottom: scale(20), alignItems: 'flex-start' },
   text: { flex: 1, fontSize: scale(12), color: C.primaryDark, lineHeight: scale(18), marginLeft: scale(8) },
+});
+
+// ─── KM SLIDER (no extra dependency) ──────────────────────────────────────────
+const THUMB = scale(24);
+interface KmSliderProps { value: number; min?: number; max?: number; onChange: (v: number) => void; onDragChange?: (dragging: boolean) => void; }
+const KmSlider: React.FC<KmSliderProps> = ({ value, min = 1, max = 100, onChange, onDragChange }) => {
+  const [width, setWidth] = useState(0);
+  const widthRef = useRef(0);
+  const startX = useRef(0);
+  const onChangeRef = useRef(onChange);
+  const onDragRef = useRef(onDragChange);
+  onChangeRef.current = onChange;
+  onDragRef.current = onDragChange;
+
+  const valueFromX = (x: number) => {
+    const trackW = widthRef.current - THUMB;
+    if (trackW <= 0) return min;
+    const ratio = Math.min(1, Math.max(0, (x - THUMB / 2) / trackW));
+    return Math.round(min + ratio * (max - min));
+  };
+
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: e => {
+        startX.current = e.nativeEvent.locationX;
+        onDragRef.current?.(true);
+        onChangeRef.current(valueFromX(startX.current));
+      },
+      onPanResponderMove: (_, g) => onChangeRef.current(valueFromX(startX.current + g.dx)),
+      onPanResponderRelease: () => onDragRef.current?.(false),
+      onPanResponderTerminate: () => onDragRef.current?.(false),
+    })
+  ).current;
+
+  const trackW = Math.max(0, width - THUMB);
+  const ratio = (Math.min(max, Math.max(min, value)) - min) / (max - min);
+
+  return (
+    <View
+      style={sl.wrap}
+      onLayout={(e: LayoutChangeEvent) => { widthRef.current = e.nativeEvent.layout.width; setWidth(e.nativeEvent.layout.width); }}
+      {...pan.panHandlers}
+    >
+      <View style={sl.track} pointerEvents="none" />
+      <View style={[sl.fillBar, { width: ratio * trackW }]} pointerEvents="none" />
+      <View style={[sl.thumb, { left: ratio * trackW }]} pointerEvents="none" />
+    </View>
+  );
+};
+const sl = StyleSheet.create({
+  wrap: { height: scale(40), justifyContent: 'center' },
+  track: { position: 'absolute', left: THUMB / 2, right: THUMB / 2, height: scale(6), borderRadius: scale(3), backgroundColor: '#E5E7EB' },
+  fillBar: { position: 'absolute', left: THUMB / 2, height: scale(6), borderRadius: scale(3), backgroundColor: C.primary },
+  thumb: { position: 'absolute', width: THUMB, height: THUMB, borderRadius: THUMB / 2, backgroundColor: C.primary, borderWidth: 3, borderColor: C.white, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4 },
+});
+
+const pf = StyleSheet.create({
+  travelHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: scale(4) },
+  kmValue: { fontSize: scale(18), fontWeight: '800', color: C.primary },
+  kmUnit: { fontSize: scale(12), fontWeight: '700' },
+  sliderLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: scale(2) },
+  sliderLabel: { fontSize: scale(11), fontWeight: '600', color: C.textMuted },
 });
 
 const SRow: React.FC<{ icon: string; label: string; value: string }> = ({ icon, label, value }) => (

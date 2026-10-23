@@ -484,8 +484,9 @@ const HomeScreen = ({ navigation }: any) => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.primary]} />}
       >
         {/* TODAY'S DUTIES SECTION */}
-        {todayDuties.length > 0 && (
-          <View style={styles.sectionContainerNoMargin}>
+        <View style={styles.sectionContainerNoMargin}>
+          {todayDuties.length > 0 ? (
+          <>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Today's Duties</Text>
               <TouchableOpacity
@@ -548,7 +549,7 @@ const HomeScreen = ({ navigation }: any) => {
                     key={duty.assignment_id || index}
                     activeOpacity={0.95}
                     // FLOW CHANGE: Tapping this card opens the dedicated DutyShiftsDetailScreen
-                    onPress={() => navigation.navigate('DutyShiftsDetailScreen', { duty })}
+                    onPress={() => navigation.navigate('DutiesScreen', { defaultTab: 'Upcoming' })}
                     style={{ width: SW * 0.85, marginRight: scale(14) }}
                   >
                     <LinearGradient colors={['#E5F8FA', '#F3FCFD']} style={[styles.currentDutyCard, { width: '100%', marginRight: 0 }]}>
@@ -565,8 +566,15 @@ const HomeScreen = ({ navigation }: any) => {
                           <Ionicons name="business-outline" size={scale(20)} color={C.primary} />
                         </View>
                         <View style={styles.cdInfo}>
-                          <Text style={styles.cdTitle} numberOfLines={1}>{duty.speciality || 'General Duty'}</Text>
-                          <Text style={styles.cdHospital} numberOfLines={1}>{duty.hospital?.name || 'Hospital'}</Text>
+                          <Text style={styles.cdTitle} numberOfLines={1}>
+                            {duty.department || 'Department Not Specified'}
+                          </Text>
+                          <Text style={styles.cdHospital} numberOfLines={1}>
+                            {duty.speciality || 'Speciality Not Specified'}
+                          </Text>
+                          <Text style={styles.cdHospital} numberOfLines={1}>
+                            {duty.hospital?.name || 'Hospital'}
+                          </Text>
                           {cdLocationString ? (
                             <View style={styles.cdLocationRow}>
                               <Ionicons name="location-outline" size={scale(12)} color={C.textSub} />
@@ -636,8 +644,19 @@ const HomeScreen = ({ navigation }: any) => {
                 );
               })}
             </ScrollView>
-          </View>
-        )}
+          </>
+          ) : (
+            <View style={styles.emptyCurrentDutyBox}>
+              <View style={styles.emptyCurrentDutyIcon}>
+                <Ionicons name="calendar-outline" size={scale(22)} color={C.primary} />
+              </View>
+              <Text style={styles.emptyCurrentDutyTitle}>No Current Duty</Text>
+              <Text style={styles.emptyCurrentDutyText}>
+                You don't have any duty scheduled for today.
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* UPCOMING DUTIES SECTION */}
         <View style={styles.sectionContainer}>
@@ -667,7 +686,10 @@ const HomeScreen = ({ navigation }: any) => {
               if (pincode) locationString = locationString ? `${locationString} - ${pincode}` : pincode;
               if (!locationString) locationString = 'Location unavailable';
 
-              const dutyAssignedDates = duty.assigned_dates || [];
+              const dutyAssignedDates =
+                duty.assigned_schedule?.assigned_dates ||
+                duty.assigned_dates ||
+                [];
               const hasIndividualDates = dutyAssignedDates.length > 0;
               const today = new Date();
               today.setHours(0, 0, 0, 0);
@@ -689,7 +711,7 @@ const HomeScreen = ({ navigation }: any) => {
                   key={duty.requirement_id || duty._id}
                   style={styles.upcomingCard}
                   activeOpacity={0.9}
-                  onPress={() => navigation.navigate('DutyShiftsDetailScreen', { duty })}
+                  onPress={() => navigation.navigate('DutiesScreen', { defaultTab: 'Upcoming' })}
                 >
                   <View style={styles.ucTop}>
                     <View style={styles.ucIconBox}>
@@ -731,8 +753,9 @@ const HomeScreen = ({ navigation }: any) => {
                       <View style={styles.ucDetailRow}>
                         <Ionicons name="time-outline" size={scale(13)} color={C.textSub} />
                         <Text style={styles.ucDetailText}>
-                          {duty.duty_from_time && duty.duty_to_time
-                            ? `${formatTimeAMPM(duty.duty_from_time)} - ${formatTimeAMPM(duty.duty_to_time)}`
+                          {(duty.shift_timings?.duty_from_time || duty.duty_from_time) &&
+                          (duty.shift_timings?.duty_to_time || duty.duty_to_time)
+                            ? `${formatTimeAMPM(duty.shift_timings?.duty_from_time || duty.duty_from_time)} - ${formatTimeAMPM(duty.shift_timings?.duty_to_time || duty.duty_to_time)}`
                             : 'Timing not specified'}
                         </Text>
                       </View>
@@ -865,6 +888,41 @@ const styles = StyleSheet.create({
   userNameText: { fontSize: scale(16), color: C.ink, fontWeight: '900', marginLeft: scale(4) },
   sectionContainer: { marginHorizontal: scale(20), marginBottom: scale(20) },
   sectionContainerNoMargin: { marginBottom: scale(20) },
+  emptyCurrentDutyBox: {
+    width: SW * 0.85,
+    alignSelf: 'center',
+    marginHorizontal: scale(20),
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(20),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3FCFD',
+    borderRadius: scale(14),
+    borderWidth: 1,
+    borderColor: '#D4EBEB',
+    minHeight: scale(132),
+  },
+  emptyCurrentDutyIcon: {
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
+    backgroundColor: C.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: scale(8),
+  },
+  emptyCurrentDutyTitle: {
+    fontSize: scale(14),
+    fontWeight: '800',
+    color: C.ink,
+  },
+  emptyCurrentDutyText: {
+    fontSize: scale(12),
+    color: C.textSub,
+    textAlign: 'center',
+    marginTop: scale(5),
+    lineHeight: scale(17),
+  },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: scale(20), marginBottom: scale(10) },
   viewAllBtn: { flexDirection: 'row', alignItems: 'center', gap: scale(2) },
   viewAllText: { fontSize: scale(13), color: C.primary, fontWeight: '700' },

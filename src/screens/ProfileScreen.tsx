@@ -887,6 +887,236 @@ const ClinicalAreaModal: React.FC<{ visible: boolean; initial?: any; onClose: ()
 };
 
 
+// ─── Preferred Location Modal ─────────────────────────────────────────────────
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
+  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
+  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
+  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Andaman and Nicobar Islands',
+  'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi',
+  'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
+];
+
+// Google sometimes returns a revenue "Division" (e.g. "Pune Division") as a level; skip it and use the real district
+const pickDistrict = (components: any[]): string => {
+  const candidates = ['administrative_area_level_2', 'administrative_area_level_3', 'locality']
+    .map(type => components.find((c: any) => c.types.includes(type))?.long_name || '')
+    .map((name: string) => name.replace(/\s+District$/i, '').trim())
+    .filter((name: string) => name && !/division/i.test(name));
+  return candidates[0] || '';
+};
+
+interface PlaceSuggestion { place_id: string; description: string; main_text: string; secondary_text: string; }
+
+interface PreferredLocationModalProps {
+  visible: boolean; initial?: any; isEdit?: boolean;
+  onClose: () => void; onSave: (data: any) => void; loading?: boolean; googleApiKey: string;
+}
+
+const PreferredLocationModal: React.FC<PreferredLocationModalProps> = ({ visible, initial, isEdit, onClose, onSave, loading, googleApiKey }) => {
+  const [form, setForm] = useState({ pincode: '', city: '', state: '', address: '', distance_km: '50' });
+  const [query, setQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      setForm({
+        pincode: initial?.pincode ? String(initial.pincode) : '',
+        city: initial?.city || '',
+        state: initial?.state || '',
+        address: initial?.address || '',
+        distance_km: String(initial?.distance_km || 50),
+      });
+      setQuery('');
+      setSuggestions([]);
+    }
+  }, [visible, initial]);
+
+  const getFrom = (components: any[], type: string): string => components.find((c: any) => c.types.includes(type))?.long_name || '';
+
+  const fetchPredictions = async (text: string) => {
+    setSearching(true);
+    try {
+      const res = await fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&components=country:in&key=${googleApiKey}`);
+      const data = await res.json();
+      if (data.status === 'OK' && data.predictions) {
+        setSuggestions(data.predictions.map((p: any) => ({
+          place_id: p.place_id,
+          description: p.description,
+          main_text: p.structured_formatting?.main_text || p.description,
+          secondary_text: p.structured_formatting?.secondary_text || '',
+        })));
+      } else setSuggestions([]);
+    } catch { setSuggestions([]); }
+    finally { setSearching(false); }
+  };
+
+  const onSearchChange = (text: string) => {
+    setQuery(text);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (text.trim().length < 3) { setSuggestions([]); return; }
+    debounceRef.current = setTimeout(() => fetchPredictions(text), 350);
+  };
+
+  const onSelectSuggestion = async (sug: PlaceSuggestion) => {
+    setSuggestions([]);
+    setQuery(sug.description);
+    setResolving(true);
+    try {
+      const res = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${sug.place_id}&fields=address_components,geometry&key=${googleApiKey}`);
+      const data = await res.json();
+      if (data.status === 'OK' && data.result?.address_components) {
+        const components: any[] = data.result.address_components;
+        let pincode = getFrom(components, 'postal_code');
+        // City-level places often have no postal code — reverse geocode the coordinates
+        if (!pincode && data.result.geometry?.location) {
+          try {
+            const { lat, lng } = data.result.geometry.location;
+            const rev = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&result_type=postal_code&key=${googleApiKey}`);
+            const revData = await rev.json();
+            if (revData.status === 'OK' && revData.results?.length) pincode = getFrom(revData.results[0].address_components, 'postal_code');
+          } catch {}
+        }
+        setForm(prev => ({
+          ...prev,
+          pincode,
+          city: pickDistrict(components),
+          state: getFrom(components, 'administrative_area_level_1'),
+          address: sug.description.replace(/,\s*India$/i, ''),
+        }));
+      }
+    } catch {
+      Alert.alert('Location Error', 'Unable to resolve full details. Please enter the details manually.');
+    } finally { setResolving(false); }
+  };
+
+  const onPincodeChange = async (val: string) => {
+    const cleaned = val.replace(/\D/g, '').slice(0, 6);
+    setForm(prev => ({ ...prev, pincode: cleaned }));
+    if (cleaned.length !== 6) return;
+    setResolving(true);
+    try {
+      const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${cleaned}&region=IN&key=${googleApiKey}`);
+      const data = await res.json();
+      if (data.status !== 'OK' || !data.results?.length) throw new Error('Invalid pincode');
+      const components: any[] = data.results[0].address_components;
+      const district = pickDistrict(components);
+      const state = getFrom(components, 'administrative_area_level_1');
+      setForm(prev => ({
+        ...prev,
+        city: district || prev.city,
+        state: state || prev.state,
+        address: prev.address || [district, state].filter(Boolean).join(', '),
+      }));
+    } catch { Alert.alert('Invalid Pincode', 'Unable to fetch location for this pincode.'); }
+    finally { setResolving(false); }
+  };
+
+  const handleSave = () => {
+    if (!form.pincode && !form.city.trim() && !form.state && !form.address.trim()) return Alert.alert('Missing Location', 'Please select or enter a preferred location.');
+    if (form.pincode && !/^[1-9][0-9]{5}$/.test(form.pincode)) return Alert.alert('Invalid Pincode', 'Enter a valid 6-digit pincode.');
+    const km = Number(form.distance_km);
+    if (!km || km < 1 || km > 100) return Alert.alert('Invalid Distance', 'Willingness to travel must be between 1 and 100 km.');
+    onSave({
+      pincode: form.pincode.trim(),
+      distance_km: km,
+      city: form.city.trim(),
+      state: form.state.trim(),
+      address: form.address.trim() || query.trim(),
+    });
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={em.overlay}>
+        <View style={em.sheet}>
+          <View style={em.header}>
+            <Text style={em.title}>{isEdit ? 'Edit Preferred Location' : 'Add Preferred Location'}</Text>
+            <TouchableOpacity onPress={onClose} style={em.closeBtn}><Ionicons name="close" size={scale(20)} color={C.textSub} /></TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: scale(450) }} keyboardShouldPersistTaps="handled">
+            <View style={em.fieldWrap}>
+              <Text style={em.label}>QUICK SEARCH (GOOGLE MAPS)</Text>
+              <TextInput style={em.input} value={query} onChangeText={onSearchChange} placeholder="Search city, area or hospital" placeholderTextColor={C.textMuted} autoCapitalize="words" />
+              {searching && <Text style={plm.hint}>Finding location suggestions...</Text>}
+              {suggestions.length > 0 && (
+                <View style={plm.suggestBox}>
+                  {suggestions.map(item => (
+                    <TouchableOpacity key={item.place_id} style={plm.suggestRow} onPress={() => onSelectSuggestion(item)} activeOpacity={0.7}>
+                      <Ionicons name="location-sharp" size={16} color={C.primary} style={{ marginRight: scale(8), marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={plm.suggestMain} numberOfLines={1}>{item.main_text}</Text>
+                        {!!item.secondary_text && <Text style={plm.suggestSub} numberOfLines={1}>{item.secondary_text}</Text>}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <View style={em.fieldWrap}>
+              <Text style={em.label}>PINCODE</Text>
+              <TextInput style={em.input} value={form.pincode} onChangeText={onPincodeChange} keyboardType="numeric" maxLength={6} placeholder="6-digit pincode" placeholderTextColor={C.textMuted} />
+              {resolving && <Text style={plm.hint}>Fetching location details…</Text>}
+            </View>
+
+            <View style={em.fieldWrap}>
+              <Text style={em.label}>DISTRICT</Text>
+              <TextInput style={em.input} value={form.city} onChangeText={v => setForm(p => ({ ...p, city: v }))} placeholder="District" placeholderTextColor={C.textMuted} autoCapitalize="words" />
+            </View>
+
+            <View style={em.fieldWrap}>
+              <Text style={em.label}>STATE</Text>
+              <View style={em.dropdownWrap}>
+                <Dropdown
+                  style={{ height: scale(40) }}
+                  placeholderStyle={{ color: C.textMuted, fontSize: scale(14) }}
+                  selectedTextStyle={{ color: C.ink, fontSize: scale(14) }}
+                  itemTextStyle={{ fontSize: scale(14), color: C.ink }}
+                  data={INDIAN_STATES.map(st => ({ label: st, value: st }))}
+                  labelField="label"
+                  valueField="value"
+                  placeholder="Select state"
+                  value={form.state}
+                  onChange={item => setForm(p => ({ ...p, state: item.value }))}
+                />
+              </View>
+            </View>
+
+            <View style={em.fieldWrap}>
+              <Text style={em.label}>AREA</Text>
+              <TextInput style={em.input} value={form.address} onChangeText={v => setForm(p => ({ ...p, address: v }))} placeholder="Area / locality" placeholderTextColor={C.textMuted} autoCapitalize="words" />
+            </View>
+
+            <View style={em.fieldWrap}>
+              <Text style={em.label}>WILLINGNESS TO TRAVEL (KM, 1–100)</Text>
+              <TextInput style={em.input} value={form.distance_km} onChangeText={v => setForm(p => ({ ...p, distance_km: v.replace(/\D/g, '').slice(0, 3) }))} keyboardType="numeric" maxLength={3} placeholder="50" placeholderTextColor={C.textMuted} />
+            </View>
+          </ScrollView>
+          <View style={em.btns}>
+            <TouchableOpacity style={[em.saveBtn, loading && { opacity: 0.6 }]} onPress={handleSave} disabled={loading}>
+              {loading ? <ActivityIndicator color={C.white} size="small" /> : <Text style={em.saveTxt}>Save Changes</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const plm = StyleSheet.create({
+  hint: { fontSize: scale(11), color: C.textSub, marginTop: scale(6) },
+  suggestBox: { marginTop: scale(6), borderWidth: 1, borderColor: C.border, borderRadius: scale(8), backgroundColor: C.white, overflow: 'hidden' },
+  suggestRow: { flexDirection: 'row', paddingHorizontal: scale(12), paddingVertical: scale(10), borderBottomWidth: 1, borderBottomColor: C.border },
+  suggestMain: { fontSize: scale(13), fontWeight: '700', color: C.ink },
+  suggestSub: { fontSize: scale(11), color: C.textSub, marginTop: 2 },
+});
+
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 const SPECIALITY_MAP: Record<string, string[]> = {
   'General Medicine': ['Cardiology', 'Neurology', 'Nephrology', 'Gastroenterology', 'Endocrinology', 'Clinical Hematology', 'Medical Oncology', 'Rheumatology', 'Infectious Diseases', 'Critical Care Medicine', 'Hepatology', 'Geriatrics'],
@@ -946,6 +1176,10 @@ const ProfileScreen: React.FC = () => {
   const [expModalVisible, setExpModalVisible] = useState(false);
   const [expModalInitial, setExpModalInitial] = useState<any>(null);
   const [expModalIdx, setExpModalIdx] = useState<number | undefined>(undefined);
+
+  const [prefModalVisible, setPrefModalVisible] = useState(false);
+  const [prefModalInitial, setPrefModalInitial] = useState<any>(null);
+  const [prefModalIdx, setPrefModalIdx] = useState<number | undefined>(undefined);
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -1089,6 +1323,19 @@ const ProfileScreen: React.FC = () => {
     const updated = expModalIdx !== undefined ? existing.map((ex, i) => i === expModalIdx ? { ...ex, ...data } : ex) : [...existing, data];
     setExpModalVisible(false);
     updateProfile({ experience: updated });
+  };
+
+  const handlePreferredLocationSave = (data: any) => {
+    const existing = (profile as any)?.preferred_locations || [];
+    const updated = prefModalIdx !== undefined ? existing.map((loc: any, i: number) => (i === prefModalIdx ? { ...loc, ...data } : loc)) : [...existing, data];
+    setPrefModalVisible(false);
+    updateProfile({ preferred_locations: updated }, prefModalIdx !== undefined ? 'Preferred location updated' : 'Preferred location added');
+  };
+
+  const handleDeletePreferredLocation = (idx: number) => {
+    confirmDelete('Delete Preferred Location', 'Remove this location?', () => {
+      updateProfile({ preferred_locations: ((profile as any)?.preferred_locations || []).filter((_: any, i: number) => i !== idx) });
+    });
   };
 
   const handleDeleteExperience = (idx: number) => {
@@ -1318,6 +1565,23 @@ const ProfileScreen: React.FC = () => {
           {!(profile as any)?.medical_registrations?.length && <Text style={styles.emptyTxt}>No registrations added</Text>}
         </SectionCard>
 
+        <SectionCard title="Preferred Locations" onAdd={() => { setPrefModalInitial(null); setPrefModalIdx(undefined); setPrefModalVisible(true); }}>
+          {((profile as any).preferred_locations || []).map((loc: any, i: number) => (
+            <View key={i} style={styles.listItem}>
+              <View style={styles.listBody}>
+                <Text style={styles.listTitle}>{loc.address || [loc.city, loc.state].filter(Boolean).join(', ') || 'Preferred location'}</Text>
+                <Text style={styles.listSub}>{[loc.city, loc.state].filter(Boolean).join(', ')}{loc.pincode ? ` — ${loc.pincode}` : ''}</Text>
+                <Text style={styles.listMeta}>Willing to travel up to {loc.distance_km || 50} km</Text>
+              </View>
+              <View style={styles.listActions}>
+                <TouchableOpacity style={styles.ghostIcon} onPress={() => { setPrefModalInitial(loc); setPrefModalIdx(i); setPrefModalVisible(true); }}><Ionicons name="pencil" size={16} color={C.textSub} /></TouchableOpacity>
+                <TouchableOpacity style={styles.ghostIcon} onPress={() => handleDeletePreferredLocation(i)}><Ionicons name="trash" size={16} color={C.urgent} /></TouchableOpacity>
+              </View>
+            </View>
+          ))}
+          {!(profile as any).preferred_locations?.length && <Text style={styles.emptyTxt}>No preferred locations added</Text>}
+        </SectionCard>
+
         <SectionCard title="References" onAdd={() => openReferenceEdit()}>
           {profile.references?.map((ref, i) => (
             <View key={i} style={styles.listItem}>
@@ -1365,6 +1629,7 @@ const ProfileScreen: React.FC = () => {
       <MedicalRegistrationModal visible={medRegModalVisible} initial={medRegModalInitial} onClose={() => { setMedRegModalVisible(false); setMedRegModalInitial(null); setMedRegEditIndex(undefined); }} onSave={handleMedRegSave} loading={uploadingCert} />
       <ExperienceModal visible={expModalVisible} initial={expModalInitial} isEdit={expModalIdx !== undefined} onClose={() => setExpModalVisible(false)} onSave={handleExperienceSave} loading={saving} googleApiKey={GOOGLE_API_KEY} />
       <EducationModal visible={eduModalVisible} initial={eduModalInitial} editIndex={eduModalEditIndex} profile={profile} onClose={() => { setEduModalVisible(false); setEduModalInitial(null); setEduModalEditIndex(undefined); }} onSave={updatedEducation => { updateProfile({ education: updatedEducation }, 'Education updated'); setEduModalVisible(false); }} loading={saving} googleApiKey={GOOGLE_API_KEY} />
+      <PreferredLocationModal visible={prefModalVisible} initial={prefModalInitial} isEdit={prefModalIdx !== undefined} onClose={() => { setPrefModalVisible(false); setPrefModalInitial(null); setPrefModalIdx(undefined); }} onSave={handlePreferredLocationSave} loading={saving} googleApiKey={GOOGLE_API_KEY} />
       <ClinicalAreaModal visible={clinicalModalVisible} initial={(profile as any)?.clinical_area_experience} onClose={() => setClinicalModalVisible(false)} onSave={handleClinicalSave} loading={saving} />
 
     </SafeAreaView>

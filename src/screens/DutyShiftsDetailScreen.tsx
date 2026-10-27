@@ -298,7 +298,11 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
           );
 
           const displayIn = reqPending ? req.requested?.check_in || '—' : formatIsoTime(inTime);
-          const displayOut = reqPending ? req.requested?.check_out || '—' : formatIsoTime(outTime);
+          const displayOut = reqPending
+            ? req.requested?.check_out || '—'
+            : isSessionCurrentlyOpen && !hasLegacyPending
+            ? 'Ongoing'
+            : formatIsoTime(outTime);
           const displayHours = reqPending
             ? req.requested?.hours
             : attRow?.total_duty_hours

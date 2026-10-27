@@ -549,7 +549,7 @@ const HomeScreen = ({ navigation }: any) => {
                     key={duty.assignment_id || index}
                     activeOpacity={0.95}
                     // FLOW CHANGE: Tapping this card opens the dedicated DutyShiftsDetailScreen
-                    onPress={() => navigation.navigate('DutiesScreen', { defaultTab: 'Upcoming' })}
+                    onPress={() => navigation.navigate('DutyShiftsDetailScreen', { duty })}
                     style={{ width: SW * 0.85, marginRight: scale(14) }}
                   >
                     <LinearGradient colors={['#E5F8FA', '#F3FCFD']} style={[styles.currentDutyCard, { width: '100%', marginRight: 0 }]}>
@@ -945,8 +945,8 @@ const styles = StyleSheet.create({
   cdLocationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: scale(4) },
   cdLocationText: { fontSize: scale(12), color: C.textSub, fontWeight: '500', flex: 1, lineHeight: scale(16) },
   cdDivider: { height: 1, backgroundColor: '#d8eef0', marginBottom: scale(10) },
-  cdFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cdFooterItem: { flexDirection: 'row', gap: scale(6), alignItems: 'center' },
+  cdFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: scale(6), columnGap: scale(8) },
+  cdFooterItem: { flexDirection: 'row', gap: scale(4), alignItems: 'center' },
   cdFooterText: { fontSize: scale(12), color: C.textSub, fontWeight: '700' },
   cdBtnText: { color: C.white, fontSize: scale(12), fontWeight: '700' },
   cdAttendanceWrap: { marginTop: scale(12), gap: scale(8) },

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -26,6 +26,11 @@ import HospitalDetailsScreen from './src/screens/HospitalDetailsScreen';
 import DutiesScreen from './src/screens/DutiesScreen';
 import ViewAllJobsScreen from './src/screens/ViewAllJobs';
 import AvailabilitySection from './src/components/AvailabilitySection';
+import {
+  navigationRef,
+  flushPendingNavigation,
+  setPushNavigationReady,
+} from './src/services/pushNotifications';
 
 const Stack = createNativeStackNavigator();
 
@@ -33,13 +38,26 @@ const AppNavigator = () => {
   const [splashDone, setSplashDone] = useState(false);
   const { isLoading, doctor } = useAuth();
 
+  useEffect(() => {
+    setPushNavigationReady(splashDone && !isLoading && !!doctor);
+  }, [splashDone, isLoading, doctor]);
+
+  // Wait until both AsyncStorage session restoration (isLoading) AND the splash screen animation are finished
+  const isReady = splashDone && !isLoading;
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!splashDone || isLoading ? (
+        {!isReady ? (
           <Stack.Screen name="Splash">
             {props => (
-              <SplashScreen {...props} onFinish={() => setSplashDone(true)} />
+              <SplashScreen 
+                {...props} 
+                onFinish={() => {
+                  // Only mark splash done when AsyncStorage has also finished loading
+                  setSplashDone(true);
+                }} 
+              />
             )}
           </Stack.Screen>
         ) : doctor ? (

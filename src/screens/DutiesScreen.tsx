@@ -139,7 +139,6 @@ const formatTimestampTime = (iso?: string | null) => {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 };
 
-// Matches HomeScreen: remains actionable as long as shift isn't permanently checked out
 const isDutyTimeActionable = (
   _fromTime?: string,
   _toTime?: string,
@@ -173,7 +172,6 @@ const DutiesScreen = ({ route, navigation }: any) => {
   const [missedCheckOuts, setMissedCheckOuts] = useState<MissedCheckOut[]>([]);
   const [manualTarget, setManualTarget] = useState<ManualTarget | null>(null);
 
-  // Map Modal State (matching HomeScreen)
   const [mapVisible, setMapVisible] = useState(false);
   const [mapDuty, setMapDuty] = useState<any>(null);
   const [mapType, setMapType] = useState<'check-in' | 'check-out'>('check-in');
@@ -194,7 +192,6 @@ const DutiesScreen = ({ route, navigation }: any) => {
     }
   }, [route?.params?.defaultTab]);
 
-  // Fit map to user and hospital coordinates when modal opens
   useEffect(() => {
     if (!mapVisible || !mapCoords || !mapRef.current) return;
     const hc = mapDuty?.hospital?.coordinates;
@@ -257,7 +254,13 @@ const DutiesScreen = ({ route, navigation }: any) => {
         if (isStale()) return;
 
         if (response.data?.success) {
-          const tabList = response.data.tabs?.[currentTab] || [];
+          // Robust fallback supporting both camelCase and exact tab keys
+          const tabsData = response.data.tabs || {};
+          const tabList =
+            tabsData[currentTab] ||
+            tabsData[activeTab] ||
+            response.data[currentTab] ||
+            [];
           setJobs(Array.isArray(tabList) ? tabList : []);
         } else {
           setJobs([]);
@@ -372,7 +375,6 @@ const DutiesScreen = ({ route, navigation }: any) => {
         accuracy: coords.accuracy,
       });
 
-      // Optimistic state update supporting multiple check-in/out sessions within shift timings
       setJobs(prev =>
         prev.map(d => {
           const dReqId = d?.requirement_id || d?.req_id || d?._id;
@@ -613,7 +615,6 @@ const DutiesScreen = ({ route, navigation }: any) => {
       ? item.offered_rate || '0'
       : item.configured_rate || item.offered_rate || '0';
 
-    // Multi-session attendance logic matching HomeScreen
     const attendance = isToday ? item.attendance : null;
     const sessions = Array.isArray(attendance?.sessions) ? attendance.sessions : [];
 
@@ -626,7 +627,6 @@ const DutiesScreen = ({ route, navigation }: any) => {
         ? completedSessions[completedSessions.length - 1].check_out.timestamp
         : attendance?.check_out_time || null;
 
-    // Only mark completed if checked out AND cannot check in again
     const isDutyCompleted =
       (!!attendance?.is_checked_out && !attendance?.can_check_in) ||
       item.duty_state === 'COMPLETED';
@@ -649,9 +649,9 @@ const DutiesScreen = ({ route, navigation }: any) => {
     return (
       <TouchableOpacity
         style={styles.jobCard}
-        activeOpacity={activeTab === 'Invited' ? 1 : 0.85}
+        activeOpacity={isInvitedOrInterested ? 1 : 0.85}
         onPress={() => {
-          if (activeTab === 'Invited') return;
+          if (isInvitedOrInterested) return; // Prevent navigation on Invited/Interested tabs to avoid errors
           if (isToday) {
             navigation.navigate('DutyShiftsDetailScreen', { duty: item });
             return;
@@ -928,7 +928,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Ionicons
-        name={activeTab === 'Invited' ? 'mail-open-outline' : 'briefcase-outline'}
+        name={activeTab === 'Invited' || activeTab === 'Interested' ? 'mail-open-outline' : 'briefcase-outline'}
         size={scale(48)}
         color={C.border}
       />
@@ -1021,7 +1021,7 @@ const DutiesScreen = ({ route, navigation }: any) => {
         />
       )}
 
-      {/* ATTENDANCE MAP MODAL (500m Geofence Radius) */}
+      {/* ATTENDANCE MAP MODAL */}
       <Modal visible={mapVisible} animationType="slide" onRequestClose={closeAttendanceMap}>
         {(() => {
           const hc = mapDuty?.hospital?.coordinates;
@@ -1493,7 +1493,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: scale(2),
   },
-  // Map Modal Styles (matching HomeScreen)
   mapRoot: { flex: 1, backgroundColor: C.cardBg },
   mapHeader: {
     flexDirection: 'row',

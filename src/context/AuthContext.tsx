@@ -6,6 +6,7 @@ import React, {
   useEffect,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { pushLogin, pushLogout } from '../services/pushNotifications';
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export interface Education {
@@ -119,9 +120,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('Token found:', !!storedToken);
         console.log('Doctor found:', !!storedDoctor);
         if (storedToken && storedDoctor) {
-          setTokenState(storedToken);
-          setDoctorState(JSON.parse(storedDoctor));
-        }
+  const parsed = JSON.parse(storedDoctor);
+  setTokenState(storedToken);
+  setDoctorState(parsed);
+  if (parsed?._id) pushLogin(parsed._id);   // ← add
+}
       } catch (e) {
         console.warn('Failed to restore session:', e);
       } finally {
@@ -132,18 +135,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const setAuth = async (newDoctor: DoctorProfile, newToken: string) => {
-    setDoctorState(newDoctor);
-    setTokenState(newToken);
-    // Persist to storage
-    await AsyncStorage.setItem('auth_token', newToken);
-    await AsyncStorage.setItem('auth_doctor', JSON.stringify(newDoctor));
-  };
+  setDoctorState(newDoctor);
+  setTokenState(newToken);
+  pushLogin(newDoctor._id);                 // ← add
+  await AsyncStorage.setItem('auth_token', newToken);
+  await AsyncStorage.setItem('auth_doctor', JSON.stringify(newDoctor));
+};
 
   const setDoctor = async (d: DoctorProfile | null) => {
     setDoctorState(d);
     if (d) {
       await AsyncStorage.setItem('auth_doctor', JSON.stringify(d));
     } else {
+       pushLogout(); 
       await AsyncStorage.removeItem('auth_token');
       await AsyncStorage.removeItem('auth_doctor');
     }
@@ -151,6 +155,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
+        pushLogout();  
       setDoctorState(null);
       setTokenState(null);
       await AsyncStorage.removeItem('auth_token');

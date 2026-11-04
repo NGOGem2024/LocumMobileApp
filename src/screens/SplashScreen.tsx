@@ -93,7 +93,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       >
         <View style={styles.logoRing}>
           <Image
-            source={require('../assets/Logo.png')}
+            source={require('../assets/icon.png')}
             style={styles.htIcon}
             resizeMode="contain"
           />

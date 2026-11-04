@@ -114,7 +114,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ screenName = '', onBack }) => {
         >
           <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
           <Image
-            source={require('../assets/l.png')} 
+            source={require('../assets/logo1.png')} 
             style={styles.logoImage}
             resizeMode="contain"
           />

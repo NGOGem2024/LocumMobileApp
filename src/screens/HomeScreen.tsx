@@ -464,7 +464,7 @@ const HomeScreen = ({ navigation }: any) => {
 
       <View style={styles.topBarContainer}>
         <TouchableOpacity style={styles.logoContainer} activeOpacity={0.8}>
-          <Image source={require('../assets/image.png')} style={styles.logoImage} resizeMode="contain" />
+          <Image source={require('../assets/logo1.png')} style={styles.logoImage} resizeMode="contain" />
         </TouchableOpacity>
       </View>
 

@@ -58,7 +58,7 @@ const DashboardScreen = ({ navigation }: DashboardScreenProps) => {
         {/* ── Centered Content Card ── */}
         <View style={styles.centerCard}>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>✨ PREMIER LOCUM NETWORK</Text>
+            <Text style={styles.badgeText}>✨ PREMIER PROFESSIONAL'S NETWORK</Text>
           </View>
 
           <Text style={styles.heroTitle}>

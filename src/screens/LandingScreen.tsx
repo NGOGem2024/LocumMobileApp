@@ -84,7 +84,7 @@ const LandingScreen = () => {
               ]}
             >
               <Image
-                source={require('../assets/Logo.png')}
+                source={require('../assets/icon.png')}
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -98,12 +98,12 @@ const LandingScreen = () => {
               ]}
             >
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>✦ WELCOME TO HT LOCUM</Text>
+                <Text style={styles.badgeText}>✦ WELCOME TO HT MEDICO</Text>
               </View>
 
               <Text style={styles.title}>
-                Precision Healthcare{'\n'}
-                <Text style={styles.titleHighlight}>Staffing on Demand</Text>
+                Powering Hospitals{'\n'}
+                <Text style={styles.titleHighlight}>With Excellence</Text>
               </Text>
 
               <Text style={styles.subtitle}>

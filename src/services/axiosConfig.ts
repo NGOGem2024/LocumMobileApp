@@ -11,9 +11,10 @@ NetInfo.addEventListener(state => {
 });
 
 const instance = axios.create({
-  baseURL: 'https://locumbackenduat-ewcbfyghbvb2h0ez.centralindia-01.azurewebsites.net',
+  baseURL:
+    'https://locumbackenduat-ewcbfyghbvb2h0ez.centralindia-01.azurewebsites.net',
   // baseURL: 'http://10.192.167.50:5000',
-  // baseURL: 'https://locumhtbe-h6fvftgnfudxc5hw.centralindia-01.azurewebsites.net',
+  //baseURL: 'https://locumhtbe-h6fvftgnfudxc5hw.centralindia-01.azurewebsites.net',
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -39,28 +40,28 @@ instance.interceptors.request.use(
 
     // Fetch the single source of truth for authentication
     const authToken = await AsyncStorage.getItem('auth_token');
-console.log(authToken, '=== AUTH TOKEN ===');
+    console.log(authToken, '=== AUTH TOKEN ===');
     // Set authorization header if the token exists
     if (authToken) {
       config.headers['Authorization'] = `Bearer ${authToken}`;
     }
-    
+
     return config;
   },
   error => {
     return Promise.reject(error);
-  }
+  },
 );
 
 instance.interceptors.response.use(
   async response => {
     const newAccessToken = response.headers['newAccessToken'];
-    
+
     if (newAccessToken) {
       // Update AsyncStorage directly when the server rotates the token
       await AsyncStorage.setItem('auth_token', newAccessToken);
     }
-    
+
     return response;
   },
   async error => {
@@ -82,11 +83,11 @@ instance.interceptors.response.use(
       try {
         // Fetch the active auth_token for the retry attempt
         const newToken = await AsyncStorage.getItem('auth_token');
-        
+
         if (newToken) {
           originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
           // Use the custom 'instance' to ensure interceptors apply to the retry
-          return instance(originalRequest); 
+          return instance(originalRequest);
         }
       } catch (refreshError) {
         console.error('Error refreshing token:', refreshError);
@@ -94,7 +95,7 @@ instance.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default instance;

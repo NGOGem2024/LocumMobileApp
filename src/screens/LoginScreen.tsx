@@ -25,7 +25,9 @@ import {
   statusCodes,
 } from '@react-native-google-signin/google-signin';
 
-import CustomCountryPicker, { Country } from '../components/CustomCountryPicker';
+import CustomCountryPicker, {
+  Country,
+} from '../components/CustomCountryPicker';
 
 const { width: SW } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
@@ -80,7 +82,7 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  
+
   // ─── Separate Loading States ───
   const [mainLoading, setMainLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -120,6 +122,10 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
     GoogleSignin.configure({
       webClientId:
         '1038698506388-4v27d2oh0c5b8c1a1bjnh0iepeo9l5fs.apps.googleusercontent.com',
+
+      iosClientId:
+        '1038698506388-8im1tpg7314rjjqa1335m29pgn8k1rv0.apps.googleusercontent.com',
+
       offlineAccess: true,
       forceCodeForRefreshToken: true,
     });
@@ -170,7 +176,10 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
       if (!mobileClean) {
         setMobileError('Mobile number is required');
         valid = false;
-      } else if (selectedCountry.callingCode === '91' && mobileClean.length !== 10) {
+      } else if (
+        selectedCountry.callingCode === '91' &&
+        mobileClean.length !== 10
+      ) {
         setMobileError('Mobile number must be exactly 10 digits');
         valid = false;
       } else if (mobileClean.length < 7 || mobileClean.length > 15) {
@@ -210,10 +219,11 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
 
     try {
       const cleanMobile = mobile.replace(/[^0-9]/g, '');
-      const endpoint = loginMethod === 'email' 
-        ? '/api/doctors/login' 
-        : '/api/doctors/mobile-login';
-        
+      const endpoint =
+        loginMethod === 'email'
+          ? '/api/doctors/login'
+          : '/api/doctors/mobile-login';
+
       const payload =
         loginMethod === 'email'
           ? { email: email.trim().toLowerCase(), password }
@@ -411,7 +421,12 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
               </Text>
 
               {loginMethod === 'email' ? (
-                <View style={[styles.inputBox, emailError ? styles.inputBoxError : null]}>
+                <View
+                  style={[
+                    styles.inputBox,
+                    emailError ? styles.inputBoxError : null,
+                  ]}
+                >
                   <Ionicons
                     name="mail-outline"
                     size={18}
@@ -439,22 +454,39 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                   )}
                 </View>
               ) : (
-                <View style={[styles.inputBox, { paddingHorizontal: 0, overflow: 'hidden' }, mobileError ? styles.inputBoxError : null]}>
+                <View
+                  style={[
+                    styles.inputBox,
+                    { paddingHorizontal: 0, overflow: 'hidden' },
+                    mobileError ? styles.inputBoxError : null,
+                  ]}
+                >
                   <TouchableOpacity
                     style={styles.countrySelectorBtn}
                     onPress={() => setPickerVisible(true)}
                     disabled={otpSent || isAnyLoading}
                   >
                     <Text style={styles.flagText}>{selectedCountry.flag}</Text>
-                    <Text style={styles.countryCodeText}>+{selectedCountry.callingCode}</Text>
-                    <Ionicons name="chevron-down" size={14} color={C.textMuted} style={{ marginLeft: 4 }} />
+                    <Text style={styles.countryCodeText}>
+                      +{selectedCountry.callingCode}
+                    </Text>
+                    <Ionicons
+                      name="chevron-down"
+                      size={14}
+                      color={C.textMuted}
+                      style={{ marginLeft: 4 }}
+                    />
                   </TouchableOpacity>
 
                   <View style={styles.verticalDivider} />
 
                   <TextInput
                     style={[styles.input, { paddingHorizontal: 12 }]}
-                    placeholder={selectedCountry.callingCode === '91' ? '98765 43210' : 'Enter mobile number'}
+                    placeholder={
+                      selectedCountry.callingCode === '91'
+                        ? '98765 43210'
+                        : 'Enter mobile number'
+                    }
                     placeholderTextColor={C.textMuted}
                     value={mobile}
                     onChangeText={handleMobileChange}
@@ -471,8 +503,12 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                   )}
                 </View>
               )}
-              {!!emailError && <Text style={styles.errorText}>{emailError}</Text>}
-              {!!mobileError && <Text style={styles.errorText}>{mobileError}</Text>}
+              {!!emailError && (
+                <Text style={styles.errorText}>{emailError}</Text>
+              )}
+              {!!mobileError && (
+                <Text style={styles.errorText}>{mobileError}</Text>
+              )}
             </View>
 
             {authType === 'password' ? (
@@ -486,7 +522,12 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                     <Text style={styles.forgotLink}>Forgot?</Text>
                   </TouchableOpacity>
                 </View>
-                <View style={[styles.inputBox, passwordError ? styles.inputBoxError : null]}>
+                <View
+                  style={[
+                    styles.inputBox,
+                    passwordError ? styles.inputBoxError : null,
+                  ]}
+                >
                   <Ionicons
                     name="lock-closed-outline"
                     size={18}
@@ -519,13 +560,20 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                     />
                   </TouchableOpacity>
                 </View>
-                {!!passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
+                {!!passwordError && (
+                  <Text style={styles.errorText}>{passwordError}</Text>
+                )}
               </View>
             ) : (
               otpSent && (
                 <View style={styles.fieldWrap}>
                   <Text style={styles.fieldLabel}>Enter OTP</Text>
-                  <View style={[styles.inputBox, otpError ? styles.inputBoxError : null]}>
+                  <View
+                    style={[
+                      styles.inputBox,
+                      otpError ? styles.inputBoxError : null,
+                    ]}
+                  >
                     <Ionicons
                       name="keypad-outline"
                       size={18}
@@ -548,14 +596,18 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                       editable={!isAnyLoading}
                     />
                   </View>
-                  {!!otpError && <Text style={styles.errorText}>{otpError}</Text>}
+                  {!!otpError && (
+                    <Text style={styles.errorText}>{otpError}</Text>
+                  )}
                 </View>
               )
             )}
 
             <View style={styles.authToggleRow}>
               <TouchableOpacity
-                onPress={() => setAuthType(authType === 'password' ? 'otp' : 'password')}
+                onPress={() =>
+                  setAuthType(authType === 'password' ? 'otp' : 'password')
+                }
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 disabled={isAnyLoading}
               >
@@ -600,7 +652,9 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
 
             <TouchableOpacity
               style={styles.switchMethodBtn}
-              onPress={() => setLoginMethod(prev => (prev === 'email' ? 'mobile' : 'email'))}
+              onPress={() =>
+                setLoginMethod(prev => (prev === 'email' ? 'mobile' : 'email'))
+              }
               disabled={isAnyLoading}
             >
               <Image
@@ -613,7 +667,8 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                 resizeMode="contain"
               />
               <Text style={styles.switchMethodText}>
-                Continue with {loginMethod === 'email' ? 'Mobile Number' : 'Email'}
+                Continue with{' '}
+                {loginMethod === 'email' ? 'Mobile Number' : 'Email'}
               </Text>
             </TouchableOpacity>
 
@@ -640,7 +695,10 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
 
         <SafeAreaView edges={['bottom']} style={styles.registerWrap}>
           <Text style={styles.registerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => navigation?.navigate('Register')} disabled={isAnyLoading}>
+          <TouchableOpacity
+            onPress={() => navigation?.navigate('Register')}
+            disabled={isAnyLoading}
+          >
             <Text style={styles.registerLink}>Register</Text>
           </TouchableOpacity>
         </SafeAreaView>

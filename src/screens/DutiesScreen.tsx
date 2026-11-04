@@ -19,7 +19,7 @@ import {
   PermissionsAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import Geolocation from '@react-native-community/geolocation';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import api from '../services/axiosConfig';
@@ -31,7 +31,10 @@ import {
   ManualTarget,
 } from '../components/ManualCheckOut';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -58,7 +61,14 @@ const C = {
   urgent: '#ef4444',
 };
 
-type TabType = 'Today' | 'Invited' | 'Interested' | 'Assigned' | 'Upcoming' | 'Past' | 'Cancelled';
+type TabType =
+  | 'Today'
+  | 'Invited'
+  | 'Interested'
+  | 'Assigned'
+  | 'Upcoming'
+  | 'Past'
+  | 'Cancelled';
 
 const requestLocationPermission = async (): Promise<boolean> => {
   if (Platform.OS === 'android') {
@@ -128,7 +138,9 @@ const distanceMetersBetween = (
   const dLng = toRad(b.longitude - a.longitude);
   const s =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * Math.sin(dLng / 2) ** 2;
+    Math.cos(toRad(a.latitude)) *
+      Math.cos(toRad(b.latitude)) *
+      Math.sin(dLng / 2) ** 2;
   return Math.round(2 * R * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s)));
 };
 
@@ -136,7 +148,11 @@ const formatTimestampTime = (iso?: string | null) => {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return d.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
 };
 
 const isDutyTimeActionable = (
@@ -195,7 +211,9 @@ const DutiesScreen = ({ route, navigation }: any) => {
   useEffect(() => {
     if (!mapVisible || !mapCoords || !mapRef.current) return;
     const hc = mapDuty?.hospital?.coordinates;
-    const points = [{ latitude: mapCoords.latitude, longitude: mapCoords.longitude }];
+    const points = [
+      { latitude: mapCoords.latitude, longitude: mapCoords.longitude },
+    ];
     if (hc?.latitude && hc?.longitude) {
       points.push({ latitude: hc.latitude, longitude: hc.longitude });
     }
@@ -219,9 +237,17 @@ const DutiesScreen = ({ route, navigation }: any) => {
     (message: string) => {
       setToastMessage(message);
       Animated.sequence([
-        Animated.timing(toastFadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(toastFadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
         Animated.delay(1800),
-        Animated.timing(toastFadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(toastFadeAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
       ]).start();
     },
     [toastFadeAnim],
@@ -250,7 +276,9 @@ const DutiesScreen = ({ route, navigation }: any) => {
           return;
         }
 
-        const response = await api.get('/api/doctors/duties', { params: { tab: 'all' } });
+        const response = await api.get('/api/doctors/duties', {
+          params: { tab: 'all' },
+        });
         if (isStale()) return;
 
         if (response.data?.success) {
@@ -299,13 +327,22 @@ const DutiesScreen = ({ route, navigation }: any) => {
   const openManualCheckOut = (duty: any) => {
     setManualTarget({
       requirementId: duty.requirement_id || duty.req_id || duty._id,
-      dutyDate: duty.attendance?.duty_date || new Date().toISOString().split('T')[0],
+      dutyDate:
+        duty.attendance?.duty_date || new Date().toISOString().split('T')[0],
       hospitalName:
-        duty.hospital?.name || duty.hospital_details?.hospital_name || duty.hospital_name,
+        duty.hospital?.name ||
+        duty.hospital_details?.hospital_name ||
+        duty.hospital_name,
       checkInTime: duty.attendance?.check_in_time,
       checkOutTime: duty.attendance?.check_out_time,
-      shiftFrom: duty.shift_timings?.duty_from_time || duty.shift_time_from || duty.duty_from_time,
-      shiftTo: duty.shift_timings?.duty_to_time || duty.shift_time_to || duty.duty_to_time,
+      shiftFrom:
+        duty.shift_timings?.duty_from_time ||
+        duty.shift_time_from ||
+        duty.duty_from_time,
+      shiftTo:
+        duty.shift_timings?.duty_to_time ||
+        duty.shift_time_to ||
+        duty.duty_to_time,
     });
   };
 
@@ -320,7 +357,10 @@ const DutiesScreen = ({ route, navigation }: any) => {
     });
   };
 
-  const openAttendanceMap = async (duty: any, type: 'check-in' | 'check-out') => {
+  const openAttendanceMap = async (
+    duty: any,
+    type: 'check-in' | 'check-out',
+  ) => {
     const reqId = duty?.requirement_id || duty?.req_id || duty?._id;
     if (!reqId || attendanceLoading) return;
 
@@ -328,7 +368,8 @@ const DutiesScreen = ({ route, navigation }: any) => {
       const activeDuty = jobs.find(
         d => d?.attendance?.is_checked_in && !d?.attendance?.is_checked_out,
       );
-      const activeReqId = activeDuty?.requirement_id || activeDuty?.req_id || activeDuty?._id;
+      const activeReqId =
+        activeDuty?.requirement_id || activeDuty?.req_id || activeDuty?._id;
       if (activeDuty && activeReqId !== reqId) {
         showToast('First you have to check out or close the active duty.');
         return;
@@ -362,7 +403,11 @@ const DutiesScreen = ({ route, navigation }: any) => {
     setMapVisible(false);
   };
 
-  const handleAttendance = async (duty: any, type: 'check-in' | 'check-out', coords: Coords) => {
+  const handleAttendance = async (
+    duty: any,
+    type: 'check-in' | 'check-out',
+    coords: Coords,
+  ) => {
     const reqId = duty?.requirement_id || duty?.req_id || duty?._id;
     if (!reqId || attendanceLoading) return;
 
@@ -380,7 +425,9 @@ const DutiesScreen = ({ route, navigation }: any) => {
           const dReqId = d?.requirement_id || d?.req_id || d?._id;
           if (dReqId !== reqId) return d;
           const att = d.attendance || {};
-          const existingSessions = Array.isArray(att.sessions) ? att.sessions : [];
+          const existingSessions = Array.isArray(att.sessions)
+            ? att.sessions
+            : [];
 
           if (type === 'check-in') {
             const newCheckInIso =
@@ -392,7 +439,9 @@ const DutiesScreen = ({ route, navigation }: any) => {
               { check_in: { timestamp: newCheckInIso }, check_out: null },
             ];
             const oldestCheckInTime =
-              updatedSessions[0]?.check_in?.timestamp || att.check_in_time || newCheckInIso;
+              updatedSessions[0]?.check_in?.timestamp ||
+              att.check_in_time ||
+              newCheckInIso;
 
             return {
               ...d,
@@ -443,13 +492,18 @@ const DutiesScreen = ({ route, navigation }: any) => {
 
       setMapVisible(false);
       showToast(
-        data?.message || (type === 'check-in' ? 'Check-in successful!' : 'Check-out successful!'),
+        data?.message ||
+          (type === 'check-in'
+            ? 'Check-in successful!'
+            : 'Check-out successful!'),
       );
       fetchDuties(true);
     } catch (error: any) {
       if (error.response?.data?.manual_check_out_required) {
         setMapVisible(false);
-        showToast(error.response?.data?.message || 'Please submit your timings.');
+        showToast(
+          error.response?.data?.message || 'Please submit your timings.',
+        );
         openManualCheckOut(duty);
         fetchDuties(true);
       } else {
@@ -483,7 +537,9 @@ const DutiesScreen = ({ route, navigation }: any) => {
         fetchDuties(true);
       }
     } catch (error: any) {
-      showToast(error.response?.data?.message || 'Failed to update duty status');
+      showToast(
+        error.response?.data?.message || 'Failed to update duty status',
+      );
     } finally {
       setLoading(false);
     }
@@ -561,16 +617,27 @@ const DutiesScreen = ({ route, navigation }: any) => {
     const locationParts = [area, city, state].filter(Boolean);
     const uniqueLocationParts = [...new Set(locationParts)];
     let locationString = uniqueLocationParts.join(', ');
-    if (pincode) locationString = locationString ? `${locationString} - ${pincode}` : pincode;
+    if (pincode)
+      locationString = locationString
+        ? `${locationString} - ${pincode}`
+        : pincode;
     if (!locationString) locationString = 'Location unavailable';
 
     const shiftTimeFrom = isToday
-      ? item.shift_timings?.duty_from_time || item.shift_time_from || item.duty_from_time
-      : item.shift_time_from || item.duty_from_time || item.shift_timings?.duty_from_time;
+      ? item.shift_timings?.duty_from_time ||
+        item.shift_time_from ||
+        item.duty_from_time
+      : item.shift_time_from ||
+        item.duty_from_time ||
+        item.shift_timings?.duty_from_time;
 
     const shiftTimeTo = isToday
-      ? item.shift_timings?.duty_to_time || item.shift_time_to || item.duty_to_time
-      : item.shift_time_to || item.duty_to_time || item.shift_timings?.duty_to_time;
+      ? item.shift_timings?.duty_to_time ||
+        item.shift_time_to ||
+        item.duty_to_time
+      : item.shift_time_to ||
+        item.duty_to_time ||
+        item.shift_timings?.duty_to_time;
 
     const assignedDates: string[] =
       item.assigned_dates ||
@@ -606,9 +673,11 @@ const DutiesScreen = ({ route, navigation }: any) => {
 
     const isExpired =
       !isToday && rawEndDate
-        ? new Date(rawEndDate).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0)
+        ? new Date(rawEndDate).setHours(0, 0, 0, 0) <
+          new Date().setHours(0, 0, 0, 0)
         : false;
-    const isInvitedOrInterested = activeTab === 'Invited' || activeTab === 'Interested';
+    const isInvitedOrInterested =
+      activeTab === 'Invited' || activeTab === 'Interested';
     const displayRate = isToday
       ? item.configured_rate || item.offered_rate || '0'
       : isInvitedOrInterested
@@ -616,12 +685,16 @@ const DutiesScreen = ({ route, navigation }: any) => {
       : item.configured_rate || item.offered_rate || '0';
 
     const attendance = isToday ? item.attendance : null;
-    const sessions = Array.isArray(attendance?.sessions) ? attendance.sessions : [];
+    const sessions = Array.isArray(attendance?.sessions)
+      ? attendance.sessions
+      : [];
 
     const oldestCheckInIso =
       sessions[0]?.check_in?.timestamp || attendance?.check_in_time || null;
 
-    const completedSessions = sessions.filter((s: any) => s?.check_out?.timestamp);
+    const completedSessions = sessions.filter(
+      (s: any) => s?.check_out?.timestamp,
+    );
     const newestCheckOutIso =
       completedSessions.length > 0
         ? completedSessions[completedSessions.length - 1].check_out.timestamp
@@ -658,7 +731,9 @@ const DutiesScreen = ({ route, navigation }: any) => {
           }
           navigation.navigate('JobDetails', {
             jobDetails: item,
-            isAssigned: ['Assigned', 'Upcoming', 'Past'].includes(activeTab as string),
+            isAssigned: ['Assigned', 'Upcoming', 'Past'].includes(
+              activeTab as string,
+            ),
             jobStatus: activeTab,
           });
         }}
@@ -666,7 +741,8 @@ const DutiesScreen = ({ route, navigation }: any) => {
         <View style={styles.cardHeader}>
           <View style={styles.titleRow}>
             <Text style={styles.jobTitle} numberOfLines={1}>
-              {item.speciality || 'General Duty'} {item.department ? `- ${item.department}` : ''}
+              {item.speciality || 'General Duty'}{' '}
+              {item.department ? `- ${item.department}` : ''}
             </Text>
             {(item.vacancy_status === 'Urgent' ||
               (isToday && item.duty_state === 'IN_PROGRESS')) && (
@@ -674,16 +750,21 @@ const DutiesScreen = ({ route, navigation }: any) => {
                 style={[
                   styles.badge,
                   isToday &&
-                    item.duty_state === 'IN_PROGRESS' && { backgroundColor: C.primaryLight },
+                    item.duty_state === 'IN_PROGRESS' && {
+                      backgroundColor: C.primaryLight,
+                    },
                 ]}
               >
                 <Text
                   style={[
                     styles.badgeText,
-                    isToday && item.duty_state === 'IN_PROGRESS' && { color: C.primary },
+                    isToday &&
+                      item.duty_state === 'IN_PROGRESS' && { color: C.primary },
                   ]}
                 >
-                  {isToday && item.duty_state === 'IN_PROGRESS' ? 'In Progress' : 'Urgent'}
+                  {isToday && item.duty_state === 'IN_PROGRESS'
+                    ? 'In Progress'
+                    : 'Urgent'}
                 </Text>
               </View>
             )}
@@ -692,14 +773,23 @@ const DutiesScreen = ({ route, navigation }: any) => {
             <Text style={styles.hospitalName}>{hospitalName}</Text>
           )}
           <Text style={styles.locationText} numberOfLines={2}>
-            <Ionicons name="location-outline" size={scale(12)} color={C.textMuted} />{' '}
+            <Ionicons
+              name="location-outline"
+              size={scale(12)}
+              color={C.textMuted}
+            />{' '}
             {locationString}
           </Text>
         </View>
 
         <View style={styles.cardDetails}>
           {!isToday && (
-            <View style={[styles.detailRow, hasIndividualDates && { alignItems: 'flex-start' }]}>
+            <View
+              style={[
+                styles.detailRow,
+                hasIndividualDates && { alignItems: 'flex-start' },
+              ]}
+            >
               <Ionicons
                 name="calendar-outline"
                 size={scale(16)}
@@ -712,7 +802,9 @@ const DutiesScreen = ({ route, navigation }: any) => {
                     <View style={styles.dateChipContainer}>
                       {assignedDates.map((d: string) => (
                         <View key={d} style={styles.dateChip}>
-                          <Text style={styles.dateChipText}>{formatShortDate(d)}</Text>
+                          <Text style={styles.dateChipText}>
+                            {formatShortDate(d)}
+                          </Text>
                         </View>
                       ))}
                     </View>
@@ -731,7 +823,11 @@ const DutiesScreen = ({ route, navigation }: any) => {
             <View style={styles.todayDatesBlock}>
               <View style={styles.todayDateRow}>
                 <View style={styles.todayDateLabelWrap}>
-                  <Ionicons name="calendar-outline" size={scale(12)} color={C.primary} />
+                  <Ionicons
+                    name="calendar-outline"
+                    size={scale(12)}
+                    color={C.primary}
+                  />
                   <Text style={styles.todayDateLabelText}>
                     Assigned ({assignedTodayDates.length}):
                   </Text>
@@ -740,17 +836,25 @@ const DutiesScreen = ({ route, navigation }: any) => {
                   {assignedTodayDates.length > 0 ? (
                     assignedTodayDates.map((d: string) => (
                       <View key={d} style={styles.todayAssignedChip}>
-                        <Text style={styles.todayAssignedChipText}>{formatShortDate(d)}</Text>
+                        <Text style={styles.todayAssignedChipText}>
+                          {formatShortDate(d)}
+                        </Text>
                       </View>
                     ))
                   ) : (
-                    <Text style={styles.todayEmptyDateText}>No dates recorded</Text>
+                    <Text style={styles.todayEmptyDateText}>
+                      No dates recorded
+                    </Text>
                   )}
                 </View>
               </View>
               <View style={styles.todayDateRow}>
                 <View style={styles.todayDateLabelWrap}>
-                  <Ionicons name="time-outline" size={scale(12)} color={C.warning} />
+                  <Ionicons
+                    name="time-outline"
+                    size={scale(12)}
+                    color={C.warning}
+                  />
                   <Text style={styles.todayDateLabelText}>
                     Upcoming ({remainingTodayDates.length}):
                   </Text>
@@ -759,12 +863,16 @@ const DutiesScreen = ({ route, navigation }: any) => {
                   {remainingTodayDates.length > 0 ? (
                     remainingTodayDates.map((d: string) => (
                       <View key={d} style={styles.todayRemainingChip}>
-                        <Text style={styles.todayRemainingChipText}>{formatShortDate(d)}</Text>
+                        <Text style={styles.todayRemainingChipText}>
+                          {formatShortDate(d)}
+                        </Text>
                       </View>
                     ))
                   ) : (
                     <View style={styles.todayLastDayBadge}>
-                      <Text style={styles.todayLastDayText}>Final Day Today</Text>
+                      <Text style={styles.todayLastDayText}>
+                        Final Day Today
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -783,8 +891,14 @@ const DutiesScreen = ({ route, navigation }: any) => {
 
           {isToday && (checkInTimeStr || checkOutTimeStr) && (
             <View style={[styles.detailRow, { marginTop: scale(4) }]}>
-              <Ionicons name="finger-print-outline" size={scale(16)} color={C.primary} />
-              <Text style={[styles.subDetailText, { marginTop: 0, color: C.ink }]}>
+              <Ionicons
+                name="finger-print-outline"
+                size={scale(16)}
+                color={C.primary}
+              />
+              <Text
+                style={[styles.subDetailText, { marginTop: 0, color: C.ink }]}
+              >
                 {checkInTimeStr && `In: ${checkInTimeStr}`}
                 {checkInTimeStr && checkOutTimeStr && '  |  '}
                 {checkOutTimeStr && `Out: ${checkOutTimeStr}`}
@@ -798,7 +912,11 @@ const DutiesScreen = ({ route, navigation }: any) => {
         <View style={styles.cardFooter}>
           <View>
             <Text style={styles.statusText}>
-              {isToday ? 'Today Duty' : isInvitedOrInterested ? 'Invitation' : `${activeTab} Duty`}
+              {isToday
+                ? 'Today Duty'
+                : isInvitedOrInterested
+                ? 'Invitation'
+                : `${activeTab} Duty`}
             </Text>
             <Text style={styles.payText}>₹{displayRate}</Text>
           </View>
@@ -825,28 +943,49 @@ const DutiesScreen = ({ route, navigation }: any) => {
             )}
             {activeTab === 'Invited' &&
               (isExpired ? (
-                <View style={[styles.appliedBadge, { backgroundColor: C.border }]}>
-                  <Text style={[styles.appliedBadgeText, { color: C.textSub }]}>Expired</Text>
+                <View
+                  style={[styles.appliedBadge, { backgroundColor: C.border }]}
+                >
+                  <Text style={[styles.appliedBadgeText, { color: C.textSub }]}>
+                    Expired
+                  </Text>
                 </View>
               ) : item.vacancy_status !== 'Closed' ? (
                 <>
                   <TouchableOpacity
                     style={[styles.actionBtn, styles.declineBtn]}
-                    onPress={() => handleRespondToInvitation(item.invitation_id, 'Not Interested')}
+                    onPress={() =>
+                      handleRespondToInvitation(
+                        item.invitation_id,
+                        'Not Interested',
+                      )
+                    }
                   >
                     <Text style={styles.declineText}>Decline</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionBtn, styles.confirmBtn]}
-                    onPress={() => handleRespondToInvitation(item.invitation_id, 'Interested')}
+                    onPress={() =>
+                      handleRespondToInvitation(
+                        item.invitation_id,
+                        'Interested',
+                      )
+                    }
                   >
                     <Text style={styles.confirmText}>Interested</Text>
                   </TouchableOpacity>
                 </>
               ) : null)}
             {activeTab === 'Interested' && (
-              <View style={[styles.appliedBadge, { backgroundColor: C.primaryLight }]}>
-                <Text style={[styles.appliedBadgeText, { color: C.primary }]}>Interested</Text>
+              <View
+                style={[
+                  styles.appliedBadge,
+                  { backgroundColor: C.primaryLight },
+                ]}
+              >
+                <Text style={[styles.appliedBadgeText, { color: C.primary }]}>
+                  Interested
+                </Text>
               </View>
             )}
 
@@ -864,8 +1003,15 @@ const DutiesScreen = ({ route, navigation }: any) => {
                   </TouchableOpacity>
                 )}
                 {manualPending && (
-                  <View style={[styles.appliedBadge, { backgroundColor: '#fffbeb' }]}>
-                    <Text style={[styles.appliedBadgeText, { color: '#d97706' }]}>
+                  <View
+                    style={[
+                      styles.appliedBadge,
+                      { backgroundColor: '#fffbeb' },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.appliedBadgeText, { color: '#d97706' }]}
+                    >
                       Waiting for approval
                     </Text>
                   </View>
@@ -883,7 +1029,11 @@ const DutiesScreen = ({ route, navigation }: any) => {
                         onPress={() => openAttendanceMap(item, 'check-in')}
                       >
                         <View style={styles.btnContentRow}>
-                          <Ionicons name="log-in-outline" size={scale(14)} color={C.white} />
+                          <Ionicons
+                            name="log-in-outline"
+                            size={scale(14)}
+                            color={C.white}
+                          />
                           <Text style={styles.confirmText}>Check In</Text>
                         </View>
                       </TouchableOpacity>
@@ -899,22 +1049,45 @@ const DutiesScreen = ({ route, navigation }: any) => {
                         onPress={() => openAttendanceMap(item, 'check-out')}
                       >
                         <View style={styles.btnContentRow}>
-                          <Ionicons name="log-out-outline" size={scale(14)} color={C.white} />
-                          <Text style={[styles.confirmText, { color: C.white }]}>Check Out</Text>
+                          <Ionicons
+                            name="log-out-outline"
+                            size={scale(14)}
+                            color={C.white}
+                          />
+                          <Text
+                            style={[styles.confirmText, { color: C.white }]}
+                          >
+                            Check Out
+                          </Text>
                         </View>
                       </TouchableOpacity>
                     )}
                   </>
                 ) : (
                   !isDutyCompleted && (
-                    <Text style={{ fontSize: scale(11), color: C.warning, fontWeight: '700' }}>
+                    <Text
+                      style={{
+                        fontSize: scale(11),
+                        color: C.warning,
+                        fontWeight: '700',
+                      }}
+                    >
                       Action available at duty time
                     </Text>
                   )
                 )}
                 {isDutyCompleted && (
-                  <View style={[styles.appliedBadge, { backgroundColor: C.successLight }]}>
-                    <Text style={[styles.appliedBadgeText, { color: C.success }]}>Completed</Text>
+                  <View
+                    style={[
+                      styles.appliedBadge,
+                      { backgroundColor: C.successLight },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.appliedBadgeText, { color: C.success }]}
+                    >
+                      Completed
+                    </Text>
                   </View>
                 )}
               </>
@@ -928,7 +1101,11 @@ const DutiesScreen = ({ route, navigation }: any) => {
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Ionicons
-        name={activeTab === 'Invited' || activeTab === 'Interested' ? 'mail-open-outline' : 'briefcase-outline'}
+        name={
+          activeTab === 'Invited' || activeTab === 'Interested'
+            ? 'mail-open-outline'
+            : 'briefcase-outline'
+        }
         size={scale(48)}
         color={C.border}
       />
@@ -950,7 +1127,10 @@ const DutiesScreen = ({ route, navigation }: any) => {
         <Text style={styles.toastText}>{toastMessage}</Text>
       </Animated.View>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigation?.goBack()}
+          style={styles.backBtn}
+        >
           <Ionicons name="chevron-back" size={scale(24)} color={C.ink} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Duties</Text>
@@ -971,7 +1151,11 @@ const DutiesScreen = ({ route, navigation }: any) => {
                 onPress={() => handleTabChange(tab)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab}</Text>
+                <Text
+                  style={[styles.tabText, isActive && styles.tabTextActive]}
+                >
+                  {tab}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -1022,15 +1206,21 @@ const DutiesScreen = ({ route, navigation }: any) => {
       )}
 
       {/* ATTENDANCE MAP MODAL */}
-      <Modal visible={mapVisible} animationType="slide" onRequestClose={closeAttendanceMap}>
+      <Modal
+        visible={mapVisible}
+        animationType="slide"
+        onRequestClose={closeAttendanceMap}
+      >
         {(() => {
           const hc = mapDuty?.hospital?.coordinates;
           const hasHosp = !!(hc && hc.latitude && hc.longitude);
-          const dist = hasHosp && mapCoords ? distanceMetersBetween(mapCoords, hc) : null;
+          const dist =
+            hasHosp && mapCoords ? distanceMetersBetween(mapCoords, hc) : null;
           const outside = dist !== null && dist > GEOFENCE_RADIUS_METERS;
           const isIn = mapType === 'check-in';
           const deadlineIso = mapDuty?.attendance?.check_out_allowed_until;
-          const pastCheckOutGrace = !!deadlineIso && Date.now() > new Date(deadlineIso).getTime();
+          const pastCheckOutGrace =
+            !!deadlineIso && Date.now() > new Date(deadlineIso).getTime();
           const needsManualCheckOut = !isIn && outside && pastCheckOutGrace;
           const focus = mapCoords || (hasHosp ? hc : null);
           const mapHospitalName =
@@ -1048,7 +1238,9 @@ const DutiesScreen = ({ route, navigation }: any) => {
                 >
                   <Ionicons name="close" size={scale(24)} color={C.ink} />
                 </TouchableOpacity>
-                <Text style={styles.mapTitle}>{isIn ? 'Check In' : 'Check Out'}</Text>
+                <Text style={styles.mapTitle}>
+                  {isIn ? 'Check In' : 'Check Out'}
+                </Text>
                 <View style={{ width: scale(24) }} />
               </View>
 
@@ -1103,7 +1295,9 @@ const DutiesScreen = ({ route, navigation }: any) => {
                 {mapLocating && (
                   <View style={styles.mapLocatingBadge}>
                     <ActivityIndicator size="small" color={C.primary} />
-                    <Text style={styles.mapLoaderText}>Getting your location...</Text>
+                    <Text style={styles.mapLoaderText}>
+                      Getting your location...
+                    </Text>
                   </View>
                 )}
               </View>
@@ -1133,10 +1327,13 @@ const DutiesScreen = ({ route, navigation }: any) => {
                   style={[
                     styles.cdActionBtn,
                     !isIn && styles.cdActionBtnOut,
-                    (!mapCoords || outside || attendanceLoading) && styles.cdActionBtnDisabled,
+                    (!mapCoords || outside || attendanceLoading) &&
+                      styles.cdActionBtnDisabled,
                   ]}
                   disabled={!mapCoords || outside || attendanceLoading}
-                  onPress={() => mapCoords && handleAttendance(mapDuty, mapType, mapCoords)}
+                  onPress={() =>
+                    mapCoords && handleAttendance(mapDuty, mapType, mapCoords)
+                  }
                 >
                   {attendanceLoading ? (
                     <ActivityIndicator size="small" color={C.white} />
@@ -1166,7 +1363,11 @@ const DutiesScreen = ({ route, navigation }: any) => {
                     }}
                   >
                     <>
-                      <Ionicons name="time-outline" size={scale(16)} color={C.white} />
+                      <Ionicons
+                        name="time-outline"
+                        size={scale(16)}
+                        color={C.white}
+                      />
                       <Text style={styles.cdBtnText}>Regularize Timings</Text>
                     </>
                   </TouchableOpacity>
@@ -1215,7 +1416,12 @@ const DutiesScreen = ({ route, navigation }: any) => {
               <TouchableOpacity
                 style={styles.submitModalBtn}
                 onPress={() =>
-                  selectedJobId && handleUpdateDutyStatus(selectedJobId, 'Declined', declineReason)
+                  selectedJobId &&
+                  handleUpdateDutyStatus(
+                    selectedJobId,
+                    'Declined',
+                    declineReason,
+                  )
                 }
               >
                 <Text style={styles.submitModalText}>Submit</Text>
@@ -1262,7 +1468,12 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   backBtn: { padding: scale(4) },
-  headerTitle: { fontSize: scale(17), fontWeight: '800', color: C.ink, letterSpacing: -0.3 },
+  headerTitle: {
+    fontSize: scale(17),
+    fontWeight: '800',
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
   tabWrapper: { backgroundColor: C.background },
   tabContainer: {
     paddingHorizontal: scale(20),
@@ -1284,7 +1495,11 @@ const styles = StyleSheet.create({
   tabText: { fontSize: scale(13), fontWeight: '700', color: C.textSub },
   tabTextActive: { color: C.primary },
   centerWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { paddingHorizontal: scale(20), paddingBottom: scale(100), paddingTop: scale(8) },
+  listContent: {
+    paddingHorizontal: scale(20),
+    paddingBottom: scale(100),
+    paddingTop: scale(8),
+  },
   listContentEmpty: { flex: 1, justifyContent: 'center' },
   emptyContainer: {
     alignItems: 'center',
@@ -1345,7 +1560,12 @@ const styles = StyleSheet.create({
     color: C.warning,
     textTransform: 'uppercase',
   },
-  hospitalName: { fontSize: scale(14), color: C.ink, fontWeight: '600', marginBottom: scale(4) },
+  hospitalName: {
+    fontSize: scale(14),
+    color: C.ink,
+    fontWeight: '600',
+    marginBottom: scale(4),
+  },
   locationText: { fontSize: scale(12), color: C.textMuted, fontWeight: '500' },
   cardDetails: {
     backgroundColor: C.inputBg,
@@ -1356,7 +1576,12 @@ const styles = StyleSheet.create({
   },
   detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: scale(8) },
   detailText: { fontSize: scale(13), color: C.ink, fontWeight: '600' },
-  subDetailText: { fontSize: scale(11), color: C.textSub, fontWeight: '600', marginTop: scale(4) },
+  subDetailText: {
+    fontSize: scale(11),
+    color: C.textSub,
+    fontWeight: '600',
+    marginTop: scale(4),
+  },
   dateChipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1373,7 +1598,11 @@ const styles = StyleSheet.create({
   },
   dateChipText: { fontSize: scale(11), fontWeight: '600', color: C.ink },
   divider: { height: 1, backgroundColor: C.border, marginBottom: scale(12) },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   statusText: {
     fontSize: scale(12),
     fontWeight: '700',
@@ -1406,7 +1635,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(12),
     borderRadius: scale(8),
   },
-  appliedBadgeText: { color: C.success, fontSize: scale(11), fontWeight: '700' },
+  appliedBadgeText: {
+    color: C.success,
+    fontSize: scale(11),
+    fontWeight: '700',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1420,7 +1653,12 @@ const styles = StyleSheet.create({
     padding: scale(20),
     width: '100%',
   },
-  modalTitle: { fontSize: scale(16), fontWeight: '800', color: C.ink, marginBottom: scale(8) },
+  modalTitle: {
+    fontSize: scale(16),
+    fontWeight: '800',
+    color: C.ink,
+    marginBottom: scale(8),
+  },
   modalSub: { fontSize: scale(13), color: C.textSub, marginBottom: scale(16) },
   reasonInput: {
     backgroundColor: C.inputBg,
@@ -1433,7 +1671,11 @@ const styles = StyleSheet.create({
     color: C.ink,
     marginBottom: scale(20),
   },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: scale(12) },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: scale(12),
+  },
   cancelModalBtn: { paddingVertical: scale(10), paddingHorizontal: scale(16) },
   cancelModalText: { color: C.textSub, fontWeight: '700', fontSize: scale(14) },
   submitModalBtn: {
@@ -1459,7 +1701,12 @@ const styles = StyleSheet.create({
     marginTop: scale(2),
   },
   todayDateLabelText: { fontSize: scale(11), fontWeight: '700', color: C.ink },
-  todayChipsScroll: { flexDirection: 'row', flexWrap: 'wrap', gap: scale(6), flex: 1 },
+  todayChipsScroll: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: scale(6),
+    flex: 1,
+  },
   todayAssignedChip: {
     backgroundColor: C.white,
     borderWidth: 1,
@@ -1468,7 +1715,11 @@ const styles = StyleSheet.create({
     paddingVertical: scale(2),
     borderRadius: scale(5),
   },
-  todayAssignedChipText: { fontSize: scale(10), fontWeight: '700', color: C.primary },
+  todayAssignedChipText: {
+    fontSize: scale(10),
+    fontWeight: '700',
+    color: C.primary,
+  },
   todayRemainingChip: {
     backgroundColor: '#fffbeb',
     borderWidth: 1,
@@ -1477,7 +1728,11 @@ const styles = StyleSheet.create({
     paddingVertical: scale(2),
     borderRadius: scale(5),
   },
-  todayRemainingChipText: { fontSize: scale(10), fontWeight: '700', color: '#d97706' },
+  todayRemainingChipText: {
+    fontSize: scale(10),
+    fontWeight: '700',
+    color: '#d97706',
+  },
   todayLastDayBadge: {
     backgroundColor: '#ecfdf5',
     paddingHorizontal: scale(6),
@@ -1486,7 +1741,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#a7f3d0',
   },
-  todayLastDayText: { fontSize: scale(10), fontWeight: '700', color: '#059669' },
+  todayLastDayText: {
+    fontSize: scale(10),
+    fontWeight: '700',
+    color: '#059669',
+  },
   todayEmptyDateText: {
     fontSize: scale(10),
     color: C.textMuted,
@@ -1520,9 +1779,19 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   mapLoaderText: { fontSize: scale(13), color: C.textSub, fontWeight: '600' },
-  mapFooter: { padding: scale(16), gap: scale(8), borderTopWidth: 1, borderTopColor: C.border },
+  mapFooter: {
+    padding: scale(16),
+    gap: scale(8),
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+  },
   mapHospital: { fontSize: scale(15), fontWeight: '800', color: C.ink },
-  mapStatus: { fontSize: scale(12), color: C.textSub, fontWeight: '600', marginBottom: scale(4) },
+  mapStatus: {
+    fontSize: scale(12),
+    color: C.textSub,
+    fontWeight: '600',
+    marginBottom: scale(4),
+  },
   cdActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',

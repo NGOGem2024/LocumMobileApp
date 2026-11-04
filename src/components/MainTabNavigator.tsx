@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Dimensions } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import HomeScreen from '../screens/HomeScreen';
@@ -13,6 +13,8 @@ import DutiesScreen from '../screens/DutiesScreen';
 const Tab = createBottomTabNavigator();
 const { width: SW } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
+
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const C = {
   primary: '#007b8e',
@@ -53,7 +55,7 @@ const MainTabNavigator = () => {
           paddingBottom: insets.bottom > 0 ? 0 : scale(4),
         },
         tabBarIcon: ({ focused, color }) => {
-          let iconName = '';
+          let iconName: IconName = 'ellipse-outline';
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';

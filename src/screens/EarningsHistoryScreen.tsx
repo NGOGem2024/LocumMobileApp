@@ -11,7 +11,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/axiosConfig';
 import { TransactionItem } from './EarningsOverviewScreen';
@@ -35,12 +35,15 @@ const C = {
   urgent: '#ef4444',
 };
 
-const formatINR = (amount: number = 0) => `₹${Number(amount || 0).toLocaleString('en-IN')}`;
+const formatINR = (amount: number = 0) =>
+  `₹${Number(amount || 0).toLocaleString('en-IN')}`;
 
 const getShortDateDisplay = (tx: TransactionItem) => {
   const dateSource =
     tx.payment_details?.paid_date ||
-    (tx.duty_dates && tx.duty_dates.length > 0 ? tx.duty_dates[tx.duty_dates.length - 1] : null) ||
+    (tx.duty_dates && tx.duty_dates.length > 0
+      ? tx.duty_dates[tx.duty_dates.length - 1]
+      : null) ||
     tx.updated_at ||
     tx.created_at;
 
@@ -54,8 +57,11 @@ const EarningsHistoryScreen = ({ navigation, route }: any) => {
   const { doctor } = useAuth();
   const initialTx: TransactionItem[] = route?.params?.initialTransactions || [];
 
-  const [transactions, setTransactions] = useState<TransactionItem[]>(initialTx);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending'>('all');
+  const [transactions, setTransactions] =
+    useState<TransactionItem[]>(initialTx);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending'>(
+    'all',
+  );
   const [loading, setLoading] = useState(initialTx.length === 0);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -91,20 +97,23 @@ const EarningsHistoryScreen = ({ navigation, route }: any) => {
     setRefreshing(false);
   }, [fetchTransactions, statusFilter]);
 
-  const statusTabs: { key: 'all' | 'paid' | 'pending'; label: string }[] = useMemo(
-    () => [
-      { key: 'all', label: 'All' },
-      { key: 'paid', label: 'Paid' },
-      { key: 'pending', label: 'Pending' },
-    ],
-    [],
-  );
+  const statusTabs: { key: 'all' | 'paid' | 'pending'; label: string }[] =
+    useMemo(
+      () => [
+        { key: 'all', label: 'All' },
+        { key: 'paid', label: 'Paid' },
+        { key: 'pending', label: 'Pending' },
+      ],
+      [],
+    );
 
   const renderTransaction = ({ item }: { item: TransactionItem }) => {
     const isPaid = item.is_paid || item.payout_status === 'Paid';
     const roleText =
       [item.speciality, item.department].filter(Boolean).join(' • ') ||
-      `${item.completed_shifts} ${item.completed_shifts === 1 ? 'Shift' : 'Shifts'}`;
+      `${item.completed_shifts} ${
+        item.completed_shifts === 1 ? 'Shift' : 'Shifts'
+      }`;
 
     return (
       <View style={styles.txRow}>
@@ -126,7 +135,12 @@ const EarningsHistoryScreen = ({ navigation, route }: any) => {
         {/* Right Column: Amount & Status */}
         <View style={styles.amountCol}>
           <Text style={styles.amountText}>{formatINR(item.net_amount)}</Text>
-          <Text style={[styles.statusText, { color: isPaid ? C.success : C.warning }]}>
+          <Text
+            style={[
+              styles.statusText,
+              { color: isPaid ? C.success : C.warning },
+            ]}
+          >
             {isPaid ? 'Paid' : 'Pending'}
           </Text>
         </View>
@@ -140,7 +154,10 @@ const EarningsHistoryScreen = ({ navigation, route }: any) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigation?.goBack()}
+          style={styles.backBtn}
+        >
           <Ionicons name="chevron-back" size={scale(24)} color={C.ink} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Earnings History</Text>
@@ -158,7 +175,12 @@ const EarningsHistoryScreen = ({ navigation, route }: any) => {
               onPress={() => setStatusFilter(tab.key)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
+              <Text
+                style={[
+                  styles.filterPillText,
+                  active && styles.filterPillTextActive,
+                ]}
+              >
                 {tab.label}
               </Text>
             </TouchableOpacity>
@@ -172,10 +194,15 @@ const EarningsHistoryScreen = ({ navigation, route }: any) => {
         </View>
       ) : transactions.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Ionicons name="receipt-outline" size={scale(32)} color={C.textMuted} />
+          <Ionicons
+            name="receipt-outline"
+            size={scale(32)}
+            color={C.textMuted}
+          />
           <Text style={styles.emptyTitle}>No transactions found</Text>
           <Text style={styles.emptySub}>
-            There are no {statusFilter !== 'all' ? statusFilter : ''} earnings records yet.
+            There are no {statusFilter !== 'all' ? statusFilter : ''} earnings
+            records yet.
           </Text>
         </View>
       ) : (
@@ -188,7 +215,11 @@ const EarningsHistoryScreen = ({ navigation, route }: any) => {
             showsVerticalScrollIndicator={false}
             ItemSeparatorComponent={() => <View style={styles.divider} />}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.primary]} />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[C.primary]}
+              />
             }
           />
         </View>
@@ -212,7 +243,12 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   backBtn: { padding: scale(4) },
-  headerTitle: { fontSize: scale(17), fontWeight: '800', color: C.ink, letterSpacing: -0.3 },
+  headerTitle: {
+    fontSize: scale(17),
+    fontWeight: '800',
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
 
   filterContainer: {
     flexDirection: 'row',
@@ -270,9 +306,19 @@ const styles = StyleSheet.create({
   dateCol: { width: scale(60) },
   dateText: { fontSize: scale(13), fontWeight: '600', color: C.textSub },
   detailsCol: { flex: 1, paddingRight: scale(12) },
-  hospitalText: { fontSize: scale(14), fontWeight: '800', color: C.ink, marginBottom: scale(4) },
+  hospitalText: {
+    fontSize: scale(14),
+    fontWeight: '800',
+    color: C.ink,
+    marginBottom: scale(4),
+  },
   roleText: { fontSize: scale(12), color: C.textMuted, fontWeight: '500' },
   amountCol: { alignItems: 'flex-end' },
-  amountText: { fontSize: scale(15), fontWeight: '900', color: C.primary, marginBottom: scale(4) },
+  amountText: {
+    fontSize: scale(15),
+    fontWeight: '900',
+    color: C.primary,
+    marginBottom: scale(4),
+  },
   statusText: { fontSize: scale(12), fontWeight: '800' },
 });

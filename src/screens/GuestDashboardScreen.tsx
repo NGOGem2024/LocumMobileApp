@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const scale = (size: number) => (SW / 390) * size;
@@ -163,7 +163,7 @@ const GuestDashboardScreen = ({ navigation }: GuestDashboardScreenProps) => {
           style={styles.iconBtn}
           activeOpacity={0.7}
         >
-           <Ionicons name="chevron-back" size={24} color={C.ink} />
+          <Ionicons name="chevron-back" size={24} color={C.ink} />
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleSkip} style={styles.headerBtn}>
@@ -176,14 +176,14 @@ const GuestDashboardScreen = ({ navigation }: GuestDashboardScreenProps) => {
         ref={flatListRef}
         data={ONBOARDING_SLIDES}
         renderItem={renderSlide}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         bounces={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: false } // Kept false to support dot width/color animation
+          { useNativeDriver: false }, // Kept false to support dot width/color animation
         )}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewConfig}
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: scale(28),
   },
-  
+
   // Icon Aesthetics
   imageContainer: {
     height: SH * 0.45,

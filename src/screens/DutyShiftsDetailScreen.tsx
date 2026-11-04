@@ -10,8 +10,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import RegularizeModal, { RegularizeTarget } from '../components/RegularizeModal';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
+import RegularizeModal, {
+  RegularizeTarget,
+} from '../components/RegularizeModal';
 import api from '../services/axiosConfig';
 
 const { width: SW } = Dimensions.get('window');
@@ -72,10 +74,17 @@ const formatDate = (dateStr: string) => {
 
 const getLocalTodayStr = () => {
   const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(
+    2,
+    '0',
+  )}-${String(n.getDate()).padStart(2, '0')}`;
 };
 
-const hasShiftEnded = (dateStr: string, fromTime?: string, toTime?: string): boolean => {
+const hasShiftEnded = (
+  dateStr: string,
+  fromTime?: string,
+  toTime?: string,
+): boolean => {
   const today = getLocalTodayStr();
   if (dateStr < today) return true; // Past date shifts have ended
   if (dateStr > today) return false; // Future date shifts haven't started
@@ -102,9 +111,12 @@ const hasShiftEnded = (dateStr: string, fromTime?: string, toTime?: string): boo
 export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
   const { duty } = route.params || {};
 
-  const [regularizeTarget, setRegularizeTarget] = useState<RegularizeTarget | null>(null);
+  const [regularizeTarget, setRegularizeTarget] =
+    useState<RegularizeTarget | null>(null);
   const [successToast, setSuccessToast] = useState('');
-  const [dailyAttendance, setDailyAttendance] = useState<any[]>(duty?.daily_attendance || []);
+  const [dailyAttendance, setDailyAttendance] = useState<any[]>(
+    duty?.daily_attendance || [],
+  );
   const [requests, setRequests] = useState<any[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -138,7 +150,8 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
   }, [successToast]);
 
   const requestFor = useCallback(
-    (dateStr: string) => requests.find((r: any) => String(r?.duty_date).slice(0, 10) === dateStr),
+    (dateStr: string) =>
+      requests.find((r: any) => String(r?.duty_date).slice(0, 10) === dateStr),
     [requests],
   );
 
@@ -187,12 +200,14 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
 
   const openRegularize = (dateStr: string, attRow?: any) => {
     const existing = requestFor(dateStr);
-    const editable = existing && existing.status === 'Pending' ? existing : null;
+    const editable =
+      existing && existing.status === 'Pending' ? existing : null;
 
     setRegularizeTarget({
       assignmentId,
       dutyDate: dateStr,
-      hospitalName: duty?.hospital?.name || duty?.hospital_details?.hospital_name,
+      hospitalName:
+        duty?.hospital?.name || duty?.hospital_details?.hospital_name,
       shiftFrom,
       shiftTo,
       sessions: Array.isArray(attRow?.sessions) ? attRow.sessions : [],
@@ -220,7 +235,10 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
       ) : null}
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
           <Ionicons name="arrow-back" size={scale(22)} color={C.ink} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Duty Shifts & History</Text>
@@ -235,9 +253,13 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
             <Ionicons name="business" size={scale(24)} color={C.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.specialityText}>{duty?.speciality || 'Duty Details'}</Text>
+            <Text style={styles.specialityText}>
+              {duty?.speciality || 'Duty Details'}
+            </Text>
             <Text style={styles.hospitalText}>
-              {duty?.hospital?.name || duty?.hospital_details?.hospital_name || 'Hospital'}
+              {duty?.hospital?.name ||
+                duty?.hospital_details?.hospital_name ||
+                'Hospital'}
             </Text>
             <Text style={styles.departmentText}>
               {duty?.department || 'Medical Department'}
@@ -251,16 +273,24 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
         </View>
 
         <View style={styles.sectionHeadingRow}>
-          <Text style={styles.sectionHeading}>Scheduled Shifts & Attendance</Text>
+          <Text style={styles.sectionHeading}>
+            Scheduled Shifts & Attendance
+          </Text>
           <Text style={styles.totalBadge}>{assignedDates.length} Shifts</Text>
         </View>
 
         {assignedDates.map((dateStr, idx) => {
-          const attRow = dailyAttendance.find((att: any) => att.duty_date === dateStr);
-          const sessions = Array.isArray(attRow?.sessions) ? attRow.sessions : [];
+          const attRow = dailyAttendance.find(
+            (att: any) => att.duty_date === dateStr,
+          );
+          const sessions = Array.isArray(attRow?.sessions)
+            ? attRow.sessions
+            : [];
 
           const req = requestFor(dateStr);
-          const hasReqTimings = !!(req?.requested?.check_in || req?.requested?.check_out);
+          const hasReqTimings = !!(
+            req?.requested?.check_in || req?.requested?.check_out
+          );
           const reqPending = req?.status === 'Pending' && hasReqTimings;
           const reqRejected = req?.status === 'Rejected';
 
@@ -276,28 +306,41 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
           const pendingReq = pendingReqSession?.manual_check_out_request;
           const hasLegacyPending =
             pendingReq?.review_status === 'pending' &&
-            !!(pendingReq?.requested_time || pendingReq?.requested_check_in_time);
+            !!(
+              pendingReq?.requested_time || pendingReq?.requested_check_in_time
+            );
 
           const actualInTime =
-            sessions[0]?.check_in?.timestamp || attRow?.check_in?.timestamp || null;
+            sessions[0]?.check_in?.timestamp ||
+            attRow?.check_in?.timestamp ||
+            null;
 
-          const completedSessions = sessions.filter((s: any) => s?.check_out?.timestamp);
+          const completedSessions = sessions.filter(
+            (s: any) => s?.check_out?.timestamp,
+          );
           const actualOutTime =
             completedSessions.length > 0
-              ? completedSessions[completedSessions.length - 1].check_out.timestamp
+              ? completedSessions[completedSessions.length - 1].check_out
+                  .timestamp
               : attRow?.check_out?.timestamp || null;
 
           const inTime =
-            actualInTime || (hasLegacyPending ? pendingReq?.requested_check_in_time : null);
+            actualInTime ||
+            (hasLegacyPending ? pendingReq?.requested_check_in_time : null);
           const outTime =
-            actualOutTime || (hasLegacyPending ? pendingReq?.requested_time : null);
+            actualOutTime ||
+            (hasLegacyPending ? pendingReq?.requested_time : null);
 
-          const lastSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
+          const lastSession =
+            sessions.length > 0 ? sessions[sessions.length - 1] : null;
           const isSessionCurrentlyOpen = !!(
-            lastSession?.check_in?.timestamp && !lastSession?.check_out?.timestamp
+            lastSession?.check_in?.timestamp &&
+            !lastSession?.check_out?.timestamp
           );
 
-          const displayIn = reqPending ? req.requested?.check_in || '—' : formatIsoTime(inTime);
+          const displayIn = reqPending
+            ? req.requested?.check_in || '—'
+            : formatIsoTime(inTime);
           const displayOut = reqPending
             ? req.requested?.check_out || '—'
             : isSessionCurrentlyOpen && !hasLegacyPending
@@ -316,10 +359,12 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
           const isPendingReview =
             reqPending ||
             hasLegacyPending ||
-            (attRow?.status === 'pending_review' && (hasCheckIn || hasCheckOut));
+            (attRow?.status === 'pending_review' &&
+              (hasCheckIn || hasCheckOut));
 
           const shiftEnded = hasShiftEnded(dateStr, shiftFrom, shiftTo);
-          const isMissed = shiftEnded && !hasCheckIn && !hasCheckOut && !isPendingReview;
+          const isMissed =
+            shiftEnded && !hasCheckIn && !hasCheckOut && !isPendingReview;
           const canRegularize = shiftEnded || hasCheckOut || reqPending;
 
           const statusLabel = isPendingReview
@@ -352,11 +397,21 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
             <View key={dateStr || idx} style={styles.shiftCard}>
               <View style={styles.shiftHeader}>
                 <View style={styles.shiftDateWrap}>
-                  <Ionicons name="calendar-outline" size={scale(16)} color={C.primary} />
-                  <Text style={styles.shiftDateText}>{formatDate(dateStr)}</Text>
+                  <Ionicons
+                    name="calendar-outline"
+                    size={scale(16)}
+                    color={C.primary}
+                  />
+                  <Text style={styles.shiftDateText}>
+                    {formatDate(dateStr)}
+                  </Text>
                 </View>
-                <View style={[styles.statusBadge, { backgroundColor: badgeBg }]}>
-                  <Text style={[styles.statusText, { color: badgeColor }]}>{statusLabel}</Text>
+                <View
+                  style={[styles.statusBadge, { backgroundColor: badgeBg }]}
+                >
+                  <Text style={[styles.statusText, { color: badgeColor }]}>
+                    {statusLabel}
+                  </Text>
                 </View>
               </View>
 
@@ -372,7 +427,11 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
               <View style={styles.historyRow}>
                 <View style={styles.historyCol}>
                   <View style={styles.historyLabelWrap}>
-                    <Ionicons name="log-in-outline" size={scale(14)} color={C.success} />
+                    <Ionicons
+                      name="log-in-outline"
+                      size={scale(14)}
+                      color={C.success}
+                    />
                     <Text style={styles.historyLabel}>Check In</Text>
                   </View>
                   <Text style={styles.historyTime}>{displayIn}</Text>
@@ -380,13 +439,19 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
                   (isPendingReview &&
                     pendingReq?.requested_check_in_time &&
                     !attRow?.check_in?.timestamp) ? (
-                    <Text style={styles.pendingHintText}>(Pending Approval)</Text>
+                    <Text style={styles.pendingHintText}>
+                      (Pending Approval)
+                    </Text>
                   ) : null}
                 </View>
 
                 <View style={styles.historyCol}>
                   <View style={styles.historyLabelWrap}>
-                    <Ionicons name="log-out-outline" size={scale(14)} color={C.urgent} />
+                    <Ionicons
+                      name="log-out-outline"
+                      size={scale(14)}
+                      color={C.urgent}
+                    />
                     <Text style={styles.historyLabel}>Check Out</Text>
                   </View>
                   <Text style={styles.historyTime}>{displayOut}</Text>
@@ -394,14 +459,20 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
                   (isPendingReview &&
                     pendingReq?.requested_time &&
                     !attRow?.check_out?.timestamp) ? (
-                    <Text style={styles.pendingHintText}>(Pending Approval)</Text>
+                    <Text style={styles.pendingHintText}>
+                      (Pending Approval)
+                    </Text>
                   ) : null}
                 </View>
 
                 {displayHours ? (
                   <View style={styles.historyCol}>
                     <View style={styles.historyLabelWrap}>
-                      <Ionicons name="time-outline" size={scale(14)} color={C.primary} />
+                      <Ionicons
+                        name="time-outline"
+                        size={scale(14)}
+                        color={C.primary}
+                      />
                       <Text style={styles.historyLabel}>Total Hrs</Text>
                     </View>
                     <Text style={styles.historyTime}>{displayHours}</Text>
@@ -411,7 +482,8 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
 
               {reqRejected ? (
                 <Text style={styles.rejectedText}>
-                  Last request was rejected{req?.decision_note ? `: ${req.decision_note}` : '.'}
+                  Last request was rejected
+                  {req?.decision_note ? `: ${req.decision_note}` : '.'}
                 </Text>
               ) : null}
 
@@ -427,12 +499,18 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
                       color={C.primary}
                     />
                     <Text style={styles.regularizeBtnText}>
-                      {reqPending ? 'Edit Regularization' : 'Regularize Timings'}
+                      {reqPending
+                        ? 'Edit Regularization'
+                        : 'Regularize Timings'}
                     </Text>
                   </TouchableOpacity>
                 ) : (
                   <View style={styles.regularizeLockedWrap}>
-                    <Ionicons name="time-outline" size={scale(13)} color={C.textMuted} />
+                    <Ionicons
+                      name="time-outline"
+                      size={scale(13)}
+                      color={C.textMuted}
+                    />
                     <Text style={styles.regularizeLockedText}>
                       {hasCheckIn
                         ? 'Shift in progress — use Check Out on Home/Duties'
@@ -454,7 +532,10 @@ export const DutyShiftsDetailScreen = ({ route, navigation }: any) => {
           setRegularizeTarget(null);
           setSuccessToast(msg);
           if (request?._id) {
-            setRequests(prev => [request, ...prev.filter((r: any) => r._id !== request._id)]);
+            setRequests(prev => [
+              request,
+              ...prev.filter((r: any) => r._id !== request._id),
+            ]);
           }
           await Promise.all([fetchRequests(), refreshAttendanceData()]);
         }}
@@ -512,8 +593,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   specialityText: { fontSize: scale(15), fontWeight: '800', color: C.ink },
-  hospitalText: { fontSize: scale(13), fontWeight: '600', color: C.textSub, marginTop: scale(2) },
-  departmentText: { fontSize: scale(12), color: C.textMuted, marginTop: scale(2) },
+  hospitalText: {
+    fontSize: scale(13),
+    fontWeight: '600',
+    color: C.textSub,
+    marginTop: scale(2),
+  },
+  departmentText: {
+    fontSize: scale(12),
+    color: C.textMuted,
+    marginTop: scale(2),
+  },
   rateBadge: {
     backgroundColor: C.primaryLight,
     paddingHorizontal: scale(10),
@@ -545,9 +635,17 @@ const styles = StyleSheet.create({
   },
   shiftDateWrap: { flexDirection: 'row', alignItems: 'center', gap: scale(6) },
   shiftDateText: { fontSize: scale(14), fontWeight: '700', color: C.ink },
-  statusBadge: { paddingHorizontal: scale(8), paddingVertical: scale(4), borderRadius: scale(6) },
+  statusBadge: {
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(4),
+    borderRadius: scale(6),
+  },
   statusText: { fontSize: scale(11), fontWeight: '700' },
-  timingScheduleRow: { flexDirection: 'row', alignItems: 'center', gap: scale(6) },
+  timingScheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(6),
+  },
   subLabel: { fontSize: scale(12), color: C.textMuted, fontWeight: '500' },
   subValue: { fontSize: scale(12), color: C.ink, fontWeight: '700' },
   divider: { height: 1, backgroundColor: C.border, marginVertical: scale(10) },
@@ -594,7 +692,11 @@ const styles = StyleSheet.create({
     borderRadius: scale(8),
     backgroundColor: C.primaryLight,
   },
-  regularizeBtnText: { fontSize: scale(12), fontWeight: '700', color: C.primary },
+  regularizeBtnText: {
+    fontSize: scale(12),
+    fontWeight: '700',
+    color: C.primary,
+  },
   regularizeLockedWrap: {
     flexDirection: 'row',
     alignItems: 'center',

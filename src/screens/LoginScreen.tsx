@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import api from '../services/axiosConfig';
 import {
@@ -624,12 +624,13 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
               onPress={handleMainAction}
               disabled={isAnyLoading}
             >
-              <LinearGradient
-                colors={['#00a8c2', '#007b8e']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.loginBtn}
-              >
+              <View style={styles.loginBtn}>
+                <LinearGradient
+                  colors={['#00a8c2', '#007b8e']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
                 {mainLoading ? (
                   <ActivityIndicator color={C.white} size="small" />
                 ) : (
@@ -641,7 +642,7 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
                       : 'Get OTP'}
                   </Text>
                 )}
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
 
             <View style={styles.divider}>
@@ -799,12 +800,14 @@ const styles = StyleSheet.create({
     paddingVertical: scale(14),
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   loginBtnText: {
     color: C.white,
     fontWeight: '700',
     fontSize: scale(14),
     letterSpacing: 0.3,
+    textAlign: 'center',
   },
   divider: {
     flexDirection: 'row',

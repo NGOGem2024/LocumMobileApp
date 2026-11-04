@@ -43,16 +43,40 @@ const LandingScreen = () => {
     // Staggered animation sequence for a premium, cascading effect
     Animated.stagger(150, [
       Animated.parallel([
-        Animated.timing(fadeLogo, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(slideLogo, { toValue: 0, duration: 800, useNativeDriver: true }),
+        Animated.timing(fadeLogo, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideLogo, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
       ]),
       Animated.parallel([
-        Animated.timing(fadeText, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(slideText, { toValue: 0, duration: 800, useNativeDriver: true }),
+        Animated.timing(fadeText, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideText, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
       ]),
       Animated.parallel([
-        Animated.timing(fadeBtns, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(slideBtns, { toValue: 0, duration: 800, useNativeDriver: true }),
+        Animated.timing(fadeBtns, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideBtns, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
       ]),
     ]).start();
   }, [fadeLogo, slideLogo, fadeText, slideText, fadeBtns, slideBtns]);
@@ -75,12 +99,11 @@ const LandingScreen = () => {
 
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.centerWrapper}>
-            
             {/* 1. Logo Section (Animated) */}
-            <Animated.View 
+            <Animated.View
               style={[
-                styles.logoContainer, 
-                { opacity: fadeLogo, transform: [{ translateY: slideLogo }] }
+                styles.logoContainer,
+                { opacity: fadeLogo, transform: [{ translateY: slideLogo }] },
               ]}
             >
               <Image
@@ -91,10 +114,10 @@ const LandingScreen = () => {
             </Animated.View>
 
             {/* 2. Text Content (Animated) */}
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.heroContent,
-                { opacity: fadeText, transform: [{ translateY: slideText }] }
+                { opacity: fadeText, transform: [{ translateY: slideText }] },
               ]}
             >
               <View style={styles.badge}>
@@ -107,31 +130,33 @@ const LandingScreen = () => {
               </Text>
 
               <Text style={styles.subtitle}>
-                Secure your next clinical shift with verified hospitals and top medical networks.
+                Secure your next clinical shift with verified hospitals and top
+                medical networks.
               </Text>
             </Animated.View>
 
             {/* 3. Action Buttons (Animated) */}
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.buttonContainer,
-                { opacity: fadeBtns, transform: [{ translateY: slideBtns }] }
+                { opacity: fadeBtns, transform: [{ translateY: slideBtns }] },
               ]}
             >
               {/* Premium Gradient Guest Button */}
               <TouchableOpacity
-                style={styles.btnShadowWrapper}
+                style={[styles.btnShadowWrapper, { marginBottom: scale(12) }]}
                 onPress={() => navigation.navigate('GuestDashboardScreen')}
                 activeOpacity={0.85}
               >
-                <LinearGradient
-                  colors={['#00a8c2', '#007b8e']} // Light Cyan to Deep Teal
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.guestGradient}
-                >
+                <View style={styles.guestGradient}>
+                  <LinearGradient
+                    colors={['#00a8c2', '#007b8e']} // Light Cyan to Deep Teal
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFill}
+                  />
                   <Text style={styles.guestText}>Explore as Guest →</Text>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
 
               {/* Subtle Gradient Register Button */}
@@ -140,17 +165,17 @@ const LandingScreen = () => {
                 onPress={() => navigation.navigate('DashboardScreen')}
                 activeOpacity={0.85}
               >
-                <LinearGradient
-                  colors={['#ffffff', '#eef2f3']} // Pure White to Soft Silver
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.registerGradient}
-                >
+                <View style={styles.registerGradient}>
+                  <LinearGradient
+                    colors={['#ffffff', '#eef2f3']} // Pure White to Soft Silver
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFill}
+                  />
                   <Text style={styles.registerText}>Get Started</Text>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
             </Animated.View>
-
           </View>
         </SafeAreaView>
       </ImageBackground>
@@ -241,21 +266,23 @@ const styles = StyleSheet.create({
   /* Buttons */
   buttonContainer: {
     width: '100%',
-    gap: scale(12),
   },
   btnShadowWrapper: {
     width: '100%',
+    borderRadius: scale(14),
+    backgroundColor: C.primary, // solid bg so iOS shadow applies to the wrapper, not children
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
-    borderRadius: scale(14),
   },
   guestGradient: {
     paddingVertical: scale(15),
     borderRadius: scale(14),
     alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.25)',
   },
@@ -263,16 +290,20 @@ const styles = StyleSheet.create({
     color: C.white,
     fontSize: scale(15),
     fontWeight: '800',
+    textAlign: 'center',
   },
   registerGradient: {
     paddingVertical: scale(15),
     borderRadius: scale(14),
     alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   registerText: {
     color: C.primaryDark,
     fontSize: scale(15),
     fontWeight: '800',
+    textAlign: 'center',
   },
 });
 

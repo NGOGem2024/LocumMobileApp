@@ -14,7 +14,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/axiosConfig';
 
@@ -160,9 +160,17 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
     (message: string) => {
       setToastMessage(message);
       Animated.sequence([
-        Animated.timing(toastFadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(toastFadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
         Animated.delay(2000),
-        Animated.timing(toastFadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+        Animated.timing(toastFadeAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
       ]).start();
     },
     [toastFadeAnim],
@@ -186,7 +194,9 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
         setTransactions(res.data.data.recent_transactions || []);
       }
     } catch (error: any) {
-      showToast(error.response?.data?.message || 'Failed to load earnings data');
+      showToast(
+        error.response?.data?.message || 'Failed to load earnings data',
+      );
     }
   }, [doctor?._id, showToast]);
 
@@ -221,10 +231,16 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
 
     const refDate = getTxReferenceDate(tx);
     if (refDate) {
-      if (refDate.getMonth() === currentMonth && refDate.getFullYear() === currentYear) {
+      if (
+        refDate.getMonth() === currentMonth &&
+        refDate.getFullYear() === currentYear
+      ) {
         thisMonthAmount += tx.net_amount || 0;
         thisMonthShifts += tx.completed_shifts || 0;
-      } else if (refDate.getMonth() === prevMonth && refDate.getFullYear() === prevYear) {
+      } else if (
+        refDate.getMonth() === prevMonth &&
+        refDate.getFullYear() === prevYear
+      ) {
         lastMonthAmount += tx.net_amount || 0;
       }
     }
@@ -232,12 +248,16 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
 
   const getMonthComparisonText = () => {
     if (lastMonthAmount > 0) {
-      const diffPct = Math.round(((thisMonthAmount - lastMonthAmount) / lastMonthAmount) * 100);
+      const diffPct = Math.round(
+        ((thisMonthAmount - lastMonthAmount) / lastMonthAmount) * 100,
+      );
       const sign = diffPct >= 0 ? '+' : '';
       return `${sign}${diffPct}% vs last month`;
     }
     if (thisMonthShifts > 0) {
-      return `${thisMonthShifts} ${thisMonthShifts === 1 ? 'shift' : 'shifts'} completed this month`;
+      return `${thisMonthShifts} ${
+        thisMonthShifts === 1 ? 'shift' : 'shifts'
+      } completed this month`;
     }
     return `${summary.total_completed_shifts} total shifts completed`;
   };
@@ -248,14 +268,20 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
     <SafeAreaView style={styles.root} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={C.cardBg} />
 
-      <Animated.View pointerEvents="none" style={[styles.toastContainer, { opacity: toastFadeAnim }]}>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.toastContainer, { opacity: toastFadeAnim }]}
+      >
         <Ionicons name="alert-circle" size={18} color={C.white} />
         <Text style={styles.toastText}>{toastMessage}</Text>
       </Animated.View>
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigation?.goBack()}
+          style={styles.backBtn}
+        >
           <Ionicons name="chevron-back" size={scale(24)} color={C.ink} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Earnings Overview</Text>
@@ -272,17 +298,28 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.primary]} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[C.primary]}
+            />
           }
         >
           {/* Total Earnings Card */}
           <View style={styles.totalCard}>
             <Text style={styles.totalLabelText}>Total Earnings</Text>
-            <Text style={styles.totalAmountText}>{formatINR(summary.total_earnings)}</Text>
+            <Text style={styles.totalAmountText}>
+              {formatINR(summary.total_earnings)}
+            </Text>
             <View style={styles.totalMetaBadge}>
-              <Ionicons name="medkit-outline" size={scale(13)} color={C.primary} />
+              <Ionicons
+                name="medkit-outline"
+                size={scale(13)}
+                color={C.primary}
+              />
               <Text style={styles.totalMetaText}>
-                {summary.total_duties} {summary.total_duties === 1 ? 'Duty' : 'Duties'} •{' '}
+                {summary.total_duties}{' '}
+                {summary.total_duties === 1 ? 'Duty' : 'Duties'} •{' '}
                 {summary.total_completed_shifts}{' '}
                 {summary.total_completed_shifts === 1 ? 'Shift' : 'Shifts'}
               </Text>
@@ -294,13 +331,17 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
             {/* This Month (Full Width) */}
             <View style={[styles.statCard, { marginBottom: scale(12) }]}>
               <Text style={styles.statLabel}>This month</Text>
-              <Text style={styles.statAmount}>{formatINR(thisMonthAmount)}</Text>
+              <Text style={styles.statAmount}>
+                {formatINR(thisMonthAmount)}
+              </Text>
               <Text style={styles.statSubText}>{getMonthComparisonText()}</Text>
             </View>
 
             {/* Pending & Paid (Half Width Row) */}
             <View style={styles.statsRow}>
-              <View style={[styles.statCard, { flex: 1, marginRight: scale(6) }]}>
+              <View
+                style={[styles.statCard, { flex: 1, marginRight: scale(6) }]}
+              >
                 <Text style={styles.statLabel}>Pending</Text>
                 <Text style={[styles.statAmount, { color: C.warning }]}>
                   {formatINR(summary.pending_amount)}
@@ -309,7 +350,9 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
                   {pendingCount} {pendingCount === 1 ? 'Payment' : 'Payments'}
                 </Text>
               </View>
-              <View style={[styles.statCard, { flex: 1, marginLeft: scale(6) }]}>
+              <View
+                style={[styles.statCard, { flex: 1, marginLeft: scale(6) }]}
+              >
                 <Text style={styles.statLabel}>Paid</Text>
                 <Text style={[styles.statAmount, { color: C.success }]}>
                   {formatINR(summary.paid_amount)}
@@ -339,7 +382,11 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
           {recentTransactions.length === 0 ? (
             <View style={styles.emptyBox}>
               <View style={styles.emptyIconCircle}>
-                <Ionicons name="wallet-outline" size={scale(26)} color={C.primary} />
+                <Ionicons
+                  name="wallet-outline"
+                  size={scale(26)}
+                  color={C.primary}
+                />
               </View>
               <Text style={styles.emptyTitle}>No transactions yet</Text>
               <Text style={styles.emptySub}>
@@ -350,7 +397,9 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
             <View style={styles.transactionsContainer}>
               {recentTransactions.map((tx, idx) => {
                 const isPaid = tx.is_paid || tx.payout_status === 'Paid';
-                const roleLabel = [tx.speciality, tx.department].filter(Boolean).join(' • ');
+                const roleLabel = [tx.speciality, tx.department]
+                  .filter(Boolean)
+                  .join(' • ');
 
                 return (
                   <TouchableOpacity
@@ -374,11 +423,17 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
                       </Text>
                     </View>
                     <View style={styles.txRight}>
-                      <Text style={styles.txAmount}>{formatINR(tx.net_amount)}</Text>
+                      <Text style={styles.txAmount}>
+                        {formatINR(tx.net_amount)}
+                      </Text>
                       <View
                         style={[
                           styles.statusBadge,
-                          { backgroundColor: isPaid ? C.successLight : C.warningLight },
+                          {
+                            backgroundColor: isPaid
+                              ? C.successLight
+                              : C.warningLight,
+                          },
                         ]}
                       >
                         <Text
@@ -418,24 +473,35 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
                   {selectedTx.hospital_name}
                 </Text>
                 <Text style={styles.modalSub}>
-                  {[selectedTx.speciality, selectedTx.department, selectedTx.hospital_city]
+                  {[
+                    selectedTx.speciality,
+                    selectedTx.department,
+                    selectedTx.hospital_city,
+                  ]
                     .filter(Boolean)
                     .join(' • ')}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setSelectedTx(null)} style={styles.closeBtn}>
+              <TouchableOpacity
+                onPress={() => setSelectedTx(null)}
+                style={styles.closeBtn}
+              >
                 <Ionicons name="close" size={scale(18)} color={C.textSub} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalAmountBox}>
               <Text style={styles.modalAmountLabel}>Net Payout</Text>
-              <Text style={styles.modalAmountVal}>{formatINR(selectedTx.net_amount)}</Text>
+              <Text style={styles.modalAmountVal}>
+                {formatINR(selectedTx.net_amount)}
+              </Text>
               <View
                 style={[
                   styles.statusBadge,
                   {
-                    backgroundColor: selectedTx.is_paid ? C.successLight : C.warningLight,
+                    backgroundColor: selectedTx.is_paid
+                      ? C.successLight
+                      : C.warningLight,
                     marginTop: scale(6),
                   },
                 ]}
@@ -454,7 +520,9 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
             <View style={styles.detailRows}>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Duty Dates</Text>
-                <Text style={styles.detailValue}>{formatTxDate(selectedTx)}</Text>
+                <Text style={styles.detailValue}>
+                  {formatTxDate(selectedTx)}
+                </Text>
               </View>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Completed Shifts</Text>
@@ -464,18 +532,24 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
               </View>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Rate per Shift</Text>
-                <Text style={styles.detailValue}>{formatINR(selectedTx.rate_per_shift)}</Text>
+                <Text style={styles.detailValue}>
+                  {formatINR(selectedTx.rate_per_shift)}
+                </Text>
               </View>
               {selectedTx.payment_details?.payment_mode ? (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Payment Mode</Text>
-                  <Text style={styles.detailValue}>{selectedTx.payment_details.payment_mode}</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedTx.payment_details.payment_mode}
+                  </Text>
                 </View>
               ) : null}
               {selectedTx.payment_details?.utr_number ? (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>UTR Number</Text>
-                  <Text style={styles.detailValue}>{selectedTx.payment_details.utr_number}</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedTx.payment_details.utr_number}
+                  </Text>
                 </View>
               ) : null}
               {selectedTx.payment_details?.paid_date_formatted ? (
@@ -489,7 +563,9 @@ const EarningsOverviewScreen = ({ navigation }: any) => {
               {selectedTx.payment_details?.remarks ? (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Remarks</Text>
-                  <Text style={styles.detailValue}>{selectedTx.payment_details.remarks}</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedTx.payment_details.remarks}
+                  </Text>
                 </View>
               ) : null}
             </View>
@@ -529,8 +605,18 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   backBtn: { padding: scale(4) },
-  headerTitle: { fontSize: scale(17), fontWeight: '800', color: C.ink, letterSpacing: -0.3 },
-  loaderWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: scale(10) },
+  headerTitle: {
+    fontSize: scale(17),
+    fontWeight: '800',
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
+  loaderWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: scale(10),
+  },
   loaderText: { fontSize: scale(13), color: C.textSub, fontWeight: '600' },
   scrollContent: { paddingHorizontal: scale(20), paddingBottom: scale(100) },
 
@@ -583,9 +669,23 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
     elevation: 2,
   },
-  statLabel: { fontSize: scale(13), color: C.textSub, fontWeight: '600', marginBottom: scale(8) },
-  statAmount: { fontSize: scale(20), fontWeight: '900', color: C.primary, marginBottom: scale(4) },
-  statSubTextBase: { fontSize: scale(12), color: C.textMuted, fontWeight: '600' },
+  statLabel: {
+    fontSize: scale(13),
+    color: C.textSub,
+    fontWeight: '600',
+    marginBottom: scale(8),
+  },
+  statAmount: {
+    fontSize: scale(20),
+    fontWeight: '900',
+    color: C.primary,
+    marginBottom: scale(4),
+  },
+  statSubTextBase: {
+    fontSize: scale(12),
+    color: C.textMuted,
+    fontWeight: '600',
+  },
   statSubText: { fontSize: scale(12), color: '#64748b', fontWeight: '600' },
 
   sectionHeader: {
@@ -594,7 +694,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: scale(14),
   },
-  sectionTitle: { fontSize: scale(16), fontWeight: '900', color: C.ink, letterSpacing: -0.3 },
+  sectionTitle: {
+    fontSize: scale(16),
+    fontWeight: '900',
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
   viewAllText: { fontSize: scale(13), fontWeight: '700', color: C.primary },
 
   emptyBox: {
@@ -615,8 +720,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: scale(10),
   },
-  emptyTitle: { fontSize: scale(15), fontWeight: '800', color: C.ink, marginBottom: scale(4) },
-  emptySub: { fontSize: scale(12), color: C.textSub, textAlign: 'center', lineHeight: scale(18) },
+  emptyTitle: {
+    fontSize: scale(15),
+    fontWeight: '800',
+    color: C.ink,
+    marginBottom: scale(4),
+  },
+  emptySub: {
+    fontSize: scale(12),
+    color: C.textSub,
+    textAlign: 'center',
+    lineHeight: scale(18),
+  },
 
   transactionsContainer: { gap: scale(12) },
   txCard: {
@@ -630,8 +745,18 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   txLeft: { flex: 1, paddingRight: scale(12) },
-  txHospital: { fontSize: scale(14), fontWeight: '800', color: C.ink, marginBottom: scale(2) },
-  txRole: { fontSize: scale(12), fontWeight: '600', color: C.textSub, marginBottom: scale(4) },
+  txHospital: {
+    fontSize: scale(14),
+    fontWeight: '800',
+    color: C.ink,
+    marginBottom: scale(2),
+  },
+  txRole: {
+    fontSize: scale(12),
+    fontWeight: '600',
+    color: C.textSub,
+    marginBottom: scale(4),
+  },
   txDate: { fontSize: scale(12), color: C.textMuted, fontWeight: '500' },
   txRight: { alignItems: 'flex-end', gap: scale(4) },
   txAmount: { fontSize: scale(15), fontWeight: '900', color: C.primary },
@@ -673,7 +798,12 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   modalTitle: { fontSize: scale(16), fontWeight: '800', color: C.ink },
-  modalSub: { fontSize: scale(12), color: C.textSub, marginTop: scale(2), fontWeight: '500' },
+  modalSub: {
+    fontSize: scale(12),
+    color: C.textSub,
+    marginTop: scale(2),
+    fontWeight: '500',
+  },
   closeBtn: {
     width: scale(32),
     height: scale(32),
@@ -691,8 +821,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
   },
-  modalAmountLabel: { fontSize: scale(12), color: C.textSub, fontWeight: '600' },
-  modalAmountVal: { fontSize: scale(26), fontWeight: '900', color: C.primary, marginTop: scale(2) },
+  modalAmountLabel: {
+    fontSize: scale(12),
+    color: C.textSub,
+    fontWeight: '600',
+  },
+  modalAmountVal: {
+    fontSize: scale(26),
+    fontWeight: '900',
+    color: C.primary,
+    marginTop: scale(2),
+  },
   detailRows: { gap: scale(10) },
   detailRow: {
     flexDirection: 'row',

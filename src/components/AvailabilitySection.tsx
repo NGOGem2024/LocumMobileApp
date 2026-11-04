@@ -12,7 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import instance from '../services/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 
@@ -45,7 +45,13 @@ const C = {
 };
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type ShiftType = 'am' | 'afternoon' | 'pm' | 'full' | 'flexible' | 'unavailable';
+type ShiftType =
+  | 'am'
+  | 'afternoon'
+  | 'pm'
+  | 'full'
+  | 'flexible'
+  | 'unavailable';
 
 interface AvailabilityEntry {
   date: string;
@@ -71,7 +77,7 @@ interface Props {
   initialAvailability?: AvailabilityEntry[];
   navigation?: any;
   route?: any;
-   apiBaseUrl?: string;
+  apiBaseUrl?: string;
   authToken?: string;
 }
 
@@ -145,9 +151,24 @@ const PRESETS: Record<
 };
 
 const TIME_SLOTS = [
-  '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00',
-  '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00',
-  '20:00', '21:00', '22:00', '23:00',
+  '06:00',
+  '07:00',
+  '08:00',
+  '09:00',
+  '10:00',
+  '11:00',
+  '12:00',
+  '13:00',
+  '14:00',
+  '15:00',
+  '16:00',
+  '17:00',
+  '18:00',
+  '19:00',
+  '20:00',
+  '21:00',
+  '22:00',
+  '23:00',
 ];
 
 const WEEK_DAYS = [
@@ -162,12 +183,25 @@ const WEEK_DAYS = [
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 function toISO(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+    2,
+    '0',
+  )}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function normDate(s: string) {
@@ -186,7 +220,15 @@ function formatFriendlyDate(dateStr: string) {
   if (!dateStr) return '';
   const [y, m, d] = dateStr.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
-  const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dt.getDay()];
+  const dayName = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ][dt.getDay()];
   return `${dayName}, ${d} ${MONTHS[m - 1]} ${y}`;
 }
 
@@ -209,7 +251,8 @@ function calculateDuration(start: string, end: string) {
 // Daily availability colors: green = available, red = not available
 const AVAIL_GREEN = { color: '#059669', bg: '#d1fae5', border: '#6ee7b7' };
 const AVAIL_RED = { color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' };
-const getAvailColor = (t: ShiftType) => (t === 'unavailable' ? AVAIL_RED : AVAIL_GREEN);
+const getAvailColor = (t: ShiftType) =>
+  t === 'unavailable' ? AVAIL_RED : AVAIL_GREEN;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ── AvailabilitySection Component ─────────────────────────────────────────────
@@ -219,7 +262,7 @@ const AvailabilitySection: React.FC<Props> = ({
   initialAvailability,
   navigation,
   apiBaseUrl,
-  authToken
+  authToken,
 }) => {
   const { doctor } = useAuth();
   const doctorId = propDoctorId || doctor?._id;
@@ -233,7 +276,9 @@ const AvailabilitySection: React.FC<Props> = ({
   const [showCalendar, setShowCalendar] = useState<boolean>(false); // calendar hidden until the doctor taps the calendar icon
 
   // ── Data States ──
-  const [avail, setAvail] = useState<AvailabilityEntry[]>(initialAvailability || []);
+  const [avail, setAvail] = useState<AvailabilityEntry[]>(
+    initialAvailability || [],
+  );
   const [duties, setDuties] = useState<ScheduledDuty[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
@@ -248,7 +293,9 @@ const AvailabilitySection: React.FC<Props> = ({
 
   // ── General Availability (Bulk) States ──
   const [showRoutineCard, setShowRoutineCard] = useState<boolean>(true);
-  const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([
+    1, 2, 3, 4, 5,
+  ]);
   const [bulkShift, setBulkShift] = useState<ShiftType>('full');
   const [repeatValue, setRepeatValue] = useState<number>(1);
   const [repeatUnit, setRepeatUnit] = useState<'Weeks' | 'Months'>('Months');
@@ -280,18 +327,24 @@ const AvailabilitySection: React.FC<Props> = ({
     fetchCalendarData();
   }, [doctorId]);
 
-  const getEntry = (dateStr: string) => avail.find(a => normDate(a.date) === dateStr);
-  const getDutiesForDate = (dateStr: string) => duties.filter(d => normDate(d.date) === dateStr);
+  const getEntry = (dateStr: string) =>
+    avail.find(a => normDate(a.date) === dateStr);
+  const getDutiesForDate = (dateStr: string) =>
+    duties.filter(d => normDate(d.date) === dateStr);
 
-  const prevM = () => (viewM === 0 ? (setViewM(11), setViewY(y => y - 1)) : setViewM(m => m - 1));
-  const nextM = () => (viewM === 11 ? (setViewM(0), setViewY(y => y + 1)) : setViewM(m => m + 1));
+  const prevM = () =>
+    viewM === 0 ? (setViewM(11), setViewY(y => y - 1)) : setViewM(m => m - 1);
+  const nextM = () =>
+    viewM === 11 ? (setViewM(0), setViewY(y => y + 1)) : setViewM(m => m + 1);
 
   // 2. When User Taps a Date on Calendar
   const handleDatePress = (dateStr: string) => {
     setSelectedDate(dateStr);
     const existing = getEntry(dateStr);
     if (existing) {
-      const mappedType = PRESETS[existing.shift_type] ? existing.shift_type : 'flexible';
+      const mappedType = PRESETS[existing.shift_type]
+        ? existing.shift_type
+        : 'flexible';
       setModalShift(mappedType);
       setCustomStart(existing.start_time || PRESETS[mappedType].start);
       setCustomEnd(existing.end_time || PRESETS[mappedType].end);
@@ -305,7 +358,10 @@ const AvailabilitySection: React.FC<Props> = ({
   // Open Configuration Modal for Selected Date
   const openConfigSheet = (dateStr: string = selectedDate) => {
     if (dateStr < todayStr) {
-      Alert.alert('Past Date', 'You cannot modify availability for past dates.');
+      Alert.alert(
+        'Past Date',
+        'You cannot modify availability for past dates.',
+      );
       return;
     }
     handleDatePress(dateStr);
@@ -333,7 +389,8 @@ const AvailabilitySection: React.FC<Props> = ({
     setSaving(true);
     const startTime = modalShift === 'unavailable' ? '00:00' : customStart;
     const endTime = modalShift === 'unavailable' ? '00:00' : customEnd;
-    const duration = modalShift === 'unavailable' ? 0 : calculateDuration(startTime, endTime);
+    const duration =
+      modalShift === 'unavailable' ? 0 : calculateDuration(startTime, endTime);
 
     const newEntry: AvailabilityEntry = {
       date: selectedDate,
@@ -349,10 +406,16 @@ const AvailabilitySection: React.FC<Props> = ({
           availability: [newEntry],
         });
       }
-      setAvail(prev => [...prev.filter(a => normDate(a.date) !== selectedDate), newEntry]);
+      setAvail(prev => [
+        ...prev.filter(a => normDate(a.date) !== selectedDate),
+        newEntry,
+      ]);
       setSheetVisible(false);
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message || 'Failed to update availability.');
+      Alert.alert(
+        'Error',
+        error?.response?.data?.message || 'Failed to update availability.',
+      );
     } finally {
       setSaving(false);
     }
@@ -363,7 +426,9 @@ const AvailabilitySection: React.FC<Props> = ({
     setSaving(true);
     try {
       if (doctorId) {
-        await instance.delete(`/api/doctors/${doctorId}/availability/${dateStr}`);
+        await instance.delete(
+          `/api/doctors/${doctorId}/availability/${dateStr}`,
+        );
       }
       setAvail(prev => prev.filter(a => normDate(a.date) !== dateStr));
       setSheetVisible(false);
@@ -377,7 +442,7 @@ const AvailabilitySection: React.FC<Props> = ({
   // 5. Apply General Availability (Bulk)
   const toggleWeekDay = (val: number) => {
     setSelectedWeekDays(prev =>
-      prev.includes(val) ? prev.filter(d => d !== val) : [...prev, val]
+      prev.includes(val) ? prev.filter(d => d !== val) : [...prev, val],
     );
   };
 
@@ -390,7 +455,8 @@ const AvailabilitySection: React.FC<Props> = ({
     setShowValDropdown(false);
     setShowUnitDropdown(false);
 
-    const totalDays = repeatUnit === 'Weeks' ? repeatValue * 7 : repeatValue * 30;
+    const totalDays =
+      repeatUnit === 'Weeks' ? repeatValue * 7 : repeatValue * 30;
     const updates: AvailabilityEntry[] = [];
     const now = new Date();
 
@@ -424,7 +490,9 @@ const AvailabilitySection: React.FC<Props> = ({
       setShowRoutineCard(false);
       Alert.alert(
         'General Availability Saved',
-        `Applied ${PRESETS[bulkShift].label} shift for the next ${repeatValue} ${repeatUnit.toLowerCase()}.`
+        `Applied ${
+          PRESETS[bulkShift].label
+        } shift for the next ${repeatValue} ${repeatUnit.toLowerCase()}.`,
       );
     } catch (error) {
       Alert.alert('Error', 'Failed to apply general availability.');
@@ -450,16 +518,31 @@ const AvailabilitySection: React.FC<Props> = ({
     <SafeAreaView style={styles.root} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={C.white} />
 
-     <View style={styles.header}>
-             <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn}><Ionicons name="chevron-back" size={scale(24)} /></TouchableOpacity>
-             <Text style={styles.headerTitle}>Manage Availability</Text>
-             <TouchableOpacity onPress={() => setShowCalendar(v => !v)} style={styles.backBtn} accessibilityLabel="Toggle calendar">
-               <Ionicons name={showCalendar ? 'calendar' : 'calendar-outline'} size={scale(24)} color={C.primary} />
-             </TouchableOpacity>
-           </View>
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation?.goBack()}
+          style={styles.backBtn}
+        >
+          <Ionicons name="chevron-back" size={scale(24)} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Manage Availability</Text>
+        <TouchableOpacity
+          onPress={() => setShowCalendar(v => !v)}
+          style={styles.backBtn}
+          accessibilityLabel="Toggle calendar"
+        >
+          <Ionicons
+            name={showCalendar ? 'calendar' : 'calendar-outline'}
+            size={scale(24)}
+            color={C.primary}
+          />
+        </TouchableOpacity>
+      </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ── 1. GENERAL AVAILABILITY CARD ── */}
         <View style={[styles.card, { zIndex: 20 }]}>
           <TouchableOpacity
@@ -469,7 +552,11 @@ const AvailabilitySection: React.FC<Props> = ({
           >
             <View style={styles.routineBannerLeft}>
               <View style={styles.routineIconBox}>
-                <Ionicons name="repeat-outline" size={scale(18)} color={C.primary} />
+                <Ionicons
+                  name="repeat-outline"
+                  size={scale(18)}
+                  color={C.primary}
+                />
               </View>
               <Text style={styles.sectionTitle}>General Availability</Text>
             </View>
@@ -489,10 +576,17 @@ const AvailabilitySection: React.FC<Props> = ({
                   return (
                     <TouchableOpacity
                       key={i}
-                      style={[styles.dayCircle, active && styles.dayCircleActive]}
+                      style={[
+                        styles.dayCircle,
+                        active && styles.dayCircleActive,
+                      ]}
                       onPress={() => toggleWeekDay(d.val)}
                     >
-                      <Text style={[styles.dayText, active && styles.dayTextActive]}>{d.label}</Text>
+                      <Text
+                        style={[styles.dayText, active && styles.dayTextActive]}
+                      >
+                        {d.label}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -507,10 +601,21 @@ const AvailabilitySection: React.FC<Props> = ({
                   return (
                     <TouchableOpacity
                       key={t}
-                      style={[styles.quickChip, active && { backgroundColor: p.bg, borderColor: p.color }]}
+                      style={[
+                        styles.quickChip,
+                        active && {
+                          backgroundColor: p.bg,
+                          borderColor: p.color,
+                        },
+                      ]}
                       onPress={() => setBulkShift(t)}
                     >
-                      <Text style={[styles.quickChipTxt, active && { color: p.color }]}>
+                      <Text
+                        style={[
+                          styles.quickChipTxt,
+                          active && { color: p.color },
+                        ]}
+                      >
                         {p.shortCode} • {p.label}
                       </Text>
                     </TouchableOpacity>
@@ -531,7 +636,11 @@ const AvailabilitySection: React.FC<Props> = ({
                     }}
                   >
                     <Text style={styles.dropdownBtnTxt}>{repeatValue}</Text>
-                    <Ionicons name="chevron-down" size={scale(16)} color={C.textMuted} />
+                    <Ionicons
+                      name="chevron-down"
+                      size={scale(16)}
+                      color={C.textMuted}
+                    />
                   </TouchableOpacity>
                   {showValDropdown && (
                     <View style={styles.dropdownList}>
@@ -561,7 +670,11 @@ const AvailabilitySection: React.FC<Props> = ({
                     }}
                   >
                     <Text style={styles.dropdownBtnTxt}>{repeatUnit}</Text>
-                    <Ionicons name="chevron-down" size={scale(16)} color={C.textMuted} />
+                    <Ionicons
+                      name="chevron-down"
+                      size={scale(16)}
+                      color={C.textMuted}
+                    />
                   </TouchableOpacity>
                   {showUnitDropdown && (
                     <View style={styles.dropdownList}>
@@ -590,7 +703,9 @@ const AvailabilitySection: React.FC<Props> = ({
                 {saving ? (
                   <ActivityIndicator color={C.white} size="small" />
                 ) : (
-                  <Text style={styles.applyRoutineBtnTxt}>Apply General Availability</Text>
+                  <Text style={styles.applyRoutineBtnTxt}>
+                    Apply General Availability
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -599,130 +714,161 @@ const AvailabilitySection: React.FC<Props> = ({
 
         {/* ── 2. DAILY AVAILABILITY CALENDAR CARD (shown only when calendar icon is tapped) ── */}
         {showCalendar && (
-        <View style={[styles.card, { zIndex: 1 }]}>
-          <View style={styles.dailyCardHeader}>
-            <Text style={styles.sectionTitle}>Daily Availability</Text>
+          <View style={[styles.card, { zIndex: 1 }]}>
+            <View style={styles.dailyCardHeader}>
+              <Text style={styles.sectionTitle}>Daily Availability</Text>
 
-            {/* Month Navigation */}
-            <View style={styles.monthNavRow}>
-              <TouchableOpacity onPress={prevM} style={styles.navIconBtn}>
-                <Ionicons name="chevron-back" size={scale(15)} color={C.text} />
-              </TouchableOpacity>
-              <Text style={styles.monthTitle}>
-                {MONTHS[viewM].slice(0, 3)} {viewY}
-              </Text>
-              <TouchableOpacity onPress={nextM} style={styles.navIconBtn}>
-                <Ionicons name="chevron-forward" size={scale(15)} color={C.text} />
-              </TouchableOpacity>
+              {/* Month Navigation */}
+              <View style={styles.monthNavRow}>
+                <TouchableOpacity onPress={prevM} style={styles.navIconBtn}>
+                  <Ionicons
+                    name="chevron-back"
+                    size={scale(15)}
+                    color={C.text}
+                  />
+                </TouchableOpacity>
+                <Text style={styles.monthTitle}>
+                  {MONTHS[viewM].slice(0, 3)} {viewY}
+                </Text>
+                <TouchableOpacity onPress={nextM} style={styles.navIconBtn}>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={scale(15)}
+                    color={C.text}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
 
-          {/* Weekday Headers */}
-          <View style={styles.weekHeaderRow}>
-            {DAYS.map(d => (
-              <Text key={d} style={styles.weekHeaderTxt}>{d}</Text>
-            ))}
-          </View>
-
-          {/* Calendar Grid */}
-          {loading ? (
-            <View style={styles.loaderBox}>
-              <ActivityIndicator size="large" color={C.primary} />
+            {/* Weekday Headers */}
+            <View style={styles.weekHeaderRow}>
+              {DAYS.map(d => (
+                <Text key={d} style={styles.weekHeaderTxt}>
+                  {d}
+                </Text>
+              ))}
             </View>
-          ) : (
-            <View style={styles.grid}>
-              {cells.map((day, idx) => {
-                if (!day) return <View key={`empty-${idx}`} style={styles.cellWrap} />;
 
-                const ds = toISO(new Date(viewY, viewM, day));
-                const isSelected = ds === selectedDate;
-                const isToday = ds === todayStr;
-                const isPast = ds < todayStr;
-                const entry = getEntry(ds);
-                const dayDuties = getDutiesForDate(ds);
-                const preset = entry ? PRESETS[entry.shift_type] || PRESETS.flexible : null;
-                const tone = entry ? getAvailColor(entry.shift_type) : null;
+            {/* Calendar Grid */}
+            {loading ? (
+              <View style={styles.loaderBox}>
+                <ActivityIndicator size="large" color={C.primary} />
+              </View>
+            ) : (
+              <View style={styles.grid}>
+                {cells.map((day, idx) => {
+                  if (!day)
+                    return (
+                      <View key={`empty-${idx}`} style={styles.cellWrap} />
+                    );
 
-                return (
-                  <TouchableOpacity
-                    key={ds}
-                    style={styles.cellWrap}
-                    activeOpacity={0.7}
-                    onPress={() => handleDatePress(ds)}
-                  >
-                    <View
-                      style={[
-                        styles.cell,
-                        isToday && !isSelected && styles.cellToday,
-                        tone && { borderWidth: 1.5, borderColor: tone.border },
-                        isSelected && styles.cellSelected,
-                        isPast && styles.cellPast,
-                      ]}
+                  const ds = toISO(new Date(viewY, viewM, day));
+                  const isSelected = ds === selectedDate;
+                  const isToday = ds === todayStr;
+                  const isPast = ds < todayStr;
+                  const entry = getEntry(ds);
+                  const dayDuties = getDutiesForDate(ds);
+                  const preset = entry
+                    ? PRESETS[entry.shift_type] || PRESETS.flexible
+                    : null;
+                  const tone = entry ? getAvailColor(entry.shift_type) : null;
+
+                  return (
+                    <TouchableOpacity
+                      key={ds}
+                      style={styles.cellWrap}
+                      activeOpacity={0.7}
+                      onPress={() => handleDatePress(ds)}
                     >
-                      <Text
+                      <View
                         style={[
-                          styles.cellDayTxt,
-                          tone && { color: tone.color },
-                          isSelected && styles.cellDayTxtSelected,
+                          styles.cell,
+                          isToday && !isSelected && styles.cellToday,
+                          tone && {
+                            borderWidth: 1.5,
+                            borderColor: tone.border,
+                          },
+                          isSelected && styles.cellSelected,
+                          isPast && styles.cellPast,
                         ]}
                       >
-                        {day}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.cellDayTxt,
+                            tone && { color: tone.color },
+                            isSelected && styles.cellDayTxtSelected,
+                          ]}
+                        >
+                          {day}
+                        </Text>
 
-                      {/* Badges Row: Shift Shortcode (M/A/E/FD/F) + Duty Dot */}
-                      <View style={styles.cellBadgeRow}>
-                        {preset && tone && (
-                          <Text
-                            style={[
-                              styles.cellShiftCode,
-                              { color: isSelected ? C.white : tone.color },
-                            ]}
-                          >
-                            {preset.shortCode}
-                          </Text>
-                        )}
-                        {dayDuties.length > 0 && (
-                          <View
-                            style={[
-                              styles.dutyDot,
-                              isSelected && { backgroundColor: C.white },
-                            ]}
-                          />
-                        )}
+                        {/* Badges Row: Shift Shortcode (M/A/E/FD/F) + Duty Dot */}
+                        <View style={styles.cellBadgeRow}>
+                          {preset && tone && (
+                            <Text
+                              style={[
+                                styles.cellShiftCode,
+                                { color: isSelected ? C.white : tone.color },
+                              ]}
+                            >
+                              {preset.shortCode}
+                            </Text>
+                          )}
+                          {dayDuties.length > 0 && (
+                            <View
+                              style={[
+                                styles.dutyDot,
+                                isSelected && { backgroundColor: C.white },
+                              ]}
+                            />
+                          )}
+                        </View>
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
 
-          {/* Legend */}
-          <View style={styles.legendWrap}>
-            {(['am', 'pm', 'flexible', 'unavailable'] as ShiftType[]).map(t => {
-              const p = PRESETS[t];
-              const tone = getAvailColor(t);
-              return (
-                <View key={t} style={styles.legendItem}>
-                  <View style={[styles.legendBadge, { backgroundColor: tone.bg }]}>
-                    <Text style={[styles.legendBadgeTxt, { color: tone.color }]}>{p.shortCode}</Text>
-                  </View>
-                  <Text style={styles.legendLabel}>{p.label}</Text>
-                </View>
-              );
-            })}
-            <View style={styles.legendItem}>
-              <View style={styles.dutyDot} />
-              <Text style={styles.legendLabel}>Assigned Duty</Text>
+            {/* Legend */}
+            <View style={styles.legendWrap}>
+              {(['am', 'pm', 'flexible', 'unavailable'] as ShiftType[]).map(
+                t => {
+                  const p = PRESETS[t];
+                  const tone = getAvailColor(t);
+                  return (
+                    <View key={t} style={styles.legendItem}>
+                      <View
+                        style={[
+                          styles.legendBadge,
+                          { backgroundColor: tone.bg },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.legendBadgeTxt, { color: tone.color }]}
+                        >
+                          {p.shortCode}
+                        </Text>
+                      </View>
+                      <Text style={styles.legendLabel}>{p.label}</Text>
+                    </View>
+                  );
+                },
+              )}
+              <View style={styles.legendItem}>
+                <View style={styles.dutyDot} />
+                <Text style={styles.legendLabel}>Assigned Duty</Text>
+              </View>
             </View>
           </View>
-        </View>
         )}
 
         {/* ── 3. DAILY SCHEDULE & ACTIVITY PANEL ── */}
         <View style={styles.agendaCard}>
           <View style={styles.agendaHeader}>
-            <Text style={styles.agendaDateTitle}>{formatFriendlyDate(selectedDate)}</Text>
+            <Text style={styles.agendaDateTitle}>
+              {formatFriendlyDate(selectedDate)}
+            </Text>
             {!isSelectedPast && (
               <TouchableOpacity
                 style={styles.setAvailBtn}
@@ -749,14 +895,20 @@ const AvailabilitySection: React.FC<Props> = ({
                   <View style={styles.dutyEventStripe} />
                   <View style={styles.dutyEventBody}>
                     <View style={styles.dutyEventTop}>
-                      <Text style={styles.dutyHospName}>{duty.hospital_name}</Text>
+                      <Text style={styles.dutyHospName}>
+                        {duty.hospital_name}
+                      </Text>
                       <View style={styles.dutyStatusBadge}>
                         <Text style={styles.dutyStatusTxt}>{duty.status}</Text>
                       </View>
                     </View>
                     <Text style={styles.dutyDeptTxt}>{duty.department}</Text>
                     <View style={styles.dutyTimeRow}>
-                      <Ionicons name="time-outline" size={scale(13)} color={C.primary} />
+                      <Ionicons
+                        name="time-outline"
+                        size={scale(13)}
+                        color={C.primary}
+                      />
                       <Text style={styles.dutyTimeTxt}>
                         {duty.start_time} – {duty.end_time}
                       </Text>
@@ -775,19 +927,44 @@ const AvailabilitySection: React.FC<Props> = ({
                 const p = PRESETS[selectedEntry.shift_type] || PRESETS.flexible;
                 const tone = getAvailColor(selectedEntry.shift_type);
                 return (
-                  <View style={[styles.availEventCard, { backgroundColor: tone.bg, borderColor: tone.color }]}>
+                  <View
+                    style={[
+                      styles.availEventCard,
+                      { backgroundColor: tone.bg, borderColor: tone.color },
+                    ]}
+                  >
                     <View style={styles.availEventLeft}>
-                      <View style={[styles.availCodeCircle, { backgroundColor: tone.color }]}>
-                        <Text style={styles.availCodeCircleTxt}>{p.shortCode}</Text>
+                      <View
+                        style={[
+                          styles.availCodeCircle,
+                          { backgroundColor: tone.color },
+                        ]}
+                      >
+                        <Text style={styles.availCodeCircleTxt}>
+                          {p.shortCode}
+                        </Text>
                       </View>
                       <View>
-                        <Text style={[styles.availEventTitle, { color: tone.color }]}>
+                        <Text
+                          style={[
+                            styles.availEventTitle,
+                            { color: tone.color },
+                          ]}
+                        >
                           {p.label} Shift
                         </Text>
                         <Text style={styles.availEventTime}>
                           {selectedEntry.shift_type === 'unavailable'
                             ? 'Marked Unavailable All Day'
-                            : `${format12Hr(selectedEntry.start_time)} – ${format12Hr(selectedEntry.end_time)} (${selectedEntry.slot_duration || calculateDuration(selectedEntry.start_time, selectedEntry.end_time)} hrs)`}
+                            : `${format12Hr(
+                                selectedEntry.start_time,
+                              )} – ${format12Hr(selectedEntry.end_time)} (${
+                                selectedEntry.slot_duration ||
+                                calculateDuration(
+                                  selectedEntry.start_time,
+                                  selectedEntry.end_time,
+                                )
+                              } hrs)`}
                         </Text>
                       </View>
                     </View>
@@ -798,13 +975,21 @@ const AvailabilitySection: React.FC<Props> = ({
                           style={styles.iconActionBtn}
                           onPress={() => openConfigSheet(selectedDate)}
                         >
-                          <Ionicons name="options-outline" size={scale(18)} color={C.text} />
+                          <Ionicons
+                            name="options-outline"
+                            size={scale(18)}
+                            color={C.text}
+                          />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.iconActionBtn}
                           onPress={() => deleteAvailability(selectedDate)}
                         >
-                          <Ionicons name="trash-outline" size={scale(18)} color={C.danger} />
+                          <Ionicons
+                            name="trash-outline"
+                            size={scale(18)}
+                            color={C.danger}
+                          />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -817,10 +1002,20 @@ const AvailabilitySection: React.FC<Props> = ({
                 disabled={isSelectedPast}
                 onPress={() => openConfigSheet(selectedDate)}
               >
-                <Ionicons name="calendar-clear-outline" size={scale(20)} color={C.textMuted} />
-                <Text style={[styles.emptySlotTitle, { flex: 1 }]}>No Daily Availability Set</Text>
+                <Ionicons
+                  name="calendar-clear-outline"
+                  size={scale(20)}
+                  color={C.textMuted}
+                />
+                <Text style={[styles.emptySlotTitle, { flex: 1 }]}>
+                  No Daily Availability Set
+                </Text>
                 {!isSelectedPast && (
-                  <Ionicons name="chevron-forward" size={scale(18)} color={C.primary} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={scale(18)}
+                    color={C.primary}
+                  />
                 )}
               </TouchableOpacity>
             )}
@@ -843,9 +1038,14 @@ const AvailabilitySection: React.FC<Props> = ({
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>Set Daily Availability</Text>
-                <Text style={styles.modalSub}>{formatFriendlyDate(selectedDate)}</Text>
+                <Text style={styles.modalSub}>
+                  {formatFriendlyDate(selectedDate)}
+                </Text>
               </View>
-              <TouchableOpacity onPress={() => setSheetVisible(false)} style={styles.closeBtn}>
+              <TouchableOpacity
+                onPress={() => setSheetVisible(false)}
+                style={styles.closeBtn}
+              >
                 <Ionicons name="close" size={scale(20)} color={C.textSub} />
               </TouchableOpacity>
             </View>
@@ -854,29 +1054,41 @@ const AvailabilitySection: React.FC<Props> = ({
               {/* Shift Type: 4 options in one row */}
               <Text style={styles.modalSectionLbl}>Shift Type</Text>
               <View style={styles.shiftRow}>
-                {(['am', 'pm', 'flexible', 'unavailable'] as ShiftType[]).map(type => {
-                  const p = PRESETS[type];
-                  const tone = getAvailColor(type);
-                  const active = modalShift === type;
-                  return (
-                    <TouchableOpacity
-                      key={type}
-                      style={[
-                        styles.shiftChip,
-                        active && { backgroundColor: tone.bg, borderColor: tone.color },
-                      ]}
-                      onPress={() => handleSelectModalPreset(type)}
-                    >
-                      <Ionicons name={p.icon as any} size={scale(20)} color={active ? tone.color : C.textSub} />
-                      <Text
-                        numberOfLines={1}
-                        style={[styles.shiftChipTxt, active && { color: tone.color }]}
+                {(['am', 'pm', 'flexible', 'unavailable'] as ShiftType[]).map(
+                  type => {
+                    const p = PRESETS[type];
+                    const tone = getAvailColor(type);
+                    const active = modalShift === type;
+                    return (
+                      <TouchableOpacity
+                        key={type}
+                        style={[
+                          styles.shiftChip,
+                          active && {
+                            backgroundColor: tone.bg,
+                            borderColor: tone.color,
+                          },
+                        ]}
+                        onPress={() => handleSelectModalPreset(type)}
                       >
-                        {p.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                        <Ionicons
+                          name={p.icon as any}
+                          size={scale(20)}
+                          color={active ? tone.color : C.textSub}
+                        />
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.shiftChipTxt,
+                            active && { color: tone.color },
+                          ]}
+                        >
+                          {p.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  },
+                )}
               </View>
 
               {/* Time Window (hidden when 'Unavailable') */}
@@ -893,16 +1105,27 @@ const AvailabilitySection: React.FC<Props> = ({
                           setShowEndDrop(false);
                         }}
                       >
-                        <Ionicons name="time-outline" size={scale(16)} color={C.primary} />
+                        <Ionicons
+                          name="time-outline"
+                          size={scale(16)}
+                          color={C.primary}
+                        />
                         <Text style={styles.timeBoxTxt}>{customStart}</Text>
-                        <Ionicons name="chevron-down" size={scale(16)} color={C.textMuted} />
+                        <Ionicons
+                          name="chevron-down"
+                          size={scale(16)}
+                          color={C.textMuted}
+                        />
                       </TouchableOpacity>
                       {showStartDrop && (
                         <ScrollView nestedScrollEnabled style={styles.timeList}>
                           {TIME_SLOTS.map(t => (
                             <TouchableOpacity
                               key={`start-${t}`}
-                              style={[styles.timeListItem, customStart === t && styles.timeListItemActive]}
+                              style={[
+                                styles.timeListItem,
+                                customStart === t && styles.timeListItemActive,
+                              ]}
                               onPress={() => {
                                 setCustomStart(t);
                                 setModalShift('flexible');
@@ -916,7 +1139,12 @@ const AvailabilitySection: React.FC<Props> = ({
                       )}
                     </View>
 
-                    <Ionicons name="arrow-forward" size={scale(16)} color={C.textMuted} style={styles.timeArrow} />
+                    <Ionicons
+                      name="arrow-forward"
+                      size={scale(16)}
+                      color={C.textMuted}
+                      style={styles.timeArrow}
+                    />
 
                     <View style={styles.timeCol}>
                       <Text style={styles.timeSubLbl}>End Time</Text>
@@ -927,16 +1155,27 @@ const AvailabilitySection: React.FC<Props> = ({
                           setShowStartDrop(false);
                         }}
                       >
-                        <Ionicons name="time-outline" size={scale(16)} color={C.primary} />
+                        <Ionicons
+                          name="time-outline"
+                          size={scale(16)}
+                          color={C.primary}
+                        />
                         <Text style={styles.timeBoxTxt}>{customEnd}</Text>
-                        <Ionicons name="chevron-down" size={scale(16)} color={C.textMuted} />
+                        <Ionicons
+                          name="chevron-down"
+                          size={scale(16)}
+                          color={C.textMuted}
+                        />
                       </TouchableOpacity>
                       {showEndDrop && (
                         <ScrollView nestedScrollEnabled style={styles.timeList}>
                           {TIME_SLOTS.map(t => (
                             <TouchableOpacity
                               key={`end-${t}`}
-                              style={[styles.timeListItem, customEnd === t && styles.timeListItemActive]}
+                              style={[
+                                styles.timeListItem,
+                                customEnd === t && styles.timeListItemActive,
+                              ]}
                               onPress={() => {
                                 setCustomEnd(t);
                                 setModalShift('flexible');
@@ -962,7 +1201,11 @@ const AvailabilitySection: React.FC<Props> = ({
                   onPress={() => deleteAvailability(selectedDate)}
                   disabled={saving}
                 >
-                  <Ionicons name="trash-outline" size={scale(18)} color={C.danger} />
+                  <Ionicons
+                    name="trash-outline"
+                    size={scale(18)}
+                    color={C.danger}
+                  />
                 </TouchableOpacity>
               )}
               <TouchableOpacity
@@ -973,7 +1216,9 @@ const AvailabilitySection: React.FC<Props> = ({
                 {saving ? (
                   <ActivityIndicator color={C.white} />
                 ) : (
-                  <Text style={styles.saveModalBtnTxt}>Save Daily Availability</Text>
+                  <Text style={styles.saveModalBtnTxt}>
+                    Save Daily Availability
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1009,7 +1254,11 @@ const styles = StyleSheet.create({
   },
   todayChipTxt: { fontSize: scale(12), fontWeight: '700', color: C.primary },
 
-  scrollContent: { padding: scale(16), paddingBottom: scale(40), gap: scale(14) },
+  scrollContent: {
+    padding: scale(16),
+    paddingBottom: scale(40),
+    gap: scale(14),
+  },
 
   card: {
     backgroundColor: C.white,
@@ -1025,8 +1274,16 @@ const styles = StyleSheet.create({
   },
 
   // General Availability Collapsible
-  routineBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  routineBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: scale(10) },
+  routineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  routineBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(10),
+  },
   routineIconBox: {
     width: scale(36),
     height: scale(36),
@@ -1036,9 +1293,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sectionTitle: { fontSize: scale(14), fontWeight: '800', color: C.text },
-  routineBody: { marginTop: scale(14), paddingTop: scale(14), borderTopWidth: 1, borderTopColor: C.border },
-  fieldLabel: { fontSize: scale(12), fontWeight: '700', color: C.text, marginBottom: scale(8), marginTop: scale(8) },
-  daysRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: scale(8) },
+  routineBody: {
+    marginTop: scale(14),
+    paddingTop: scale(14),
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+  },
+  fieldLabel: {
+    fontSize: scale(12),
+    fontWeight: '700',
+    color: C.text,
+    marginBottom: scale(8),
+    marginTop: scale(8),
+  },
+  daysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: scale(8),
+  },
   dayCircle: {
     width: scale(36),
     height: scale(36),
@@ -1050,7 +1322,12 @@ const styles = StyleSheet.create({
   dayCircleActive: { backgroundColor: C.primary },
   dayText: { fontSize: scale(12), fontWeight: '700', color: C.textSub },
   dayTextActive: { color: C.white },
-  QuickChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: scale(8), marginBottom: scale(8) },
+  QuickChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: scale(8),
+    marginBottom: scale(8),
+  },
   quickChip: {
     paddingHorizontal: scale(12),
     paddingVertical: scale(8),
@@ -1107,7 +1384,11 @@ const styles = StyleSheet.create({
     borderRadius: scale(12),
     alignItems: 'center',
   },
-  applyRoutineBtnTxt: { color: C.white, fontSize: scale(13), fontWeight: '800' },
+  applyRoutineBtnTxt: {
+    color: C.white,
+    fontSize: scale(13),
+    fontWeight: '800',
+  },
 
   // Daily Availability Calendar Styles
   dailyCardHeader: {
@@ -1181,7 +1462,11 @@ const styles = StyleSheet.create({
     borderTopColor: C.border,
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: scale(4) },
-  legendBadge: { paddingHorizontal: scale(5), paddingVertical: scale(1), borderRadius: scale(4) },
+  legendBadge: {
+    paddingHorizontal: scale(5),
+    paddingVertical: scale(1),
+    borderRadius: scale(4),
+  },
   legendBadgeTxt: { fontSize: scale(9), fontWeight: '900' },
   legendLabel: { fontSize: scale(10), fontWeight: '600', color: C.textSub },
 
@@ -1228,7 +1513,11 @@ const styles = StyleSheet.create({
   },
   dutyEventStripe: { width: scale(5), backgroundColor: C.primary },
   dutyEventBody: { flex: 1, padding: scale(12) },
-  dutyEventTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dutyEventTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   dutyHospName: { fontSize: scale(13), fontWeight: '800', color: C.text },
   dutyStatusBadge: {
     backgroundColor: C.primaryLight,
@@ -1238,7 +1527,12 @@ const styles = StyleSheet.create({
   },
   dutyStatusTxt: { fontSize: scale(10), fontWeight: '800', color: C.primary },
   dutyDeptTxt: { fontSize: scale(12), color: C.textSub, marginTop: scale(2) },
-  dutyTimeRow: { flexDirection: 'row', alignItems: 'center', gap: scale(4), marginTop: scale(6) },
+  dutyTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(4),
+    marginTop: scale(6),
+  },
   dutyTimeTxt: { fontSize: scale(11), fontWeight: '700', color: C.primary },
 
   availEventCard: {
@@ -1249,7 +1543,12 @@ const styles = StyleSheet.create({
     borderRadius: scale(12),
     borderWidth: 1,
   },
-  availEventLeft: { flexDirection: 'row', alignItems: 'center', gap: scale(10), flex: 1 },
+  availEventLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(10),
+    flex: 1,
+  },
   availCodeCircle: {
     width: scale(36),
     height: scale(36),
@@ -1257,9 +1556,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  availCodeCircleTxt: { color: C.white, fontSize: scale(13), fontWeight: '900' },
+  availCodeCircleTxt: {
+    color: C.white,
+    fontSize: scale(13),
+    fontWeight: '900',
+  },
   availEventTitle: { fontSize: scale(13), fontWeight: '800' },
-  availEventTime: { fontSize: scale(11), color: C.textSub, fontWeight: '600', marginTop: scale(2) },
+  availEventTime: {
+    fontSize: scale(11),
+    color: C.textSub,
+    fontWeight: '600',
+    marginTop: scale(2),
+  },
   availActions: { flexDirection: 'row', gap: scale(6) },
   iconActionBtn: {
     width: scale(32),
@@ -1303,7 +1611,12 @@ const styles = StyleSheet.create({
     marginBottom: scale(16),
   },
   modalTitle: { fontSize: scale(17), fontWeight: '900', color: C.text },
-  modalSub: { fontSize: scale(12), color: C.primary, fontWeight: '700', marginTop: scale(2) },
+  modalSub: {
+    fontSize: scale(12),
+    color: C.primary,
+    fontWeight: '700',
+    marginTop: scale(2),
+  },
   closeBtn: {
     width: scale(32),
     height: scale(32),
@@ -1384,7 +1697,12 @@ const styles = StyleSheet.create({
     paddingVertical: scale(3),
     borderRadius: scale(6),
   },
-  timeSubLbl: { fontSize: scale(11), fontWeight: '700', color: C.text, marginBottom: scale(6) },
+  timeSubLbl: {
+    fontSize: scale(11),
+    fontWeight: '700',
+    color: C.text,
+    marginBottom: scale(6),
+  },
   timePillsRow: { gap: scale(8), paddingVertical: scale(2) },
   timePill: {
     paddingHorizontal: scale(12),
@@ -1411,7 +1729,12 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   shiftChipTxt: { fontSize: scale(10.5), fontWeight: '700', color: C.textSub },
-  timeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: scale(8), marginBottom: scale(10) },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: scale(8),
+    marginBottom: scale(10),
+  },
   timeCol: { flex: 1 },
   timeBox: {
     flexDirection: 'row',
@@ -1424,7 +1747,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(12),
     paddingVertical: scale(12),
   },
-  timeBoxTxt: { flex: 1, fontSize: scale(14), fontWeight: '800', color: C.primary },
+  timeBoxTxt: {
+    flex: 1,
+    fontSize: scale(14),
+    fontWeight: '800',
+    color: C.primary,
+  },
   timeArrow: { marginTop: scale(36) },
   timeList: {
     maxHeight: scale(150),

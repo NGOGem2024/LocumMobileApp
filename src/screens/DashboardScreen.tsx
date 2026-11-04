@@ -8,7 +8,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 
 const { width: SW } = Dimensions.get('window');
@@ -17,7 +17,7 @@ const scale = (size: number) => (SW / 390) * size;
 // ─── Light Theme Colors ───
 const C = {
   background: '#F9FAFB',
-  cardBg: '#FFFFFF', 
+  cardBg: '#FFFFFF',
   border: '#E5E7EB',
   primary: '#007b8e', // Deep Teal
   primaryLight: '#E0F5F8',
@@ -46,7 +46,7 @@ const DashboardScreen = ({ navigation }: DashboardScreenProps) => {
                 navigation.goBack();
               } else {
                 // Navigate explicitly to your landing screen when there is no history
-                navigation.navigate('LandingScreen'); 
+                navigation.navigate('LandingScreen');
               }
             }}
             activeOpacity={0.7}
@@ -58,7 +58,9 @@ const DashboardScreen = ({ navigation }: DashboardScreenProps) => {
         {/* ── Centered Content Card ── */}
         <View style={styles.centerCard}>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>✨ PREMIER PROFESSIONAL'S NETWORK</Text>
+            <Text style={styles.badgeText}>
+              ✨ PREMIER PROFESSIONAL'S NETWORK
+            </Text>
           </View>
 
           <Text style={styles.heroTitle}>
@@ -74,34 +76,40 @@ const DashboardScreen = ({ navigation }: DashboardScreenProps) => {
           <View style={styles.ctaGroup}>
             {/* Primary Gradient Button */}
             <TouchableOpacity
-              style={styles.btnShadowWrapper}
+              style={[styles.btnShadowWrapper, { backgroundColor: C.primary }]}
               activeOpacity={0.85}
-              onPress={() => navigation?.navigate('Register', { role: 'doctor' })}
+              onPress={() =>
+                navigation?.navigate('Register', { role: 'doctor' })
+              }
             >
-              <LinearGradient
-                colors={['#00a8c2', '#007b8e']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.btnGradient}
-              >
+              <View style={styles.btnGradient}>
+                <LinearGradient
+                  colors={['#00a8c2', '#007b8e']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
                 <Text style={styles.btnPrimaryText}>Register as Doctor</Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
 
             {/* Secondary Gradient Button */}
             <TouchableOpacity
-              style={styles.btnShadowWrapper}
+              style={[styles.btnShadowWrapper, { backgroundColor: C.white }]}
               activeOpacity={0.85}
-              onPress={() => navigation?.navigate('Register', { role: 'hospital' })}
+              onPress={() =>
+                navigation?.navigate('Register', { role: 'hospital' })
+              }
             >
-              <LinearGradient
-                colors={['#ffffff', '#f1f5f9']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.btnGradient, styles.secondaryBorder]}
-              >
+              <View style={[styles.btnGradient, styles.secondaryBorder]}>
+                <LinearGradient
+                  colors={['#ffffff', '#f1f5f9']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
                 <Text style={styles.btnSecondaryText}>For Hospitals</Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -111,7 +119,8 @@ const DashboardScreen = ({ navigation }: DashboardScreenProps) => {
             onPress={() => navigation?.navigate('LoginScreen')}
           >
             <Text style={styles.loginText}>
-              Already have an account? <Text style={styles.loginBold}>Login</Text>
+              Already have an account?{' '}
+              <Text style={styles.loginBold}>Login</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -121,7 +130,10 @@ const DashboardScreen = ({ navigation }: DashboardScreenProps) => {
           onPress={() => navigation?.navigate('GuestDashboardScreen')}
           activeOpacity={0.7}
         >
-          <Text style={styles.guestLinkText}>Want to explore first? <Text style={styles.loginBold}>Browse as Guest</Text> </Text>
+          <Text style={styles.guestLinkText}>
+            Want to explore first?{' '}
+            <Text style={styles.loginBold}>Browse as Guest</Text>{' '}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -173,11 +185,28 @@ const styles = StyleSheet.create({
     borderRadius: scale(20),
     marginBottom: scale(16),
   },
-  badgeText: { color: C.primary, fontSize: scale(10.5), fontWeight: '800', letterSpacing: 0.6 },
-  heroTitle: { fontSize: scale(30), fontWeight: '900', color: C.ink, lineHeight: scale(36), marginBottom: scale(12), letterSpacing: -0.5 },
+  badgeText: {
+    color: C.primary,
+    fontSize: scale(10.5),
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  heroTitle: {
+    fontSize: scale(30),
+    fontWeight: '900',
+    color: C.ink,
+    lineHeight: scale(36),
+    marginBottom: scale(12),
+    letterSpacing: -0.5,
+  },
   heroTitleHighlight: { color: C.primary },
-  heroSub: { fontSize: scale(14), color: C.textSub, lineHeight: scale(21), marginBottom: scale(28) },
-  
+  heroSub: {
+    fontSize: scale(14),
+    color: C.textSub,
+    lineHeight: scale(21),
+    marginBottom: scale(28),
+  },
+
   ctaGroup: { gap: scale(12), marginBottom: scale(20) },
   btnShadowWrapper: {
     width: '100%',
@@ -192,14 +221,26 @@ const styles = StyleSheet.create({
     paddingVertical: scale(15),
     borderRadius: scale(14),
     alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   secondaryBorder: {
     borderWidth: 1,
     borderColor: C.border,
   },
-  btnPrimaryText: { color: C.white, fontWeight: '800', fontSize: scale(15) },
-  btnSecondaryText: { color: C.ink, fontWeight: '800', fontSize: scale(15) },
-  
+  btnPrimaryText: {
+    color: C.white,
+    fontWeight: '800',
+    fontSize: scale(15),
+    textAlign: 'center',
+  },
+  btnSecondaryText: {
+    color: C.ink,
+    fontWeight: '800',
+    fontSize: scale(15),
+    textAlign: 'center',
+  },
+
   loginWrapper: { alignItems: 'center', paddingVertical: scale(8) },
   loginText: { color: C.textSub, fontSize: scale(14) },
   loginBold: { color: C.primary, fontWeight: '800' },

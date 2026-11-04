@@ -15,7 +15,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import api from '../services/axiosConfig';
 
@@ -43,10 +43,10 @@ interface ForgotPasswordScreenProps {
 
 const ForgotPasswordScreen = ({ navigation }: ForgotPasswordScreenProps) => {
   const [step, setStep] = useState<Step>('email');
-  
+
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
-  
+
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState('');
 
@@ -54,13 +54,13 @@ const ForgotPasswordScreen = ({ navigation }: ForgotPasswordScreenProps) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
 
   const otpRefs = useRef<(TextInput | null)[]>([]);
-  
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const successScale = useRef(new Animated.Value(0)).current;
@@ -108,7 +108,7 @@ const ForgotPasswordScreen = ({ navigation }: ForgotPasswordScreenProps) => {
   const handleSendOTP = async () => {
     setEmailError('');
     const cleanEmail = email.trim();
-    
+
     if (!cleanEmail) {
       setEmailError('Email is required');
       return;
@@ -172,7 +172,7 @@ const ForgotPasswordScreen = ({ navigation }: ForgotPasswordScreenProps) => {
 
   const handleResetPassword = async () => {
     setPasswordError('');
-    
+
     if (!newPassword || newPassword.length < 6) {
       setPasswordError('Password must be at least 6 characters long');
       return;
@@ -186,7 +186,7 @@ const ForgotPasswordScreen = ({ navigation }: ForgotPasswordScreenProps) => {
     try {
       const response = await api.post('/api/doctors/reset-password', {
         email: email.trim().toLowerCase(),
-        otp: otp.join(''), 
+        otp: otp.join(''),
         newPassword: newPassword,
       });
 
@@ -277,8 +277,8 @@ const ForgotPasswordScreen = ({ navigation }: ForgotPasswordScreenProps) => {
                 <View style={styles.headerWrap}>
                   <Text style={styles.heroTitle}>Forgot Password?</Text>
                   <Text style={styles.heroSub}>
-                    Enter the email address associated with your account and we'll
-                    send you a 6-digit security OTP.
+                    Enter the email address associated with your account and
+                    we'll send you a 6-digit security OTP.
                   </Text>
                 </View>
 
@@ -379,14 +379,22 @@ const ForgotPasswordScreen = ({ navigation }: ForgotPasswordScreenProps) => {
                   ))}
                 </View>
                 {!!otpError && (
-                  <Text style={[styles.errorText, { textAlign: 'center', marginBottom: 12 }]}>
+                  <Text
+                    style={[
+                      styles.errorText,
+                      { textAlign: 'center', marginBottom: 12 },
+                    ]}
+                  >
                     {otpError}
                   </Text>
                 )}
 
                 <View style={styles.resendRow}>
                   <Text style={styles.resendText}>Didn't receive it? </Text>
-                  <TouchableOpacity onPress={handleResend} disabled={!canResend}>
+                  <TouchableOpacity
+                    onPress={handleResend}
+                    disabled={!canResend}
+                  >
                     <Text
                       style={[
                         styles.resendLink,
@@ -431,7 +439,12 @@ const ForgotPasswordScreen = ({ navigation }: ForgotPasswordScreenProps) => {
 
                 <View style={styles.fieldWrap}>
                   <Text style={styles.fieldLabel}>New Password</Text>
-                  <View style={[styles.inputBox, passwordError ? styles.inputBoxError : null]}>
+                  <View
+                    style={[
+                      styles.inputBox,
+                      passwordError ? styles.inputBoxError : null,
+                    ]}
+                  >
                     <Ionicons
                       name="lock-closed-outline"
                       size={18}
@@ -465,7 +478,12 @@ const ForgotPasswordScreen = ({ navigation }: ForgotPasswordScreenProps) => {
 
                 <View style={styles.fieldWrap}>
                   <Text style={styles.fieldLabel}>Confirm Password</Text>
-                  <View style={[styles.inputBox, passwordError ? styles.inputBoxError : null]}>
+                  <View
+                    style={[
+                      styles.inputBox,
+                      passwordError ? styles.inputBoxError : null,
+                    ]}
+                  >
                     <Ionicons
                       name="lock-closed-outline"
                       size={18}
@@ -521,13 +539,22 @@ const ForgotPasswordScreen = ({ navigation }: ForgotPasswordScreenProps) => {
                     { transform: [{ scale: successScale }] },
                   ]}
                 >
-                  <Ionicons name="checkmark-circle" size={80} color={C.success} />
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={80}
+                    color={C.success}
+                  />
                 </Animated.View>
 
                 <Text style={[styles.heroTitle, { textAlign: 'center' }]}>
                   Password Updated!
                 </Text>
-                <Text style={[styles.heroSub, { textAlign: 'center', marginBottom: scale(32) }]}>
+                <Text
+                  style={[
+                    styles.heroSub,
+                    { textAlign: 'center', marginBottom: scale(32) },
+                  ]}
+                >
                   Your password has been changed successfully.{'\n'}
                   You can now sign in with your new credentials.
                 </Text>
@@ -551,8 +578,16 @@ const ForgotPasswordScreen = ({ navigation }: ForgotPasswordScreenProps) => {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   scroll: { flexGrow: 1, justifyContent: 'center' }, // <--- Added justifyContent: 'center' here
-  topNav: { paddingHorizontal: scale(20), paddingTop: scale(12), minHeight: scale(44) },
-  iconBtn: { padding: scale(8), marginLeft: scale(-8), alignSelf: 'flex-start' },
+  topNav: {
+    paddingHorizontal: scale(20),
+    paddingTop: scale(12),
+    minHeight: scale(44),
+  },
+  iconBtn: {
+    padding: scale(8),
+    marginLeft: scale(-8),
+    alignSelf: 'flex-start',
+  },
   mainContainer: {
     paddingHorizontal: scale(24),
     paddingTop: scale(16),
@@ -572,7 +607,7 @@ const styles = StyleSheet.create({
     lineHeight: scale(20),
   },
   emailHighlight: { fontWeight: '700', color: C.ink },
-  
+
   fieldWrap: { marginBottom: scale(18) },
   fieldLabel: {
     fontSize: scale(12),
